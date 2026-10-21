@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 )
 
 // CLDRRecord is one fully-qualified emoji from Unicode's emoji-test.txt.

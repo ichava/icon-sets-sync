@@ -9,7 +9,7 @@ package main
 import (
 	"os"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/cli"
+	"github.com/ichava/icon-sets-sync/src/internal/cli"
 )
 
 func main() {

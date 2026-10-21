@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/checker"
+	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 )
 
 // capture runs f with output redirected, and returns what went to stderr,

@@ -12,10 +12,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/settings"
-	"github.com/ichava/maintainer-toolkit/src/internal/ui"
-	"github.com/ichava/maintainer-toolkit/src/internal/version"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
+	"github.com/ichava/icon-sets-sync/src/internal/ui"
+	"github.com/ichava/icon-sets-sync/src/internal/version"
 )
 
 // Exit codes. These are a contract, not an implementation detail: `check`

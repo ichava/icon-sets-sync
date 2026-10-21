@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/bundled"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/sinks"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/sources"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/transforms"
+	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
+	"github.com/ichava/icon-sets-sync/src/internal/core/transforms"
 )
 
 // buildBundled composes the aggregator pack's refresh: one pipeline per set,

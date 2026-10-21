@@ -18,9 +18,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/gitx"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 )
 
 // Filesystem copies the refreshed SVGs into the pack repo.

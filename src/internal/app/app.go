@@ -10,8 +10,8 @@ package app
 import (
 	"context"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/checker"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 )
 
 // LoadPacks loads one pack, or every pack in registry order.

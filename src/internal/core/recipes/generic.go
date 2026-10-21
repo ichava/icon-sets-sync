@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/settings"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/sinks"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/sources"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/transforms"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
+	"github.com/ichava/icon-sets-sync/src/internal/core/transforms"
 )
 
 // Emoji recipe defaults, kept under their old names. The settings registry

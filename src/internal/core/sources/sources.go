@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/httpx"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 )
 
 // Downloader is the HTTP surface the sources need.

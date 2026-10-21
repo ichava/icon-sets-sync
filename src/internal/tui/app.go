@@ -17,11 +17,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/app"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/checker"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
-	"github.com/ichava/maintainer-toolkit/src/internal/ui"
-	"github.com/ichava/maintainer-toolkit/src/internal/version"
+	"github.com/ichava/icon-sets-sync/src/internal/app"
+	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/ui"
+	"github.com/ichava/icon-sets-sync/src/internal/version"
 )
 
 type screen int

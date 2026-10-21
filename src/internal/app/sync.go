@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/checker"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/recipes"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/settings"
+	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
+	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 )
 
 // PackSettings resolves one pack's settings over the run-wide stack.

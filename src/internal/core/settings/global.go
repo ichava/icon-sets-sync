@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/docfile"
+	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 )
 
 // AppDir is the directory name under the XDG config home.

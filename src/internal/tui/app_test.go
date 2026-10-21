@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 )
 
 func key(s string) tea.KeyMsg {

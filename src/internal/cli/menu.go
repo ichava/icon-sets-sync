@@ -3,9 +3,9 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/app"
-	"github.com/ichava/maintainer-toolkit/src/internal/tui"
-	"github.com/ichava/maintainer-toolkit/src/internal/ui"
+	"github.com/ichava/icon-sets-sync/src/internal/app"
+	"github.com/ichava/icon-sets-sync/src/internal/tui"
+	"github.com/ichava/icon-sets-sync/src/internal/ui"
 )
 
 func newMenuCommand() *cobra.Command {

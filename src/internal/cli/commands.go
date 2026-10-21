@@ -7,12 +7,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/app"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/checker"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/recipes"
-	"github.com/ichava/maintainer-toolkit/src/internal/ui"
+	"github.com/ichava/icon-sets-sync/src/internal/app"
+	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
+	"github.com/ichava/icon-sets-sync/src/internal/ui"
 )
 
 // ---------------------------------------------------------------- list-packs

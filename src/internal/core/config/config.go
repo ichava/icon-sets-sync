@@ -16,7 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/docfile"
+	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 )
 
 // SourceConfig says where to fetch upstream artefacts from.

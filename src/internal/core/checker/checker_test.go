@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 )
 
 // The ParseLatest and ResolveReleaseURL cases below are ports of

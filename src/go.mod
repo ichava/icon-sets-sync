@@ -4,11 +4,11 @@
 // and the rest is a subdirectory. Hence the /src suffix, and hence every
 // release needs a second `src/vX.Y.Z` tag alongside `vX.Y.Z`.
 //
-//	go install github.com/ichava/maintainer-toolkit/src/cmd/imt@latest
+//	go install github.com/ichava/icon-sets-sync/src/cmd/icon-sets-sync@latest
 //
 // Dependencies match simtabi/repoclone, the house Go reference, so the CLI
 // and TUI layers run the stack the rest of the estate already does.
-module github.com/ichava/maintainer-toolkit/src
+module github.com/ichava/icon-sets-sync/src
 
 go 1.26
 

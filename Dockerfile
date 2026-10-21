@@ -31,7 +31,7 @@ ARG VERSION=dev
 # CGO off: the binary is static, so the runtime stage needs no Go and no libc
 # match. -buildvcs=false because .git is excluded from the build context.
 RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false \
-        -ldflags "-s -w -X github.com/ichava/maintainer-toolkit/src/internal/version.version=${VERSION}" \
+        -ldflags "-s -w -X github.com/ichava/icon-sets-sync/src/internal/version.version=${VERSION}" \
         -o /out/icon-sets-sync ./cmd/icon-sets-sync
 
 # -------------------------------------------------------------- runtime stage
