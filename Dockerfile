@@ -4,7 +4,7 @@
 # tool can read each pack's config + commit refreshed assets.
 #
 # Build:    docker build -t ichava/maintainer-toolkit .
-# Run:      docker run --rm -v "$PWD/..:/work" -w /work/dev ichava/maintainer-toolkit menu
+# Run:      docker run --rm -v "$PWD/..:/work" -w /work/maintainer-toolkit ichava/maintainer-toolkit menu
 # Compose:  see docker-compose.yml + Makefile.
 
 FROM python:3.14-slim AS base
