@@ -1,5 +1,12 @@
 """Typer CLI + questionary-driven interactive menu.
 
+.. deprecated:: 0.2.0
+    Replaced by the Go binary ``icon-sets-sync`` (``src/cmd/icon-sets-sync``,
+    command tree in ``src/internal/cli``), which the Docker image runs from
+    0.2.0 with the same ``sync --pack=<slug>`` invocation. This CLI still works
+    and prints a DeprecationWarning on start. Earliest release that could
+    remove it: 0.3.0.
+
 Subcommands:
 
 * ``ichava-maintainer-toolkit menu``    -- interactive menu (default action via Docker CMD)
@@ -14,6 +21,7 @@ All long-running commands accept ``--dry-run`` and ``--config-dir``.
 from __future__ import annotations
 
 import logging
+import warnings
 from pathlib import Path
 from typing import Annotated
 
@@ -42,6 +50,23 @@ app = typer.Typer(
 
 console = Console()
 
+DEPRECATION_MESSAGE = (
+    "the Python ichava-maintainer-toolkit CLI is deprecated since 0.2.0 and may be removed "
+    "in 0.3.0; use the Go binary `icon-sets-sync` (the Docker image's entrypoint) instead."
+)
+
+
+def _warn_deprecated() -> None:
+    """Print the deprecation on every CLI start.
+
+    DeprecationWarning is hidden by default outside ``__main__``, which would
+    make this notice invisible to exactly the people still running the old
+    entrypoint, so the filter is opened for this one warning only.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("always", DeprecationWarning)
+        warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=2)
+
 
 def _setup_logging(verbose: bool) -> None:
     logging.basicConfig(
@@ -55,6 +80,7 @@ def _setup_logging(verbose: bool) -> None:
 def root(
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Debug logging")] = False,
 ) -> None:
+    _warn_deprecated()
     _setup_logging(verbose)
 
 

@@ -5,14 +5,14 @@ build-backend = "hatchling.build"
 [project]
 name = "ichava-maintainer-toolkit"
 version = "0.1.0"
-description = "Maintainer toolkit for the Ichava Laravel icon-pack ecosystem -- downloads, transforms, and commits SVG asset refreshes."
+description = "DEPRECATED since 0.2.0 (earliest removal 0.3.0): use the Go binary icon-sets-sync. Maintainer toolkit for the Ichava Laravel icon-pack ecosystem -- downloads, transforms, and commits SVG asset refreshes."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [{ name = "Imani Manyara", email = "imani@simtabi.com" }]
 keywords = ["ichava", "icons", "svg", "maintainer", "tooling", "laravel"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 7 - Inactive",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
