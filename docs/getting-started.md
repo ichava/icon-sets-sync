@@ -26,7 +26,7 @@ pull request.
 ## Refresh one pack
 
 ```bash
-ichava-maintainer-toolkit sync --pack=tabler-icons
+ichava-maintainer-toolkit sync --pack=icon-sets-tabler
 ```
 
 Fetches the new upstream, runs the pack's recipe, writes the assets, records the new version in the

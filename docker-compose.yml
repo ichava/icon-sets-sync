@@ -18,7 +18,7 @@ services:
       - ichava_maintainer_toolkit_npm_cache:/root/.npm
       # Persist pip cache (only matters if you re-install editable mode).
       - ichava_maintainer_toolkit_pip_cache:/root/.cache/pip
-    working_dir: /work/dev
+    working_dir: /work/maintainer-toolkit
     environment:
       # gh uses GH_TOKEN to authenticate non-interactively.
       - GH_TOKEN

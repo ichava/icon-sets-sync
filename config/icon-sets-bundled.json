@@ -1,5 +1,5 @@
 {
-  "_status": "RECIPE-PENDING -- the iconify aggregator pack composes 70+ upstream icon sets. Until src/ichava_maintainer_toolkit/recipes/bundled_icons.py lands, `sync --pack=bundled-icons` raises NotImplementedError with a clear pointer.",
+  "_status": "RECIPE-PENDING -- the iconify aggregator pack composes 70+ upstream icon sets. Until src/ichava_maintainer_toolkit/recipes/bundled_icons.py lands, `sync --pack=icon-sets-bundled` raises NotImplementedError with a clear pointer.",
   "name": "icon-sets-bundled",
   "pack": "ichava/icon-sets-bundled",
   "pack_root": "/work/icon-sets-bundled",

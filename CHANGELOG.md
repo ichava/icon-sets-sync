@@ -4,6 +4,16 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Fixed
+
+- **`make build-emoji` and the `PACK=` examples named packs that no longer exist.** The Makefile
+  ran `recipe emoji-sets`, which loads `config/emoji-sets.json`; the file has been
+  `config/icon-sets-emoji.json` since the 2026-09-21 rebrand, so the target failed. The README,
+  `docs/`, and the `_note`/`_status` fields in `config/` used the pre-rebrand slugs too.
+- **The Docker examples ran in `/work/dev`.** That was this repository's old directory name;
+  `docker-compose.yml` and the Dockerfile's run example now use `/work/maintainer-toolkit`, and
+  the README's clone instructions `cd` into the right directory.
+
 ### Added
 
 - **CI runs the Go port.** A `Go` job in `tests.yml` checks `gofmt`, `go vet` and `go test`

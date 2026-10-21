@@ -7,7 +7,7 @@ SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
 # Pack identifier for single-pack targets. Override:
-#   make sync PACK=emoji-sets
+#   make sync PACK=icon-sets-emoji
 PACK ?=
 
 DC := docker compose
@@ -55,12 +55,12 @@ check:  ## Check upstream status for every configured pack (no writes)
 
 .PHONY: check-pack
 check-pack:  ## Check upstream status for one pack: PACK=<name>
-	@if [ -z "$(PACK)" ]; then echo "PACK= is required (e.g. make check-pack PACK=emoji-sets)"; exit 2; fi
+	@if [ -z "$(PACK)" ]; then echo "PACK= is required (e.g. make check-pack PACK=icon-sets-emoji)"; exit 2; fi
 	$(RUN) ichava-maintainer-toolkit check --pack=$(PACK)
 
 .PHONY: sync
 sync:  ## Sync upstream for one pack (refresh + commit + PR): PACK=<name>
-	@if [ -z "$(PACK)" ]; then echo "PACK= is required (e.g. make sync PACK=emoji-sets)"; exit 2; fi
+	@if [ -z "$(PACK)" ]; then echo "PACK= is required (e.g. make sync PACK=icon-sets-emoji)"; exit 2; fi
 	$(RUN) ichava-maintainer-toolkit sync --pack=$(PACK)
 
 .PHONY: sync-all
@@ -72,8 +72,8 @@ sync-all-force:  ## Sync every pack for real (skip dry-run gate). Be careful.
 	$(RUN) ichava-maintainer-toolkit sync --all
 
 .PHONY: build-emoji
-build-emoji:  ## Run the emoji-sets ETL recipe (Twemoji + OpenMoji + CLDR)
-	$(RUN) ichava-maintainer-toolkit recipe emoji-sets
+build-emoji:  ## Run the icon-sets-emoji ETL recipe (Twemoji + OpenMoji + CLDR)
+	$(RUN) ichava-maintainer-toolkit recipe icon-sets-emoji
 
 # ---------------------------------------------------------------------------
 # Dev workflow

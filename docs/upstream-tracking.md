@@ -60,7 +60,7 @@ ichava::ichava-core.check-updates` wraps the service for humans + CI.
         "update_command": {
             "_note": "Dispatched by ichava/maintainer-toolkit. `recipe` references a module under src/ichava_maintainer_toolkit/recipes/. Use `type: npm` (no recipe) for the common case where the pack just mirrors one npm package.",
             "type": "recipe",
-            "recipe": "emoji-sets"
+            "recipe": "icon-sets-emoji"
         }
     }
 }

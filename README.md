@@ -17,7 +17,7 @@ This repo is the maintainer side.
 
 ```bash
 git clone git@github.com:ichava/maintainer-toolkit.git
-cd dev
+cd maintainer-toolkit
 make build      # builds the docker image
 make help       # shows available targets
 ```
@@ -36,7 +36,7 @@ make menu
 make check
 
 # Sync one pack: pulls latest, refreshes assets, opens a PR
-make sync PACK=tabler-icons
+make sync PACK=icon-sets-tabler
 
 # Dry-run every pack (no commits)
 make sync-all
@@ -49,19 +49,21 @@ Each pack has a JSON config under `config/`:
 ```
 config/
 ├── packs.json                # the registry: which packs to manage
-├── tabler-icons.json
-├── flag-icons.json
-├── bundled-icons.json
-└── emoji-sets.json
+├── packs.json
+├── icon-sets-tabler.json
+├── icon-sets-flag.json
+├── icon-sets-bundled.json
+├── icon-sets-bundled.sets.json
+└── icon-sets-emoji.json
 ```
 
 A pack config:
 
 ```json
 {
-  "name": "tabler-icons",
+  "name": "icon-sets-tabler",
   "pack": "ichava/icon-sets-tabler",
-  "pack_root": "/work/tabler-icons",
+  "pack_root": "/work/icon-sets-tabler",
   "current_version": "3.0.0",
   "version_check_url": "https://registry.npmjs.org/@tabler/icons/latest",
   "source": {
@@ -105,12 +107,12 @@ Fluent + chainable:
 from ichava_maintainer_toolkit import Pipeline, sources, transforms, sinks
 
 (
-    Pipeline.named("tabler-icons@3.44.0")
+    Pipeline.named("icon-sets-tabler@3.44.0")
         .source(sources.NpmTarball("@tabler/icons", version="3.44.0"))
         .transform(transforms.SubsetTo("icons"))
         .transform(transforms.Sanitise())
-        .sink(sinks.Filesystem(root="/work/tabler-icons/resources/assets/svg/files"))
-        .sink(sinks.GitBranch(repo_root="/work/tabler-icons", branch="chore/sync-upstream-{version}"))
+        .sink(sinks.Filesystem(root="/work/icon-sets-tabler/resources/assets/svg/files"))
+        .sink(sinks.GitBranch(repo_root="/work/icon-sets-tabler", branch="chore/sync-upstream-{version}"))
         .run()
 )
 ```
@@ -162,10 +164,12 @@ ichava-maintainer-toolkit --help
 
 ## Status
 
-**Alpha (v0.1.0).** Core primitives + `npm` strategy + `simple_npm`
-recipe shipping. `script`-typed packs (emoji-sets, bundled-icons)
-need their dedicated recipes ported from the legacy
-`emoji-sets/scripts/build_emoji_assets.py`. See `CHANGELOG.md`.
+**Alpha.** Core primitives, the `npm` strategy, the `simple_npm` recipe
+(icon-sets-tabler, icon-sets-flag) and the `icon-sets-emoji` recipe
+(Twemoji + OpenMoji + Unicode CLDR) ship in the Python image.
+`icon-sets-bundled` has no Python recipe yet; its refresh exists only in
+the Go port under `src/cmd/imt`, which the image does not build.
+See `CHANGELOG.md`.
 
 ## License
 
