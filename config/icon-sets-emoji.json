@@ -1,6 +1,6 @@
 {
   "_version_note": "current_version tracks @twemoji/svg on npm, whose latest is 15.0.0. It read 17.0.0, which has never been published -- `npm pack` failed with an empty message and the pack shipped zero SVGs (V4). It is NOT the Unicode emoji version (16.0) nor the OpenMoji release (17.0.0); all three move independently and version_check_url above is the authority for this one.",
-  "_note": "Recipe-dispatched: the CLI matches cfg.name=='icon-sets-emoji' and runs src/ichava_maintainer_toolkit/recipes/emoji_sets.py (composes Twemoji npm + OpenMoji github + Unicode CLDR).",
+  "_note": "Recipe-dispatched by name: icon-sets-emoji runs the emoji-sets recipe (src/internal/core/recipes), which composes Twemoji (npm) + OpenMoji (github archive) + the Unicode emoji taxonomy. The git-branch sink below is where that recipe commits; its Unicode and OpenMoji versions are the emoji.unicode_version and emoji.openmoji_version settings.",
   "name": "icon-sets-emoji",
   "pack": "ichava/icon-sets-emoji",
   "pack_root": "/work/icon-sets-emoji",
@@ -10,5 +10,11 @@
     "type": "url",
     "version_field": "version"
   },
-  "sinks": []
+  "sinks": [
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
 }

@@ -1,5 +1,5 @@
 {
-  "_status": "RECIPE-PENDING -- the iconify aggregator pack composes 70+ upstream icon sets. Until src/ichava_maintainer_toolkit/recipes/bundled_icons.py lands, `sync --pack=icon-sets-bundled` raises NotImplementedError with a clear pointer.",
+  "_status": "Recipe-dispatched by name: icon-sets-bundled runs the native per-set bundled recipe, which reads config/icon-sets-bundled.sets.json and refreshes each set from its own upstream. Sets absent from that manifest are left untouched. The git-branch sink below is where it commits.",
   "name": "icon-sets-bundled",
   "pack": "ichava/icon-sets-bundled",
   "pack_root": "/work/icon-sets-bundled",
@@ -9,5 +9,11 @@
     "type": "url",
     "version_field": "version"
   },
-  "sinks": []
+  "sinks": [
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
 }
