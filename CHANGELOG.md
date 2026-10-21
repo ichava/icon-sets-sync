@@ -25,8 +25,14 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
 - **The emoji and bundled configs declare their git-branch sink.** Both recipes used to commit with
   a built-in sink while their configs said `"sinks": []`; the sink is now in the config, where its
   branch and the `git.*` settings apply, and the empty-sinks check means what it says.
-- The primary binary is `icon-sets-sync` (`src/cmd/icon-sets-sync`); `imt` is kept as an alias. The
-  Go module path is unchanged until the repository rename lands.
+- The primary binary is `icon-sets-sync` (`src/cmd/icon-sets-sync`); `imt` is kept as an alias.
+- **Breaking: the repository is now `ichava/icon-sets-sync`** (renamed from
+  `ichava/maintainer-toolkit` on 2026-10-21; GitHub redirects the old URL), and the Go module path
+  moved with it to `github.com/ichava/icon-sets-sync/src`. The published image follows the
+  repository name, `ghcr.io/ichava/icon-sets-sync`. The HTTP User-Agent, the temporary-directory
+  prefix and the default sync commit body now name `icon-sets-sync`.
+- `docker-compose.yml` mounts this checkout's `config/` over `/app/config` and works from `/work`, so
+  it no longer depends on the checkout's directory name.
 - The Makefile's `test`, `lint` and `format` run the Go checks first, in a `golang` container, then
   the deprecated Python ones in a `python` container, because the image no longer contains Python.
   `sync-all` uses the new `sync-all` command and takes `CONCURRENCY=`.
@@ -77,6 +83,9 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
   `sync`.
 - A `Docker image` job in the Tests workflow builds the image on every pull request and runs it the
   way the pack workflows do.
+- The lxml verdicts behind the SVG corpus differential are frozen in
+  `src/internal/core/svg/testdata/lxml-oracle.json` (1,274 icons), and a second test holds the Go
+  filter to them, so the gate keeps working once there is no Python to run.
 - Tests for `gitx`, the CLI, the TUI menu, the settings precedence at every layer, the schema, and
   the sync orchestration, none of which needs the network.
 

@@ -1,4 +1,4 @@
-# Build + publish the maintainer-toolkit Docker image to ghcr.io.
+# Build + publish the icon-sets-sync Docker image to ghcr.io/ichava/icon-sets-sync.
 #
 # Triggers:
 #   * push to main         -> `:latest` + `:main-<sha>` tags
@@ -6,7 +6,7 @@
 #   * workflow_dispatch    -> ad-hoc rebuild
 #
 # Consumed by each pack's `.github/workflows/sync-upstream.yml`,
-# which runs `docker run ghcr.io/ichava/maintainer-toolkit:latest`.
+# which builds this repository at `main` (the GHCR package is private).
 
 name: Docker
 

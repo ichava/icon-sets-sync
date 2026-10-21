@@ -58,7 +58,7 @@ ichava::ichava-core.check-updates` wraps the service for humans + CI.
         },
 
         "update_command": {
-            "_note": "Dispatched by ichava/maintainer-toolkit (icon-sets-sync). `recipe` names a recipe in src/internal/core/recipes. Use `type: npm` (no recipe) for the common case where the pack just mirrors one npm package.",
+            "_note": "Dispatched by ichava/icon-sets-sync. `recipe` names a recipe in src/internal/core/recipes. Use `type: npm` (no recipe) for the common case where the pack just mirrors one npm package.",
             "type": "recipe",
             "recipe": "icon-sets-emoji"
         }
@@ -165,7 +165,7 @@ final URL.
 End users **don't** refresh assets locally -- Composer regenerates
 `vendor/` on every install, so any local SVG change is discarded.
 Asset refreshes run maintainer-side via
-[`ichava/maintainer-toolkit`](https://github.com/ichava/maintainer-toolkit),
+[`ichava/icon-sets-sync`](https://github.com/ichava/icon-sets-sync),
 which polls each pack's `upstream` block, runs the matching recipe,
 commits the refreshed SVGs back to the pack repo, and opens a PR. A
 human reviews + tags a release; Packagist + `composer update` fans

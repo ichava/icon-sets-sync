@@ -55,7 +55,7 @@ research notes inline in commit `feat(scripts): sync orchestrator`):
 
 ## Components
 
-### 1. The toolkit (`ichava/maintainer-toolkit`)
+### 1. The toolkit (`ichava/icon-sets-sync`)
 
 A standalone Docker-first Go binary, `icon-sets-sync`, one per ecosystem. (The Python package it
 replaced is deprecated since 0.2.0 and no longer runs.) It:
@@ -98,7 +98,7 @@ A drop-in `.github/workflows/sync-upstream.yml` each pack ships. It
 checks out the toolkit repo, runs the toolkit's Docker image, and
 opens a PR when upstream has moved. The canonical template lives in
 the toolkit at `templates/sync-upstream.yml` (search the
-`maintainer-toolkit` repo for the latest). Cron fires on Mondays 06:45
+`icon-sets-sync` repo for the latest). Cron fires on Mondays 06:45
 UTC; the 45-past-the-hour offset is borrowed from Homebrew's autobump
 cron to dodge the on-the-hour GitHub Actions load spike.
 

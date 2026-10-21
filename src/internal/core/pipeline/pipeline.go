@@ -318,7 +318,7 @@ func (p *Pipeline) Run() (Result, error) {
 	workingDir := p.workingDir
 	createdTempDir := workingDir == ""
 	if createdTempDir {
-		dir, err := os.MkdirTemp("", "ichava-maintainer-toolkit-"+slugify(p.name)+"-")
+		dir, err := os.MkdirTemp("", "icon-sets-sync-"+slugify(p.name)+"-")
 		if err != nil {
 			return Result{PipelineName: p.name}, err
 		}

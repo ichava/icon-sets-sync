@@ -1,6 +1,6 @@
-# ichava/maintainer-toolkit
+# ichava/icon-sets-sync
 
-[![Tests](https://github.com/ichava/maintainer-toolkit/actions/workflows/tests.yml/badge.svg)](https://github.com/ichava/maintainer-toolkit/actions/workflows/tests.yml)
+[![Tests](https://github.com/ichava/icon-sets-sync/actions/workflows/tests.yml/badge.svg)](https://github.com/ichava/icon-sets-sync/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Two badges, not four: this ships as a Docker image and a Go binary, on no package registry, so there
@@ -10,14 +10,14 @@ is no registry version to show, and static analysis (`gofmt`, `go vet`) runs ins
 > each upstream, refreshes the vendored SVGs, records the version in the pack and opens a pull
 > request.
 
-Go 1.26 or later to build from source; Docker for everything else. The repository is being renamed
-to `ichava/icon-sets-sync`, after the binary.
+Go 1.26 or later to build from source; Docker for everything else. The repository was
+`ichava/maintainer-toolkit` until 2026-10-21; GitHub redirects the old URL.
 
 ## Install
 
 ```bash
-git clone https://github.com/ichava/maintainer-toolkit.git ~/Artisan/projects/opensource/ichava/packages/maintainer-toolkit
-cd ~/Artisan/projects/opensource/ichava/packages/maintainer-toolkit
+git clone https://github.com/ichava/icon-sets-sync.git ~/Artisan/projects/opensource/ichava/packages/icon-sets-sync
+cd ~/Artisan/projects/opensource/ichava/packages/icon-sets-sync
 make build      # the Docker image: the Go binary plus git, gh and npm
 ```
 
@@ -86,7 +86,7 @@ The full walkthrough is in [Getting started](docs/getting-started.md), and every
 
 ## Community
 
-Issues and pull requests are welcome at <https://github.com/ichava/maintainer-toolkit/issues>. See
+Issues and pull requests are welcome at <https://github.com/ichava/icon-sets-sync/issues>. See
 [CONTRIBUTING.md](CONTRIBUTING.md), and [SECURITY.md](SECURITY.md) for reporting a vulnerability.
 
 ## License

@@ -1,4 +1,4 @@
-# Tests + lint + typecheck for ichava/maintainer-toolkit.
+# Tests + lint + typecheck for ichava/icon-sets-sync.
 #
 # Runs on every pull request, and on demand via workflow_dispatch.
 #

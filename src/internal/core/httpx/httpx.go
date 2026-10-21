@@ -23,7 +23,7 @@ import (
 
 const (
 	// UserAgent identifies the toolkit to the registries it polls.
-	UserAgent = "ichava-maintainer-toolkit (+https://github.com/ichava/maintainer-toolkit)"
+	UserAgent = "icon-sets-sync (+https://github.com/ichava/icon-sets-sync)"
 
 	// DefaultTimeout and DefaultDownloadTimeout match core/http.py.
 	DefaultTimeout         = 30 * time.Second

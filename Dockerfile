@@ -13,7 +13,7 @@
 # pack checkouts (each config's pack_root is /work/<pack>).
 #
 # Build:    docker build -t icon-sets-sync .
-# Run:      docker run --rm -v "$PWD/..:/work" -w /work/maintainer-toolkit icon-sets-sync menu
+# Run:      docker run --rm -it -v "$PWD/..:/work" icon-sets-sync menu
 # Compose:  see docker-compose.yml + Makefile.
 
 # ---------------------------------------------------------------- build stage

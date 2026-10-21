@@ -1,4 +1,4 @@
-# icon-sets-sync (ichava/maintainer-toolkit) -- Makefile.
+# icon-sets-sync (ichava/icon-sets-sync) -- Makefile.
 #
 # The run targets shell out to docker compose, so the host needs nothing but
 # Docker. The dev targets run Go (and the deprecated Python suite) in their
