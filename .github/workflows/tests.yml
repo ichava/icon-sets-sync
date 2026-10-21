@@ -1,8 +1,12 @@
 # Tests + lint + typecheck for ichava/maintainer-toolkit.
 #
-# Runs on every pull request, and on demand via workflow_dispatch. The
-# matrix covers the Python versions the project declares it supports
-# (>=3.10 in pyproject.toml).
+# Runs on every pull request, and on demand via workflow_dispatch.
+#
+# The Go job tests the implementation the Docker image runs. The Python job
+# tests the deprecated implementation, which is kept working until its removal
+# is approved; its matrix covers the versions pyproject.toml declares (>=3.10).
+# The Docker job builds the image the pack workflows build, and runs it the way
+# they do, because nothing else exercises the Dockerfile before a merge.
 
 name: Tests
 
@@ -19,7 +23,7 @@ permissions:
 
 jobs:
   test:
-    name: Python ${{ matrix.python-version }}
+    name: Python ${{ matrix.python-version }} (deprecated implementation)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -100,7 +104,42 @@ jobs:
         run: |
           n=$(go -C src list ./... | wc -l)
           echo "packages: $n"
-          [ "$n" -ge 10 ] || { echo "::error::only $n Go packages found under src/"; exit 1; }
+          [ "$n" -ge 18 ] || { echo "::error::only $n Go packages found under src/"; exit 1; }
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the image the pack workflows build
+        run: docker build --build-arg VERSION=ci -t icon-sets-sync:ci .
+
+      - name: The entrypoint is the Go binary
+        run: |
+          out=$(docker run --rm icon-sets-sync:ci version)
+          echo "$out"
+          [ "$out" = "icon-sets-sync ci" ] || { echo "::error::unexpected version line: $out"; exit 1; }
+
+      # The same mounts sync-upstream.yml uses: the toolkit's config/ over
+      # /app/config. If the image cannot find or validate the configs this
+      # way, every pack's Monday sync fails, so check it here.
+      - name: The shipped configs validate inside the image
+        run: |
+          docker run --rm -v "$PWD/config:/app/config" icon-sets-sync:ci config validate
+
+      - name: The runtime tools are present
+        run: |
+          docker run --rm --entrypoint sh icon-sets-sync:ci -c \
+            'git --version && gh --version && npm --version && test -L /usr/local/bin/imt && test -L /usr/local/bin/ichava-maintainer-toolkit'
+
+      - name: The legacy name still runs, and says it is deprecated
+        run: |
+          out=$(docker run --rm --entrypoint ichava-maintainer-toolkit icon-sets-sync:ci version 2>&1)
+          echo "$out"
+          printf '%s' "$out" | grep -q 'deprecated' || { echo "::error::no deprecation notice"; exit 1; }
 
   actionlint:
     name: Workflow lint

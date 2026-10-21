@@ -1,28 +1,51 @@
 # syntax=docker/dockerfile:1.7
 #
-# ichava/maintainer-toolkit image. Mounts the parent ichava monorepo at /work so the
-# tool can read each pack's config + commit refreshed assets.
+# icon-sets-sync image: the Go binary, plus the tools it shells out to.
 #
-# Build:    docker build -t ichava/maintainer-toolkit .
-# Run:      docker run --rm -v "$PWD/..:/work" -w /work/maintainer-toolkit ichava/maintainer-toolkit menu
+# Every pack's sync-upstream.yml builds this from a checkout of this repository
+# and runs, unchanged since the Python image:
+#
+#   docker run --rm -v "$PWD/..:/work" -v "<toolkit>/config:/app/config" \
+#     <image> sync --pack="$PACK_SLUG" [--force]
+#
+# so three things are load-bearing: the ENTRYPOINT takes `sync ...` as its
+# arguments, the pack configs are read from /app/config, and /work holds the
+# pack checkouts (each config's pack_root is /work/<pack>).
+#
+# Build:    docker build -t icon-sets-sync .
+# Run:      docker run --rm -v "$PWD/..:/work" -w /work/maintainer-toolkit icon-sets-sync menu
 # Compose:  see docker-compose.yml + Makefile.
 
-FROM python:3.14-slim AS base
+# ---------------------------------------------------------------- build stage
+FROM golang:1.26-trixie AS build
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /src
 
-# System deps:
-#   git, curl  -- pulling release archives & operating on pack repos
-#   nodejs/npm -- the `npm pack <pkg>@<version>` source strategy
-#   gh         -- opening PRs against pack repos
-#   ca-certs   -- TLS for upstream registries
-# (jq was dropped in 0.1.1 -- the orchestrator handles JSON in Python.)
+# Dependencies first, so a source-only change reuses the module layer.
+COPY src/go.mod src/go.sum ./
+RUN go mod download && go mod verify
+
+COPY src/ ./
+
+ARG VERSION=dev
+# CGO off: the binary is static, so the runtime stage needs no Go and no libc
+# match. -buildvcs=false because .git is excluded from the build context.
+RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+        -ldflags "-s -w -X github.com/ichava/maintainer-toolkit/src/internal/version.version=${VERSION}" \
+        -o /out/icon-sets-sync ./cmd/icon-sets-sync
+
+# -------------------------------------------------------------- runtime stage
+FROM debian:trixie-slim AS runtime
+
+# What the binary shells out to:
+#   git        -- branch, commit and push in the pack repos
+#   gh         -- open the pull request
+#   nodejs/npm -- `npm pack <pkg>@<version>`, the npm source strategy
+#   ca-certs   -- TLS to the registries, GitHub and unicode.org
+#   curl, gpg  -- only to add GitHub's apt repository for gh
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-        git curl ca-certificates \
+        git ca-certificates curl gpg \
         nodejs npm \
  && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
         | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -33,20 +56,21 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends gh \
  && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+COPY --from=build /out/icon-sets-sync /usr/local/bin/icon-sets-sync
 
-# Copy only what's needed for the editable install first to maximise
-# Docker layer cache. Then copy the rest of the source.
-COPY pyproject.toml README.md ./
-COPY src ./src
-RUN pip install -e .
+# imt is the short alias. ichava-maintainer-toolkit was the Python console
+# script; it stays as a symlink so a script calling it by name keeps working,
+# and the binary prints a deprecation notice when invoked under that name.
+RUN ln -s icon-sets-sync /usr/local/bin/imt \
+ && ln -s icon-sets-sync /usr/local/bin/ichava-maintainer-toolkit
 
-# Default config bundle ships in the image; runtime mounts can override
-# /app/config or pass --config-dir.
-COPY config ./config
+# The config bundle ships in the image; the pack workflows bind-mount their
+# own checkout's config/ over it. ICHAVA_CONFIG_DIR is the config_dir setting.
+COPY config /app/config
+ENV ICHAVA_CONFIG_DIR=/app/config
 
-# Default working dir is /work so volume mounts of the monorepo land naturally.
+# /work is where the pack checkouts are mounted.
 WORKDIR /work
 
-ENTRYPOINT ["ichava-maintainer-toolkit"]
+ENTRYPOINT ["icon-sets-sync"]
 CMD ["menu"]
