@@ -57,8 +57,18 @@ func Date() string {
 	return ""
 }
 
-// Name is the long binary name, and the one the Docker ENTRYPOINT uses.
-const Name = "ichava-maintainer-toolkit"
+// Name is the primary binary name, and the one the Docker ENTRYPOINT uses.
+//
+// It names what the tool does -- sync icon sets from upstream -- rather than
+// the repository it happened to live in. The repository is being renamed to
+// match (ichava/maintainer-toolkit -> ichava/icon-sets-sync); the Go module
+// path is left alone until that rename lands, so nothing importing it breaks.
+const Name = "icon-sets-sync"
 
-// ShortName is the alias for interactive use.
+// ShortName is the alias for interactive use, kept from the first Go release.
 const ShortName = "imt"
+
+// LegacyName is the console script the Python package installed. The Docker
+// image keeps it as a symlink so a script or Makefile that called it by name
+// keeps working; it is deprecated and prints a notice when invoked as itself.
+const LegacyName = "ichava-maintainer-toolkit"

@@ -368,6 +368,31 @@ func (s GitBranch) Execute(ctx *pipeline.Context) error {
 	return nil
 }
 
+// Discard counts the SVGs a pipeline would have written, and writes nothing.
+//
+// A pipeline needs at least one sink to run. A dry run of a pack whose only
+// sink commits has none left once the committing sinks are dropped, and
+// failing it there would make --dry-run useless for exactly the packs a person
+// most wants to inspect before letting them commit.
+type Discard struct {
+	pipeline.SinkKind
+}
+
+func (Discard) Name() string { return "Discard" }
+
+func (Discard) Execute(ctx *pipeline.Context) error {
+	source, ok := ctx.FetchedPath()
+	if !ok {
+		return fmt.Errorf("Discard sink: fetched_path not set; needs a source upstream")
+	}
+	n, err := countSVGs(source)
+	if err != nil {
+		return err
+	}
+	ctx.Metric("discard", map[string]any{"would_write": n})
+	return nil
+}
+
 func orDefault(v, fallback string) string {
 	if v == "" {
 		return fallback

@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/ichava/maintainer-toolkit/src/internal/app"
 	"github.com/ichava/maintainer-toolkit/src/internal/core/bundled"
 	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
 	"github.com/ichava/maintainer-toolkit/src/internal/ui"
@@ -72,6 +73,7 @@ the tool answer whether its bytes are the ones already committed:
 			if err != nil {
 				return failure(err)
 			}
+			app.ApplyWorkspace(pack, workspace())
 
 			filesRoot := filepath.Join(pack.PackRoot, "resources", "assets", "svg", "files")
 			sets, err := bundled.ListSets(filesRoot)

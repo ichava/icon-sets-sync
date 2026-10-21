@@ -9,44 +9,91 @@ import (
 	"fmt"
 
 	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
+	"github.com/ichava/maintainer-toolkit/src/internal/core/gitx"
 	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
+	"github.com/ichava/maintainer-toolkit/src/internal/core/settings"
 	"github.com/ichava/maintainer-toolkit/src/internal/core/sinks"
 	"github.com/ichava/maintainer-toolkit/src/internal/core/sources"
 	"github.com/ichava/maintainer-toolkit/src/internal/core/transforms"
 )
 
+// Recipe names a pack config's `recipe` field may carry.
+const (
+	RecipeAuto      = "auto"
+	RecipeGeneric   = "generic"
+	RecipeEmojiSets = "emoji-sets"
+	RecipeBundled   = "bundled"
+)
+
+// Options carries what a recipe needs beyond the pack config.
+type Options struct {
+	// DryRun drops the committing sinks: the version stamp and the git branch.
+	// The filesystem sinks still run, so a dry run shows the real diff in the
+	// pack's working tree.
+	DryRun bool
+
+	// ConfigDir is where the bundled pack's set manifest lives.
+	ConfigDir string
+
+	// Settings is this pack's resolved settings. Nil means the defaults.
+	Settings *settings.Resolved
+
+	// Git overrides the git/gh runner, for tests. Nil means real subprocesses.
+	Git gitx.Runner
+}
+
+func (o Options) resolved() settings.Resolved {
+	if o.Settings == nil {
+		return settings.Resolve()
+	}
+	return *o.Settings
+}
+
 // Build returns the pipelines for a pack, in the order they must run.
 //
-// Dispatch is on the pack NAME first and the source type second, and reversing
-// that breaks icon-sets-emoji: it declares source.type "url" -- because that is
-// how its *version* is discovered -- while its assets come from three separate
-// upstreams that only the named recipe knows about.
-func Build(pack *config.PackConfig, version string, dryRun bool, configDir string) ([]*pipeline.Pipeline, error) {
-	switch {
-	case pack.Name == "icon-sets-emoji":
-		return buildEmojiSets(pack, version, dryRun)
+// Dispatch is on the pack's `recipe` field when it names one, else on the pack
+// NAME first and the source type second -- reversing those breaks
+// icon-sets-emoji, which declares source.type "url" because that is how its
+// *version* is discovered while its assets come from three separate upstreams
+// that only the named recipe knows about.
+func Build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.Pipeline, error) {
+	switch Select(pack) {
+	case RecipeEmojiSets:
+		return buildEmojiSets(pack, version, opts)
 
-	case pack.Name == "icon-sets-bundled":
+	case RecipeBundled:
 		// A native per-set refresh, not the `iconify` one the pack config
 		// asks for -- see buildBundled for why that would have been a rewrite
 		// rather than a refresh.
-		//
-		// This no longer returns ErrRecipePending, which icon-sets-bundled's
-		// sync-upstream.yml greps for to turn the failure into a green run.
-		// That wrapper becomes dead once a manifest exists, and should be
-		// removed from the workflow in the same change that ships one --
-		// leaving it costs nothing, but it will never fire again.
-		return buildBundled(pack, configDir, dryRun)
+		return buildBundled(pack, opts)
 
-	case pack.Source.Type == "npm":
-		p, err := buildSimpleNPM(pack, version, dryRun)
+	case RecipeGeneric:
+		p, err := buildGeneric(pack, version, opts)
 		if err != nil {
 			return nil, err
 		}
 		return []*pipeline.Pipeline{p}, nil
 	}
 
-	return nil, fmt.Errorf("%s: no recipe wired for source.type=%q", pack.Pack, pack.Source.Type)
+	return nil, fmt.Errorf("%s: no recipe wired for source.type=%q; set `recipe`, or use an npm or github-* source",
+		pack.Pack, pack.Source.Type)
+}
+
+// Select names the recipe a pack runs, or "" when none applies.
+func Select(pack *config.PackConfig) string {
+	switch pack.Recipe {
+	case RecipeGeneric, RecipeEmojiSets, RecipeBundled:
+		return pack.Recipe
+	}
+	switch {
+	case pack.Name == "icon-sets-emoji":
+		return RecipeEmojiSets
+	case pack.Name == "icon-sets-bundled":
+		return RecipeBundled
+	case fetchable(pack.Source.Type):
+		return RecipeGeneric
+	}
+	return ""
 }
 
 // packConfig is the config overlay every recipe supplies to its stages.
@@ -67,60 +114,56 @@ func packConfig(pack *config.PackConfig) map[string]any {
 	}
 }
 
-// buildSimpleNPM handles a pack whose assets are one npm package.
+// gitBranch builds the committing sink from a git-branch sink config and the
+// resolved settings.
 //
-// icon-sets-tabler and icon-sets-flag both use this: fetch the tarball, narrow
-// to the icons directory, apply the policy, copy into the pack, stamp, commit.
-func buildSimpleNPM(pack *config.PackConfig, version string, dryRun bool) (*pipeline.Pipeline, error) {
-	if pack.Source.Type != "npm" {
-		return nil, fmt.Errorf("simple-npm: source.type is %q, not npm", pack.Source.Type)
+// A field written on the sink is a pack-level value: it beats the default, and
+// gives way to the global config, the environment and flags -- the same
+// precedence as the pack's own `settings` block. So a scheduled run can be
+// pointed at another base branch with ICHAVA_GIT_BASE without editing four
+// pack configs.
+func gitBranch(pack *config.PackConfig, sink *config.SinkConfig, opts Options) sinks.GitBranch {
+	r := opts.resolved()
+	if sink == nil {
+		sink = &config.SinkConfig{Type: "git-branch"}
 	}
-	if pack.Source.Package == "" {
-		return nil, fmt.Errorf("simple-npm: source.package is required")
-	}
-
-	p := pipeline.Named(fmt.Sprintf("%s@%s", pack.Name, version)).
-		Config(packConfig(pack)).
-		Source(sources.NpmTarball{Package: pack.Source.Package, Version: version})
-
-	if pack.Source.SourcePath != "" {
-		p.Transform(transforms.SubsetTo{Subdir: pack.Source.SourcePath})
-	}
-	p.Transform(transforms.Sanitise{})
-
-	for _, sink := range pack.Sinks {
-		switch sink.Type {
-		case "filesystem":
-			p.Sink(sinks.Filesystem{Root: sink.Root})
-
-		case "git-branch":
-			if dryRun {
-				continue
-			}
-			// Stamp before commit, always. The version has to be in the tree
-			// the commit captures, or the pack ships assets whose recorded
-			// version is the previous one and every later run re-proposes the
-			// same refresh.
-			p.Sink(sinks.VersionStamp{Pack: pack})
-			p.Sink(sinks.GitBranch{
-				RepoRoot: orDefault(sink.RepoRoot, pack.PackRoot),
-				Branch:   orDefault(sink.Branch, sinks.DefaultBranch),
-				OpenPR:   true,
-			})
+	pick := func(key, onSink string) string {
+		if onSink != "" && !r.FromAbove(key) {
+			return onSink
 		}
+		return r.String(key)
 	}
-	return p, nil
+	openPR := r.Bool("git.open_pr")
+	if sink.OpenPR != nil && !r.FromAbove("git.open_pr") {
+		openPR = *sink.OpenPR
+	}
+
+	git := gitx.New()
+	git.Author = r.String("git.author")
+	if opts.Git != nil {
+		git.Run = opts.Git
+	}
+
+	return sinks.GitBranch{
+		RepoRoot:      orDefault(sink.RepoRoot, pack.PackRoot),
+		Branch:        pick("git.branch", sink.Branch),
+		CommitSubject: pick("git.commit_subject", sink.CommitSubject),
+		CommitBody:    pick("git.commit_body", sink.CommitBody),
+		Base:          pick("git.base", sink.Base),
+		OpenPR:        openPR,
+		Git:           git,
+	}
 }
 
-// Emoji recipe defaults.
-//
-// These are not arbitrary. unicode_version once defaulted ahead of what
-// Unicode had published, so every taxonomy fetch 404'd and the pack shipped a
-// tagged release containing zero SVGs. Move them only to a version that exists.
-const (
-	DefaultOpenMojiVersion = "15.1.0"
-	DefaultUnicodeVersion  = "16.0"
-)
+// firstSink returns the pack's first sink of a type, or nil.
+func firstSink(pack *config.PackConfig, typ string) *config.SinkConfig {
+	for i := range pack.Sinks {
+		if pack.Sinks[i].Type == typ {
+			return &pack.Sinks[i]
+		}
+	}
+	return nil
+}
 
 // buildEmojiSets composes the three-upstream emoji pack.
 //
@@ -128,14 +171,22 @@ const (
 // all categorised against the same Unicode taxonomy, then a fourth
 // commit-only pipeline so the three asset runs land in a single commit rather
 // than three.
-func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, dryRun bool) ([]*pipeline.Pipeline, error) {
+//
+// The Unicode and OpenMoji versions are settings (emoji.unicode_version,
+// emoji.openmoji_version), defaulting to releases that exist. unicode_version
+// once defaulted ahead of what Unicode had published, so every taxonomy fetch
+// 404'd and the pack shipped a tagged release containing zero SVGs.
+func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options) ([]*pipeline.Pipeline, error) {
 	if twemojiVersion == "" {
 		return nil, fmt.Errorf("emoji-sets: a twemoji version is required")
 	}
+	r := opts.resolved()
+	unicodeVersion := r.String("emoji.unicode_version")
+	openmojiVersion := r.String("emoji.openmoji_version")
 
 	filesRoot := pack.PackRoot + "/resources/assets/svg/files"
 	cfg := packConfig(pack)
-	cldr := sources.UnicodeCldr{UnicodeVersion: DefaultUnicodeVersion}
+	cldr := sources.UnicodeCldr{UnicodeVersion: unicodeVersion}
 
 	twemoji := pipeline.Named(fmt.Sprintf("emoji-sets:twemoji@%s", twemojiVersion)).
 		Config(cfg).
@@ -151,7 +202,7 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, dryRun bool)
 		Sink(sinks.Filesystem{Root: filesRoot + "/twemoji"})
 
 	openmoji := func(name, subdir string) *pipeline.Pipeline {
-		return pipeline.Named(fmt.Sprintf("emoji-sets:%s@%s", name, DefaultOpenMojiVersion)).
+		return pipeline.Named(fmt.Sprintf("emoji-sets:%s@%s", name, openmojiVersion)).
 			Config(cfg).
 			Source(sources.Compound{
 				First: cldr,
@@ -160,7 +211,7 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, dryRun bool)
 					// would ask for a tag that does not exist.
 					ArchiveURL: "https://github.com/hfg-gmuend/openmoji/archive/refs/tags/{version}.zip",
 					Owner:      "hfg-gmuend", Repo: "openmoji",
-					Version: DefaultOpenMojiVersion,
+					Version: openmojiVersion,
 				},
 			}).
 			Transform(transforms.SubsetTo{Subdir: subdir}).
@@ -175,7 +226,7 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, dryRun bool)
 		openmoji("openmoji-black", "black/svg"),
 	}
 
-	if !dryRun {
+	if !opts.DryRun {
 		pipelines = append(pipelines,
 			pipeline.Named("emoji-sets:commit").
 				Config(cfg).
@@ -185,7 +236,7 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, dryRun bool)
 				// why this pack never converged.
 				Source(sources.Static{Version: twemojiVersion}).
 				Sink(sinks.VersionStamp{Pack: pack}).
-				Sink(sinks.GitBranch{RepoRoot: pack.PackRoot, OpenPR: true}))
+				Sink(gitBranch(pack, firstSink(pack, "git-branch"), opts)))
 	}
 	return pipelines, nil
 }

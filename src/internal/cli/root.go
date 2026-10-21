@@ -1,16 +1,19 @@
 // Package cli is the cobra command tree. It stays thin: every command parses
-// flags and calls into internal/core, so the TUI can call the same functions
-// and the two front-ends cannot drift into two implementations.
+// flags and calls into internal/app and internal/core, so the TUI can call the
+// same functions and the two front-ends cannot drift into two implementations.
 package cli
 
 import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
+	"github.com/ichava/maintainer-toolkit/src/internal/core/settings"
 	"github.com/ichava/maintainer-toolkit/src/internal/ui"
 	"github.com/ichava/maintainer-toolkit/src/internal/version"
 )
@@ -47,19 +50,43 @@ func failure(err error) error { return &ExitError{Code: ExitFailure, Err: err} }
 
 // globals holds the flags every command shares.
 type globals struct {
-	configDir string
-	verbose   bool
-	quiet     bool
-	noColor   bool
-	noInput   bool
-	assumeYes bool
-	jsonOut   bool
+	configDir    string
+	globalConfig string
+	sets         []string
+	verbose      bool
+	quiet        bool
+	noColor      bool
+	noInput      bool
+	assumeYes    bool
+	jsonOut      bool
+
+	// Bound by the sync, sync-all and recipe commands. They are read through
+	// the settings flag layer rather than directly, so a flag outranks the
+	// environment and the config files in exactly one place.
+	dryRun      bool
+	commit      bool
+	force       bool
+	concurrency int
 }
 
 var g globals
 
+// state is what PersistentPreRunE resolved, for the commands to read.
+type runState struct {
+	stack      settings.Stack
+	run        settings.Resolved
+	globalPath string
+}
+
+var state runState
+
 // Execute builds the command tree and runs it, returning the process exit code.
 func Execute() int {
+	if filepath.Base(os.Args[0]) == version.LegacyName {
+		fmt.Fprintf(os.Stderr, "warning: %s is deprecated and may be removed in 0.3.0; run %s instead.\n",
+			version.LegacyName, version.Name)
+	}
+
 	root := NewRootCommand()
 	if err := root.Execute(); err != nil {
 		var exit *ExitError
@@ -92,41 +119,56 @@ func asExitError(err error, target **ExitError) bool {
 
 // NewRootCommand builds the tree.
 func NewRootCommand() *cobra.Command {
-	root := &cobra.Command{
-		Use:   version.ShortName,
-		Short: "Maintainer toolkit for the Ichava icon-pack ecosystem",
-		Long: `Maintainer toolkit for the Ichava icon-pack ecosystem.
+	g = globals{}
+	state = runState{run: settings.Resolve()}
 
-Polls upstream icon registries, refreshes vendored SVGs into the pack repos,
+	root := &cobra.Command{
+		Use:   version.Name,
+		Short: "Sync the Ichava icon packs from their upstream registries",
+		Long: `Sync the Ichava icon packs from their upstream registries.
+
+Polls each pack's upstream, refreshes the vendored SVGs into the pack repo,
 stamps the version and opens a pull request.
+
+Settings resolve in this order, highest first:
+  flags > ICHAVA_* environment > global config > pack config > defaults
+The global config is $XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml}.
+Run "config print --origins" to see where every value came from.
 
 Run with no arguments in a terminal for the interactive menu.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		// A usage error is exit 2, matching what Click did for the Python.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runMenu(cmd, args)
 		},
 	}
 
 	pf := root.PersistentFlags()
-	pf.StringVar(&g.configDir, "config-dir", "", "where pack configs live (default: $ICHAVA_DEV_CONFIG_DIR, else ./config)")
-	pf.BoolVarP(&g.verbose, "verbose", "v", false, "debug logging")
-	pf.BoolVarP(&g.quiet, "quiet", "q", false, "suppress status output")
+	pf.StringVar(&g.configDir, "config-dir", "", "where pack configs live (setting config_dir; default: config/ beside the binary, else ./config)")
+	pf.StringVar(&g.globalConfig, "global-config", "", "global config file (default: $XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml})")
+	pf.StringArrayVar(&g.sets, "set", nil, "set any setting, as key=value (repeatable; see `config print`)")
+	pf.BoolVarP(&g.verbose, "verbose", "v", false, "debug logging (log_level=debug)")
+	pf.BoolVarP(&g.quiet, "quiet", "q", false, "only errors (log_level=error) and no status output")
 	pf.BoolVar(&g.noColor, "no-color", false, "disable colour (also honours NO_COLOR)")
 	pf.BoolVar(&g.noInput, "no-input", false, "never prompt; fail instead of asking")
 	pf.BoolVar(&g.assumeYes, "yes", false, "assume yes for confirmations")
 	pf.BoolVar(&g.jsonOut, "json", false, "machine-readable output")
 
-	root.PersistentPreRun = func(_ *cobra.Command, _ []string) {
+	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if err := resolveState(cmd); err != nil {
+			return err
+		}
 		ui.Init(ui.Config{
 			AssumeYes: g.assumeYes,
 			NoInput:   g.noInput,
 			NoColor:   g.noColor,
 			JSON:      g.jsonOut,
 			Quiet:     g.quiet,
+			Out:       cmd.OutOrStdout(),
+			Err:       cmd.ErrOrStderr(),
 		})
-		setupLogging(g.verbose)
+		setupLogging(state.run.String("log_level"))
+		return nil
 	}
 
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
@@ -137,7 +179,9 @@ Run with no arguments in a terminal for the interactive menu.`,
 		newListPacksCommand(),
 		newCheckCommand(),
 		newSyncCommand(),
+		newSyncAllCommand(),
 		newRecipeCommand(),
+		newConfigCommand(),
 		newBundledCommand(),
 		newMenuCommand(),
 		newVersionCommand(),
@@ -145,23 +189,111 @@ Run with no arguments in a terminal for the interactive menu.`,
 	return root
 }
 
+// resolveState builds the settings stack: the global config file, the
+// environment, and the flags actually given on this command line.
+//
+// Only flags the user set count. A flag's zero default is not a statement --
+// treating `--dry-run`'s false as one would override ICHAVA_DRY_RUN=1 with a
+// value nobody typed.
+func resolveState(cmd *cobra.Command) error {
+	if g.verbose && g.quiet {
+		return usageErr("-v and -q contradict each other; pass one")
+	}
+	if g.dryRun && g.commit {
+		return usageErr("--dry-run and --commit contradict each other; pass one")
+	}
+
+	path := g.globalConfig
+	if path == "" {
+		found, err := settings.GlobalConfigPath(os.LookupEnv)
+		if err != nil {
+			return failure(err)
+		}
+		path = found
+	}
+	global, err := settings.LoadGlobal(path)
+	if err != nil {
+		return failure(err)
+	}
+
+	envValues, err := settings.FromEnv(os.LookupEnv)
+	if err != nil {
+		return usageErr("%s", err)
+	}
+
+	flagValues, err := settings.FromAssignments(g.sets)
+	if err != nil {
+		return usageErr("%s", err)
+	}
+	changed := func(name string) bool {
+		f := cmd.Flags().Lookup(name)
+		return f != nil && f.Changed
+	}
+	setFlag := func(name string, key string, value any) {
+		if changed(name) {
+			flagValues[key] = value
+		}
+	}
+	setFlag("config-dir", "config_dir", g.configDir)
+	if g.verbose {
+		flagValues["log_level"] = "debug"
+	}
+	if g.quiet {
+		flagValues["log_level"] = "error"
+	}
+	setFlag("dry-run", "dry_run", g.dryRun)
+	if changed("commit") && g.commit {
+		flagValues["dry_run"] = false
+	}
+	setFlag("force", "force", g.force)
+	if changed("concurrency") {
+		if err := flagValues.Set("concurrency", g.concurrency); err != nil {
+			return usageErr("--concurrency: %s", err)
+		}
+	}
+
+	state.globalPath = path
+	state.stack = settings.Stack{Global: global, Env: envValues, Flags: flagValues}
+	state.run = state.stack.Resolve(nil)
+	return nil
+}
+
+// addRunFlags binds the flags the refreshing commands share. --force only
+// means something where there is an upstream check to override.
+func addRunFlags(f *pflag.FlagSet, withForce bool) {
+	f.BoolVar(&g.dryRun, "dry-run", false, "refresh files but skip the version stamp, commit and pull request (setting dry_run)")
+	f.BoolVar(&g.commit, "commit", false, "commit even if a config or ICHAVA_DRY_RUN says dry run (the Python's --commit)")
+	if withForce {
+		f.BoolVar(&g.force, "force", false, "refresh even when not stale (setting force)")
+	}
+}
+
 // setupLogging sends structured logs to stderr, so they never contaminate the
 // stdout a caller may be piping into jq.
-func setupLogging(verbose bool) {
-	level := slog.LevelInfo
-	if verbose {
-		level = slog.LevelDebug
+func setupLogging(level string) {
+	var l slog.Level
+	switch level {
+	case "debug":
+		l = slog.LevelDebug
+	case "warn":
+		l = slog.LevelWarn
+	case "error":
+		l = slog.LevelError
+	default:
+		l = slog.LevelInfo
 	}
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: l})))
 }
 
 // configDir resolves the directory to read pack configs from.
 func configDir() string {
-	if g.configDir != "" {
-		return g.configDir
+	if dir := state.run.String("config_dir"); dir != "" {
+		return dir
 	}
 	return config.DefaultConfigDir()
 }
+
+func workspace() string { return state.run.String("workspace") }
 
 func newVersionCommand() *cobra.Command {
 	return &cobra.Command{
@@ -169,15 +301,16 @@ func newVersionCommand() *cobra.Command {
 		Short: "Print version and exit",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// The Docker smoke test calls this, and it compares the whole
-			// line, so the "<name> <version>" shape is load-bearing.
-			cmd.Printf("%s %s\n", version.Name, version.Version())
+			// The Docker smoke test calls this; keep the "<name> <version>"
+			// shape on the first line.
+			out := cmd.OutOrStdout()
+			fmt.Fprintf(out, "%s %s\n", version.Name, version.Version())
 			if g.verbose {
 				if c := version.Commit(); c != "" {
-					cmd.Printf("commit %s\n", c)
+					fmt.Fprintf(out, "commit %s\n", c)
 				}
 				if d := version.Date(); d != "" {
-					cmd.Printf("built  %s\n", d)
+					fmt.Fprintf(out, "built  %s\n", d)
 				}
 			}
 			return nil
