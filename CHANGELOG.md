@@ -4,6 +4,41 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking: the Docker image runs the Go binary, `icon-sets-sync`, and only that.** The
+  Dockerfile is now a two-stage build (a `golang:1.26-trixie` builder, a `debian:trixie-slim`
+  runtime with `git`, `gh`, `nodejs`/`npm` and `ca-certificates`), and its `ENTRYPOINT` is
+  `icon-sets-sync`. The invocation every pack's `sync-upstream.yml` uses,
+  `<image> sync --pack=$PACK_SLUG [--force]` with the parent directory at `/work` and the config at
+  `/app/config`, is unchanged. `imt` and `ichava-maintainer-toolkit` are symlinks to the same
+  binary; the second prints a deprecation notice.
+- **Breaking: `sync` fails loudly.** It exits 1 when a pack's latest upstream version cannot be
+  resolved, where the Python printed a warning, skipped the pack and exited 0, so a dead registry
+  read exactly like an up-to-date pack. A pack with no sinks is an error unless it is a dry run.
+  The other packs in the run still go first.
+- **icon-sets-bundled is now refreshed for real.** Its per-set recipe existed only in Go, which the
+  image did not run; from this release a `sync --pack=icon-sets-bundled` refreshes every set in
+  `config/icon-sets-bundled.sets.json` instead of failing with "recipe pending". The wrapper in
+  that pack's `sync-upstream.yml` that turned "recipe pending" into a green no-op can no longer
+  match, and should be removed there.
+- **The emoji and bundled configs declare their git-branch sink.** Both recipes used to commit with
+  a built-in sink while their configs said `"sinks": []`; the sink is now in the config, where its
+  branch and the `git.*` settings apply, and the empty-sinks check means what it says.
+- The primary binary is `icon-sets-sync` (`src/cmd/icon-sets-sync`); `imt` is kept as an alias. The
+  Go module path is unchanged until the repository rename lands.
+- The Makefile's `test`, `lint` and `format` run the Go checks first, in a `golang` container, then
+  the deprecated Python ones in a `python` container, because the image no longer contains Python.
+  `sync-all` uses the new `sync-all` command and takes `CONCURRENCY=`.
+
+### Deprecated
+
+- **The Python implementation** (`src/ichava_maintainer_toolkit/`, `pyproject.toml`, `tests/`),
+  in favour of the Go binary. It still imports and runs, its CLI prints a `DeprecationWarning` on
+  start, and its CI job still runs. Earliest removal: 0.3.0, with the owner's approval per file.
+- **The `ichava-maintainer-toolkit` command name**, in favour of `icon-sets-sync`. The image keeps
+  it as a symlink that prints a notice. Earliest removal: 0.3.0.
+
 ### Fixed
 
 - **`make build-emoji` and the `PACK=` examples named packs that no longer exist.** The Makefile
@@ -15,6 +50,35 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
   the README's clone instructions `cd` into the right directory.
 
 ### Added
+
+- **Pack configs are validated against a JSON Schema**, `config/schema/pack.schema.json` (2020-12),
+  on every load. Every violation is reported at once with its JSON pointer. The binary embeds a
+  copy, and a test fails if the two differ.
+- **Pack configs may be YAML** (`<slug>.yaml` or `.yml`), as may the registry. Both formats decode
+  to one value model; a JSON and a YAML file for the same slug is an error.
+- **Layered settings**: flags > `ICHAVA_*` environment > global config > a pack's `settings` block >
+  defaults, for `dry_run`, `force`, `log_level`, `concurrency`, `workspace`, `config_dir`, the
+  `git.*` identity, branch, base, commit text and `open_pr`, and the emoji recipe's Unicode and
+  OpenMoji versions. An optional global config lives at
+  `$XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml}`. An unknown key in any layer is an error.
+  `--set key=value` sets any of them from the command line. The old `ICHAVA_DEV_CONFIG_DIR` and
+  `ICHAVA_DEV_LOG_LEVEL` are still read.
+- **Sources, transforms and sinks are configurable per pack.** The `generic` recipe builds a pack's
+  pipeline from its config: an `npm` or `github-archive`/`github-release`/`github-tag` source, a
+  declared `transforms` list (`subset`, `sanitise`, `slugify`, `categorise`, `indexer`,
+  `flatten-variants`), and sink options (`incremental`, `min_retention`, `commit_subject`,
+  `commit_body`, `base`, `open_pr`). A pack may name its `recipe` explicitly. With no transforms
+  declared, a pack behaves exactly as before.
+- `sync-all`, with `--concurrency`; `sync --all` honours it too. `--commit` overrides a `dry_run`
+  set anywhere below the flags.
+- `config validate` and `config print [--pack] [--origins] [--format json|yaml]`.
+- The interactive menu can sync one pack (after a y/N confirmation) and sync every pack as a dry
+  run, as the Python menu could; the sync runs after the menu closes, through the same code as
+  `sync`.
+- A `Docker image` job in the Tests workflow builds the image on every pull request and runs it the
+  way the pack workflows do.
+- Tests for `gitx`, the CLI, the TUI menu, the settings precedence at every layer, the schema, and
+  the sync orchestration, none of which needs the network.
 
 - **CI runs the Go port.** A `Go` job in `tests.yml` checks `gofmt`, `go vet` and `go test`
   against the module in `src/`, and fails if fewer than 10 packages are found, because a

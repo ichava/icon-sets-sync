@@ -29,13 +29,13 @@ couldn't persist. The new model runs in the pack repo's CI.
 ```mermaid
 flowchart LR
     cron["Weekly cron<br/>(GitHub Actions)"]
-        --> orch["sync_upstream.py<br/>(orchestrator)"]
+        --> orch["icon-sets-sync sync<br/>(Docker image)"]
     orch -->|reads| cfg["pack/config.json:upstream"]
     orch -->|polls| upstream["npm / GitHub /<br/>Packagist / git tags"]
     upstream --> idem{Newer<br/>version?}
     idem -- no --> done["Exit 0,<br/>nothing to do"]
     idem -- yes --> fetch["Fetch + extract<br/>per strategy"]
-    fetch --> recipe["Pack-supplied recipe<br/>(scripts/refresh.py)"]
+    fetch --> recipe["Recipe<br/>(generic / emoji-sets / bundled)"]
     recipe --> bump["Bump current_version<br/>+ CHANGELOG"]
     bump --> pr["Open PR<br/>chore(upstream): bump <pack> to vX.Y.Z"]
     pr --> human["Human reviews diff<br/>+ merges"]
@@ -57,20 +57,22 @@ research notes inline in commit `feat(scripts): sync orchestrator`):
 
 ### 1. The toolkit (`ichava/maintainer-toolkit`)
 
-A standalone Docker-first Python package, one per ecosystem. It:
+A standalone Docker-first Go binary, `icon-sets-sync`, one per ecosystem. (The Python package it
+replaced is deprecated since 0.2.0 and no longer runs.) It:
 
 - Reads each pack's config from its own `config/<slug>.json`
   (registry: `config/packs.json`).
 - Polls each upstream's `version_check_url` (npm / GitHub / Packagist
-  / URL) via `ichava_maintainer_toolkit.core.checker`.
-- Compares against the recorded `current_version`. If equal, exits 0
-  with no commits.
+  / URL) via `internal/core/checker`.
+- Compares against the version the pack repo records. If equal, exits 0
+  with no commits. If the latest version cannot be resolved, exits 1.
 - If newer, runs the matching recipe (composed `Pipeline` of one
   Source + zero-or-more Transforms + one-or-more Sinks). See the
   fluent API in the toolkit's `README.md`.
-- Bumps `current_version` in the toolkit's `config/<slug>.json`,
-  prepends a `CHANGELOG.md` entry on the pack repo, commits to a
-  branch, pushes, and opens a PR via `gh pr create`.
+- Records the new version in the pack repo's own
+  `resources/assets/svg/config.json`, commits to
+  `chore/sync-upstream-<version>`, pushes, and opens a PR via
+  `gh pr create`.
 
 Strategies recognised (the source's `type`):
 
@@ -79,16 +81,16 @@ Strategies recognised (the source's `type`):
 | `npm` | `npm pack {package}@{version}` then extract `package/{source_path}/*.svg` via the `NpmTarball` source | icon-sets-flag, icon-sets-tabler |
 | `github-archive` | Downloads `{archive_url}` (interpolated), extracts the matching subdir via the `GithubArchive` source | OpenMoji (within the icon-sets-emoji recipe) |
 | `github-release` / `github-tag` | Same but resolves the version through the releases/tags API | (any pack without an npm mirror) |
-| `recipe` | Hand off to a named recipe under `ichava_maintainer_toolkit.recipes/` -- used when a pack composes multiple sources / custom taxonomies (icon-sets-emoji blends Twemoji + OpenMoji + Unicode CLDR) | icon-sets-emoji |
+| `recipe` (config key) | Hand off to a named recipe in `internal/core/recipes` -- used when a pack composes multiple sources / custom taxonomies (icon-sets-emoji blends Twemoji + OpenMoji + Unicode CLDR) | icon-sets-emoji, icon-sets-bundled |
 | `url` | Custom JSON endpoint; `source.version_field` is a dot-path | escape hatch for non-registry vendors |
 
 ### 2. Per-pack recipes (in the toolkit, not the pack)
 
-Most packs don't need a custom recipe -- the `simple_npm` recipe in
-the toolkit handles the `source.type=npm + source_path=...` case. Packs
-that mix sources (icon-sets-emoji) get a dedicated module under
-`src/ichava_maintainer_toolkit/recipes/<slug>.py` and are dispatched by
-the CLI when `cfg.name` matches.
+Most packs don't need a custom recipe -- the `generic` recipe builds
+the pipeline from the pack config's source, transforms and sinks. Packs
+that mix sources (icon-sets-emoji) or aggregate many upstreams
+(icon-sets-bundled) get a dedicated recipe in `internal/core/recipes`,
+dispatched by pack name or by the config's `recipe` key.
 
 ### 3. Workflow template
 

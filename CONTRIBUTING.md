@@ -3,21 +3,28 @@
 ## Running it
 
 ```bash
-pip install -e '.[dev]'
-pytest
-ruff check src tests && ruff format --check src tests
+gofmt -l src                  # must print nothing
+go -C src vet ./...
+go -C src test -count=1 ./...
 ```
 
-For an actual sync, use the Docker image. It is what CI runs, and a local Python with a different
-Node or `gh` version is a different tool.
+Or `make test-go` and `make lint`, which run the same in a container. The module lives in `src/`,
+so every `go` command names it with `-C src`: a bare `go test ./...` at the root finds no packages
+and passes.
+
+The Python package is deprecated but still tested until it is removed (`make test-python`, or
+`pip install -e '.[dev]' && pytest`). Do not add features to it.
+
+For an actual sync, use the Docker image. It is what CI runs, and a local machine with a different
+`npm` or `gh` is a different tool.
 
 ## Where things go
 
-- A new **upstream shape** is a source strategy in `core/sources/`.
+- A new **upstream shape** is a source strategy in `src/internal/core/sources/`.
 - A new **per-pack policy** is usually config, not code. Adding a recipe because a pack wants a
   different subdirectory means the config is missing a knob.
-- A new **destination** is a sink in `core/sinks/`. Sink order matters: `Filesystem` writes assets,
-  `VersionStamp` records the version, `GitBranch` commits. Stamping after the commit records a
+- A new **destination** is a sink in `src/internal/core/sinks/`. Sink order matters: `Filesystem`
+  writes assets, `VersionStamp` records the version, `GitBranch` commits. Stamping after the commit records a
   version that never shipped.
 
 See [docs/architecture.md](docs/architecture.md) for why the parts are split that way.
@@ -33,8 +40,12 @@ there is how this tool spent weeks re-opening a pull request it had already open
 - Conventional Commits. Subject 72 characters or fewer, imperative mood. The body explains why.
 - No AI attribution anywhere: not in commits, PR titles or bodies, code comments or docs.
 - No em-dashes in shipped docs or code comments.
-- Type hints on public functions; the config schema is enforced by Pydantic at load time so a
-  malformed config fails before anything reaches an upstream registry.
+- Table-driven tests for anything new, and no test that needs the network or a listening socket:
+  use the `Runner`, `Fetcher` and `Transport` seams.
+- The pack config schema is `config/schema/pack.schema.json`; the binary embeds a copy at
+  `src/internal/core/config/schema/`, and a test fails until the two are identical. A new setting
+  goes in `src/internal/core/settings` and in the settings table in `docs/configuration.md`, which a
+  test also checks.
 
 ## Security
 
