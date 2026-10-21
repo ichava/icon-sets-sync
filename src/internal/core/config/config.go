@@ -15,6 +15,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/ichava/maintainer-toolkit/src/internal/core/docfile"
 )
 
 // SourceConfig says where to fetch upstream artefacts from.
@@ -84,12 +86,30 @@ func (s *SourceConfig) UnmarshalJSON(data []byte) error {
 	return fmt.Errorf("source: unknown type %q (want one of %s)", s.Type, strings.Join(SourceTypes, ", "))
 }
 
+// MarshalJSON writes the extras back alongside the known fields, so
+// `config print` shows the source block as the file declared it.
+func (s SourceConfig) MarshalJSON() ([]byte, error) {
+	return marshalWithExtra(sourceAlias(s), s.Extra)
+}
+
 // SinkConfig says where refreshed assets land.
 type SinkConfig struct {
-	Type     string `json:"type"`
-	Root     string `json:"root,omitempty"`
-	RepoRoot string `json:"repo_root,omitempty"`
-	Branch   string `json:"branch,omitempty"`
+	Type string `json:"type"`
+
+	// filesystem
+	Root         string  `json:"root,omitempty"`
+	Incremental  bool    `json:"incremental,omitempty"`
+	MinRetention float64 `json:"min_retention,omitempty"`
+
+	// git-branch. Each of these is a pack-level value for the matching
+	// git.* setting: it wins over the default and gives way to the global
+	// config, the environment and flags.
+	RepoRoot      string `json:"repo_root,omitempty"`
+	Branch        string `json:"branch,omitempty"`
+	CommitSubject string `json:"commit_subject,omitempty"`
+	CommitBody    string `json:"commit_body,omitempty"`
+	Base          string `json:"base,omitempty"`
+	OpenPR        *bool  `json:"open_pr,omitempty"`
 
 	Extra map[string]any `json:"-"`
 }
@@ -110,7 +130,11 @@ func (s *SinkConfig) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &all); err != nil {
 		return err
 	}
-	known := map[string]bool{"type": true, "root": true, "repo_root": true, "branch": true}
+	known := map[string]bool{
+		"type": true, "root": true, "incremental": true, "min_retention": true,
+		"repo_root": true, "branch": true, "commit_subject": true, "commit_body": true,
+		"base": true, "open_pr": true,
+	}
 	for k, v := range all {
 		if !known[k] {
 			if s.Extra == nil {
@@ -126,6 +150,28 @@ func (s *SinkConfig) UnmarshalJSON(data []byte) error {
 		}
 	}
 	return fmt.Errorf("sink: unknown type %q (want one of %s)", s.Type, strings.Join(SinkTypes, ", "))
+}
+
+// MarshalJSON writes the extras back alongside the known fields.
+func (s SinkConfig) MarshalJSON() ([]byte, error) {
+	return marshalWithExtra(sinkAlias(s), s.Extra)
+}
+
+func marshalWithExtra(known any, extra map[string]any) ([]byte, error) {
+	data, err := json.Marshal(known)
+	if err != nil || len(extra) == 0 {
+		return data, err
+	}
+	var merged map[string]any
+	if err := json.Unmarshal(data, &merged); err != nil {
+		return nil, err
+	}
+	for k, v := range extra {
+		if _, taken := merged[k]; !taken {
+			merged[k] = v
+		}
+	}
+	return json.Marshal(merged)
 }
 
 // PackConfig is one config/<slug>.json.
@@ -145,6 +191,18 @@ type PackConfig struct {
 	Source          SourceConfig     `json:"source"`
 	Sinks           []SinkConfig     `json:"sinks,omitempty"`
 	Transforms      []map[string]any `json:"transforms,omitempty"`
+
+	// Recipe picks the pipeline builder; empty and "auto" dispatch by pack
+	// name, then by source type, exactly as before the field existed.
+	Recipe string `json:"recipe,omitempty"`
+
+	// Settings is the pack layer of the settings precedence. It is kept as a
+	// raw tree here and resolved by internal/core/settings, which owns the
+	// key registry; the schema has already checked its shape.
+	Settings map[string]any `json:"settings,omitempty"`
+
+	// File is where the config was loaded from. Not part of the document.
+	File string `json:"-"`
 }
 
 // DefaultVersionFile and DefaultVersionKeys mirror the Python defaults. No
@@ -163,13 +221,15 @@ type PacksRegistry struct {
 
 // DefaultConfigDir resolves the directory the pack configs live in.
 //
-// ICHAVA_DEV_CONFIG_DIR wins, which is how the Docker image points at the
-// bind-mounted /app/config. Otherwise it is `config/` beside the executable,
+// ICHAVA_CONFIG_DIR wins (ICHAVA_DEV_CONFIG_DIR is its older name), which is
+// how the Docker image points at the bind-mounted /app/config. Otherwise it is `config/` beside the executable,
 // falling back to ./config -- Python derived this from the source file's
 // location, which has no equivalent in a compiled binary.
 func DefaultConfigDir() string {
-	if dir := os.Getenv("ICHAVA_DEV_CONFIG_DIR"); dir != "" {
-		return dir
+	for _, env := range []string{"ICHAVA_CONFIG_DIR", "ICHAVA_DEV_CONFIG_DIR"} {
+		if dir := os.Getenv(env); dir != "" {
+			return dir
+		}
 	}
 	if exe, err := os.Executable(); err == nil {
 		candidate := filepath.Join(filepath.Dir(exe), "config")
@@ -180,7 +240,8 @@ func DefaultConfigDir() string {
 	return "config"
 }
 
-// stripCommentKeys drops top-level keys beginning with an underscore.
+// stripCommentKeys drops top-level keys beginning with an underscore, and the
+// `$schema` editor hint.
 //
 // JSON has no comments, so the shipped configs carry `_note`, `_version_note`
 // and `_status` as authoring annotations. They have to go before the
@@ -192,38 +253,67 @@ func stripCommentKeys(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	for k := range raw {
-		if strings.HasPrefix(k, "_") {
+		if strings.HasPrefix(k, "_") || k == "$schema" {
 			delete(raw, k)
 		}
 	}
 	return json.Marshal(raw)
 }
 
-// LoadPack reads and validates one pack config.
-func LoadPack(slug, configDir string) (*PackConfig, error) {
+// PackFile returns the path of a pack's config: <slug>.json, .yaml or .yml.
+func PackFile(slug, configDir string) (string, error) {
 	if configDir == "" {
 		configDir = DefaultConfigDir()
 	}
-	packFile := filepath.Join(configDir, slug+".json")
+	path, err := docfile.Find(configDir, slug)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("missing pack config: %s", filepath.Join(configDir, slug+".json"))
+	}
+	return path, err
+}
 
-	data, err := os.ReadFile(packFile)
+// LoadPack reads and validates one pack config, in JSON or YAML.
+func LoadPack(slug, configDir string) (*PackConfig, error) {
+	path, err := PackFile(slug, configDir)
+	if err != nil {
+		return nil, err
+	}
+	return LoadPackFile(path)
+}
+
+// LoadPackFile reads, schema-validates and decodes one pack config.
+//
+// Validation runs against the whole document before anything is decoded, so
+// a file with three mistakes reports all three rather than the first one the
+// decoder trips on. The strict decode after it is a second gate, and catches
+// a schema that has drifted from the Go types.
+func LoadPackFile(path string) (*PackConfig, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("missing pack config: %s", packFile)
+			return nil, fmt.Errorf("missing pack config: %s", path)
 		}
 		return nil, err
 	}
 
-	cleaned, err := stripCommentKeys(data)
+	canonical, err := docfile.ToJSON(path, data)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", packFile, err)
+		return nil, err
+	}
+	if err := ValidatePackDocument(canonical); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+
+	cleaned, err := stripCommentKeys(canonical)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 
 	var pack PackConfig
 	dec := json.NewDecoder(strings.NewReader(string(cleaned)))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&pack); err != nil {
-		return nil, fmt.Errorf("%s: %w", packFile, err)
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 
 	if pack.VersionFile == "" {
@@ -233,35 +323,48 @@ func LoadPack(slug, configDir string) (*PackConfig, error) {
 		pack.VersionKeys = DefaultVersionKeys()
 	}
 	pack.PackRoot = expandUser(pack.PackRoot)
+	pack.File = path
 
 	return &pack, nil
 }
 
-// LoadRegistry reads and validates config/packs.json.
+// LoadRegistry reads and validates config/packs.json (or packs.yaml).
 func LoadRegistry(configDir string) (*PacksRegistry, error) {
 	if configDir == "" {
 		configDir = DefaultConfigDir()
 	}
-	registryFile := filepath.Join(configDir, "packs.json")
+	registryFile, err := docfile.Find(configDir, "packs")
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("missing pack registry: %s", filepath.Join(configDir, "packs.json"))
+	}
+	if err != nil {
+		return nil, err
+	}
 
 	data, err := os.ReadFile(registryFile)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("missing pack registry: %s", registryFile)
-		}
+		return nil, err
+	}
+	canonical, err := docfile.ToJSON(registryFile, data)
+	if err != nil {
 		return nil, err
 	}
 
 	var registry PacksRegistry
-	dec := json.NewDecoder(strings.NewReader(string(data)))
+	dec := json.NewDecoder(strings.NewReader(string(canonical)))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&registry); err != nil {
 		return nil, fmt.Errorf("%s: %w", registryFile, err)
 	}
+	seen := map[string]bool{}
 	for i, slug := range registry.Packs {
 		if slug == "" {
 			return nil, fmt.Errorf("%s: packs[%d] is empty", registryFile, i)
 		}
+		if seen[slug] {
+			return nil, fmt.Errorf("%s: %q is listed twice", registryFile, slug)
+		}
+		seen[slug] = true
 	}
 	return &registry, nil
 }
