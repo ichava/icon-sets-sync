@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 )
 
 func svgTree(t *testing.T, dir string, n int) string {

@@ -13,8 +13,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/svg"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/svg"
 )
 
 // walkSVGs returns every .svg under root, in a stable order.

@@ -17,7 +17,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/checker"
+	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/mattn/go-isatty"
 	"github.com/muesli/termenv"
 )

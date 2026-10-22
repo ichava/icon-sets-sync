@@ -32,11 +32,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-
       # Two attempts, 45s apart, and the release publishes either way.
       #
       # The Syft installer fetches its checksums from GitHub's release-asset CDN.
@@ -109,7 +104,7 @@ jobs:
             echo 'body<<CHANGELOG_EOF'
             printf '%s\n' "$SECTION"
             echo ''
-            echo "**Full changelog:** https://github.com/ichava/maintainer-toolkit/blob/main/CHANGELOG.md"
+            echo "**Full changelog:** https://github.com/ichava/icon-sets-sync/blob/main/CHANGELOG.md"
             echo 'CHANGELOG_EOF'
           } >> "$GITHUB_OUTPUT"
 

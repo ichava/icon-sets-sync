@@ -1,31 +1,43 @@
-# Compose wrapper for the ichava/maintainer-toolkit image. Mounts the parent monorepo
-# so the tool can read pack configs + write refreshed assets back into
-# sibling pack repos.
+# Compose wrapper for the icon-sets-sync image. Mounts the parent directory
+# (the ichava packages checkout) so the tool can read pack configs and write
+# refreshed assets back into the sibling pack repos.
 #
-# All Makefile targets shell out to this. Run `make help` for the menu.
+# All Makefile run targets shell out to this. Run `make help` for the menu.
+#
+# The service keeps its old name, ichava-maintainer-toolkit, so a
+# `docker compose run ichava-maintainer-toolkit ...` written before the rename
+# still works. The image's entrypoint is the Go binary, icon-sets-sync.
 
 services:
   ichava-maintainer-toolkit:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ichava/maintainer-toolkit:latest
-    # Mount the parent of this repo (the ichava/ org checkout) at /work.
-    # Each sibling pack lives at /work/<pack>/.
+    image: ichava/icon-sets-sync:latest
+    # Mount the parent of this repo (the ichava/ packages checkout) at /work.
+    # Each sibling pack lives at /work/<pack>/, which is every config's
+    # pack_root.
     volumes:
       - ../:/work:rw
       # Persist npm cache between runs to skip redundant tarball downloads.
       - ichava_maintainer_toolkit_npm_cache:/root/.npm
-      # Persist pip cache (only matters if you re-install editable mode).
-      - ichava_maintainer_toolkit_pip_cache:/root/.cache/pip
-    working_dir: /work/maintainer-toolkit
+      # This checkout's config/, so a local edit is what runs. Mounting it
+      # also makes the service independent of this directory's name, which
+      # still reads maintainer-toolkit on checkouts made before the rename.
+      - ./config:/app/config:ro
+    working_dir: /work
     environment:
       # gh uses GH_TOKEN to authenticate non-interactively.
       - GH_TOKEN
-      - ICHAVA_DEV_LOG_LEVEL=${ICHAVA_DEV_LOG_LEVEL:-INFO}
+      # Settings pass through from the host when set. Unset ones are not
+      # forwarded, so a global config's value is not masked by an empty one.
+      - ICHAVA_LOG_LEVEL
+      - ICHAVA_DEV_LOG_LEVEL
+      - ICHAVA_DRY_RUN
+      - ICHAVA_FORCE
+      - ICHAVA_CONCURRENCY
     tty: true
     stdin_open: true
 
 volumes:
   ichava_maintainer_toolkit_npm_cache:
-  ichava_maintainer_toolkit_pip_cache:

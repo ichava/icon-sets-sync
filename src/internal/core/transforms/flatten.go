@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 )
 
 // Variant is one upstream directory contributing to a flattened set, and the

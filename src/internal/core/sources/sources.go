@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/httpx"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 )
 
 // Downloader is the HTTP surface the sources need.
@@ -65,7 +65,7 @@ func (s NpmTarball) Execute(ctx *pipeline.Context) error {
 	out, err := cmd.Output()
 	if err != nil {
 		if _, lookErr := exec.LookPath("npm"); lookErr != nil {
-			return fmt.Errorf("npm not on PATH; the maintainer-toolkit image installs it -- mount issue?")
+			return fmt.Errorf("npm not on PATH; the icon-sets-sync image installs it -- mount issue?")
 		}
 		if ee, ok := err.(*exec.ExitError); ok {
 			return fmt.Errorf("npm pack failed: %s", strings.TrimSpace(string(ee.Stderr)))

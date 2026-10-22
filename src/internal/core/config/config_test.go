@@ -269,7 +269,9 @@ func TestLoadPackAndRegistryNameTheMissingFile(t *testing.T) {
 func TestLoadsEveryShippedConfig(t *testing.T) {
 	dir := filepath.Join("..", "..", "..", "..", "config")
 	if _, err := os.Stat(dir); err != nil {
-		t.Skipf("no config/ beside the module: %v", err)
+		// Fail, never skip: a guard that skips when its input moves reports a
+		// clean tree rather than a broken search.
+		t.Fatalf("no config/ at the repository root: %v", err)
 	}
 
 	registry, err := LoadRegistry(dir)
@@ -296,6 +298,11 @@ func TestLoadsEveryShippedConfig(t *testing.T) {
 		if _, err := LoadPack(pack.Name, dir); err != nil {
 			t.Errorf("%s: config filename does not match its own name field: %v", pack.Name, err)
 		}
+	}
+	// Pin the count: a registry that silently lost entries would otherwise
+	// pass this test by checking fewer files.
+	if len(packs) < 4 {
+		t.Fatalf("loaded %d shipped pack configs, want at least 4", len(packs))
 	}
 	t.Logf("loaded %d shipped pack configs", len(packs))
 }

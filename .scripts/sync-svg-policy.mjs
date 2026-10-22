@@ -4,7 +4,7 @@
  *
  * Four runtimes sanitise SVG in this ecosystem and none of them can reach the
  * others at build time: `browser` resolves `ichava/core` from a published tag
- * rather than the sibling tree, and `react-browser` and `maintainer-toolkit`
+ * rather than the sibling tree, and `react-browser` and `icon-sets-sync`
  * have no Composer dependency on core at all. So each vendors a byte-identical
  * copy, and this script is what makes those copies trustworthy rather than
  * merely present.
@@ -27,14 +27,16 @@ const WRITE = process.argv.includes('--write');
 
 const CANONICAL = join(ROOT, 'core/resources/security/svg-policy.json');
 
+// The repository was renamed maintainer-toolkit -> icon-sets-sync on
+// 2026-10-21, and a checkout made before that keeps the old directory name.
+const TOOLKIT = existsSync(join(ROOT, 'icon-sets-sync')) ? 'icon-sets-sync' : 'maintainer-toolkit';
+
 const CONSUMERS = [
-  'browser/resources/assets/scripts/ichava-ts/security/svg-policy.json',
-  'react-browser/src/core/svg-policy.json',
-  'maintainer-toolkit/src/ichava_maintainer_toolkit/core/transforms/svg-policy.json',
-  // The Go port embeds its own copy: //go:embed cannot reach outside the
-  // package directory, so it cannot share the Python one. Both entries stay
-  // until the Python is deleted at the cutover.
-  'maintainer-toolkit/src/internal/core/svg/svg-policy.json',
+  'icon-browser/resources/js/core/svg-policy.json',
+  'react-icon-browser/src/core/svg-policy.json',
+  // //go:embed cannot reach outside the package directory, so the Go module
+  // carries its own copy.
+  `${TOOLKIT}/src/internal/core/svg/svg-policy.json`,
 ];
 
 const sha = (buf) => createHash('sha256').update(buf).digest('hex');

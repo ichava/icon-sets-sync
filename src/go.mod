@@ -4,11 +4,11 @@
 // and the rest is a subdirectory. Hence the /src suffix, and hence every
 // release needs a second `src/vX.Y.Z` tag alongside `vX.Y.Z`.
 //
-//	go install github.com/ichava/maintainer-toolkit/src/cmd/imt@latest
+//	go install github.com/ichava/icon-sets-sync/src/cmd/icon-sets-sync@latest
 //
 // Dependencies match simtabi/repoclone, the house Go reference, so the CLI
 // and TUI layers run the stack the rest of the estate already does.
-module github.com/ichava/maintainer-toolkit/src
+module github.com/ichava/icon-sets-sync/src
 
 go 1.26
 
@@ -18,7 +18,11 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/muesli/termenv v0.16.0
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.9
+	go.yaml.in/yaml/v3 v3.0.5
+	golang.org/x/text v0.28.0
 )
 
 require (
@@ -38,8 +42,6 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/sys v0.38.0 // indirect
-	golang.org/x/text v0.28.0 // indirect
 )

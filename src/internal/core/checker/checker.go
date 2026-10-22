@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/httpx"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
 )
 
 // Result is one pack's upstream status.

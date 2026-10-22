@@ -1,175 +1,93 @@
-# ichava/maintainer-toolkit
+# ichava/icon-sets-sync
 
-Maintainer toolkit for the Ichava Laravel icon-pack ecosystem.
+[![Tests](https://github.com/ichava/icon-sets-sync/actions/workflows/tests.yml/badge.svg)](https://github.com/ichava/icon-sets-sync/actions/workflows/tests.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A Docker-first Python tool that polls upstream registries (npm /
-GitHub releases / GitHub tags), refreshes the bundled SVGs in each
-pack repo, bumps `current_version`, commits to a branch, and opens a
-PR. Replaces the per-pack `php artisan ichava:update*` command (which
-couldn't persist anything because `vendor/` is regenerated on every
-`composer install`).
+Two badges, not four: this ships as a Docker image and a Go binary, on no package registry, so there
+is no registry version to show, and static analysis (`gofmt`, `go vet`) runs inside the Tests workflow.
 
-End-user side of the same story: see
-[`docs/upstream-tracking.md`](docs/upstream-tracking.md).
-This repo is the maintainer side.
+> `icon-sets-sync` keeps the Ichava icon packs in step with their upstream registries: it polls
+> each upstream, refreshes the vendored SVGs, records the version in the pack and opens a pull
+> request.
+
+Go 1.26 or later to build from source; Docker for everything else. The repository was
+`ichava/maintainer-toolkit` until 2026-10-21; GitHub redirects the old URL.
 
 ## Install
 
 ```bash
-git clone git@github.com:ichava/maintainer-toolkit.git
-cd maintainer-toolkit
-make build      # builds the docker image
-make help       # shows available targets
+git clone https://github.com/ichava/icon-sets-sync.git ~/Artisan/projects/opensource/ichava/packages/icon-sets-sync
+cd ~/Artisan/projects/opensource/ichava/packages/icon-sets-sync
+make build      # the Docker image: the Go binary plus git, gh and npm
 ```
 
-You don't need Python, Node, gh, or any system deps locally -- the
-docker image bundles all of them. The image mounts the parent of this
-repo at `/work` so it can read sibling pack repos.
-
-## Common workflows
+Without Docker, with a Go toolchain:
 
 ```bash
-# Interactive menu (default Docker CMD)
-make menu
+go -C src build -o ../build/icon-sets-sync ./cmd/icon-sets-sync
+```
 
-# Check upstream status across every pack (no writes)
+The original Python implementation was removed in 0.2.0; see
+[Architecture](docs/architecture.md#why-go-and-what-happened-to-the-python).
+
+## Quick start guide and usage
+
+### Getting started
+
+The image mounts the parent of this checkout at `/work`, so the pack repositories must be its
+siblings (`../icon-sets-tabler`, `../icon-sets-flag`, ...): every shipped config names its pack as
+`/work/<pack>`. A sync that commits needs `GH_TOKEN` in the environment, with permission to push a
+branch and open a pull request in the pack repositories. Nothing else is required; there are no
+config files to publish and no settings you must set.
+
+Check the configs once:
+
+```bash
+make validate
+```
+
+### Usage
+
+See which packs are behind upstream, without writing anything:
+
+```bash
 make check
+```
 
-# Sync one pack: pulls latest, refreshes assets, opens a PR
+Refresh one pack, commit it to `chore/sync-upstream-<version>` and open a pull request:
+
+```bash
 make sync PACK=icon-sets-tabler
-
-# Dry-run every pack (no commits)
-make sync-all
 ```
 
-## Configuration
+Refresh every pack's files as a dry run, two at a time, against a different base branch:
 
-Each pack has a JSON config under `config/`:
-
-```
-config/
-├── packs.json                # the registry: which packs to manage
-├── packs.json
-├── icon-sets-tabler.json
-├── icon-sets-flag.json
-├── icon-sets-bundled.json
-├── icon-sets-bundled.sets.json
-└── icon-sets-emoji.json
+```bash
+ICHAVA_GIT_BASE=develop docker compose run --rm ichava-maintainer-toolkit sync-all --dry-run --concurrency=2
 ```
 
-A pack config:
-
-```json
-{
-  "name": "icon-sets-tabler",
-  "pack": "ichava/icon-sets-tabler",
-  "pack_root": "/work/icon-sets-tabler",
-  "current_version": "3.0.0",
-  "version_check_url": "https://registry.npmjs.org/@tabler/icons/latest",
-  "source": {
-    "type": "npm",
-    "package": "@tabler/icons",
-    "source_path": "icons"
-  },
-  "sinks": [
-    {"type": "filesystem", "root": "{pack_root}/resources/assets/svg/files"},
-    {"type": "git-branch", "repo_root": "{pack_root}", "branch": "chore/sync-upstream-{version}"}
-  ]
-}
-```
-
-`source.type` recognises: `npm`, `github-archive`, `github-release`,
-`github-tag`, `script` (pack-supplied refresh recipe), `url`.
+The full walkthrough is in [Getting started](docs/getting-started.md), and everything else is under
+[Documentation](#documentation).
 
 ## <a name="documentation"></a>Documentation
 
-- [Installation](docs/installation.md), Docker-first, and the local alternative
-- [Getting started](docs/getting-started.md), check, sync, and what lands afterwards
-- [Configuration](docs/configuration.md), the per-pack JSON and where the vendored version lives
-- [Architecture](docs/architecture.md), the pipeline, and why the version records in the pack repo
-- [Release](docs/release.md), cutting a version and what it affects
+### Guides
 
-## Architecture
+- [Installation](docs/installation.md) -- the Docker image, `go build`, and what the image contains
+- [Getting started](docs/getting-started.md) -- check, sync, dry runs and what lands afterwards
+- [Configuration](docs/configuration.md) -- pack configs, the schema, settings and their precedence
+- [Architecture](docs/architecture.md) -- the pipeline, the recipes, and why the version lives in the pack
+- [Release](docs/release.md) -- cutting a version and what it affects
 
-The tool is built around three composable primitives:
+### Reference
 
-```
-Source  (where SVGs come from)
-  ↓
-Transform (zero or more: sanitise, subset, slugify, categorise, indexer)
-  ↓
-Sink    (where SVGs land: filesystem, git-branch)
-```
+- [Maintainer sync](docs/maintainer-sync.md) -- the cron, pull request, tag and fan-out cycle
+- [Upstream tracking](docs/upstream-tracking.md) -- the end-user side of the same story
 
-Fluent + chainable:
+## Community
 
-```python
-from ichava_maintainer_toolkit import Pipeline, sources, transforms, sinks
-
-(
-    Pipeline.named("icon-sets-tabler@3.44.0")
-        .source(sources.NpmTarball("@tabler/icons", version="3.44.0"))
-        .transform(transforms.SubsetTo("icons"))
-        .transform(transforms.Sanitise())
-        .sink(sinks.Filesystem(root="/work/icon-sets-tabler/resources/assets/svg/files"))
-        .sink(sinks.GitBranch(repo_root="/work/icon-sets-tabler", branch="chore/sync-upstream-{version}"))
-        .run()
-)
-```
-
-Layout:
-
-```
-src/ichava_maintainer_toolkit/
-├── cli.py                   typer + questionary interactive menu
-├── core/
-│   ├── pipeline.py          Pipeline / Stage / StageContext primitives
-│   ├── config.py            JSON config loader (pydantic)
-│   ├── http.py              tenacity-wrapped requests session
-│   ├── git.py               git + gh-pr-create helpers
-│   ├── checker.py           upstream version polling (PHP parity)
-│   ├── sources/             NpmTarball, GithubArchive, UnicodeCldr
-│   ├── transforms/          Sanitise, SubsetTo, Slugify, Categorise, Indexer
-│   ├── sinks/               Filesystem, GitBranch
-│   └── reporters/           rich-based TTY reporter
-└── recipes/                 per-pack pre-baked pipelines
-```
-
-## Add a new pack
-
-1. Create `config/<slug>.json` describing the upstream + sinks.
-2. Add `<slug>` to `packs` in `config/packs.json`.
-3. If the pack needs custom ETL (multi-source, CLDR taxonomy, etc.),
-   write a recipe under `src/ichava_maintainer_toolkit/recipes/<slug>.py` and wire
-   it into `cli._run_recipe`.
-4. `make check-pack PACK=<slug>` to confirm the upstream poll resolves.
-
-## Develop
-
-```bash
-make shell        # bash inside the container
-make test         # pytest
-make lint         # ruff check
-make typecheck    # mypy strict
-make format       # ruff format
-```
-
-Or, locally without Docker:
-
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-ichava-maintainer-toolkit --help
-```
-
-## Status
-
-**Alpha.** Core primitives, the `npm` strategy, the `simple_npm` recipe
-(icon-sets-tabler, icon-sets-flag) and the `icon-sets-emoji` recipe
-(Twemoji + OpenMoji + Unicode CLDR) ship in the Python image.
-`icon-sets-bundled` has no Python recipe yet; its refresh exists only in
-the Go port under `src/cmd/imt`, which the image does not build.
-See `CHANGELOG.md`.
+Issues and pull requests are welcome at <https://github.com/ichava/icon-sets-sync/issues>. See
+[CONTRIBUTING.md](CONTRIBUTING.md), and [SECURITY.md](SECURITY.md) for reporting a vulnerability.
 
 ## License
 

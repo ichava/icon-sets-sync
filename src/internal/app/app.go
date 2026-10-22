@@ -10,22 +10,38 @@ package app
 import (
 	"context"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/checker"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 )
 
 // LoadPacks loads one pack, or every pack in registry order.
 //
 // Shared so the two front-ends cannot disagree about what "every pack" means.
 func LoadPacks(configDir, only string) ([]*config.PackConfig, error) {
+	return LoadPacksIn(configDir, only, "")
+}
+
+// LoadPacksIn is LoadPacks with a relative pack_root resolved against
+// workspace, so the checker reads the vendored version from the right tree.
+func LoadPacksIn(configDir, only, workspace string) ([]*config.PackConfig, error) {
+	var packs []*config.PackConfig
 	if only != "" {
 		pack, err := config.LoadPack(only, configDir)
 		if err != nil {
 			return nil, err
 		}
-		return []*config.PackConfig{pack}, nil
+		packs = []*config.PackConfig{pack}
+	} else {
+		all, err := config.LoadAll(configDir)
+		if err != nil {
+			return nil, err
+		}
+		packs = all
 	}
-	return config.LoadAll(configDir)
+	for _, p := range packs {
+		ApplyWorkspace(p, workspace)
+	}
+	return packs, nil
 }
 
 // CheckAll resolves upstream status for every pack, in order.

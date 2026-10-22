@@ -3,8 +3,9 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/tui"
-	"github.com/ichava/maintainer-toolkit/src/internal/ui"
+	"github.com/ichava/icon-sets-sync/src/internal/app"
+	"github.com/ichava/icon-sets-sync/src/internal/tui"
+	"github.com/ichava/icon-sets-sync/src/internal/ui"
 )
 
 func newMenuCommand() *cobra.Command {
@@ -28,8 +29,31 @@ func runMenu(cmd *cobra.Command, _ []string) error {
 		ui.Info("not a terminal, so there is nothing to drive the menu; printing help instead.")
 		return cmd.Help()
 	}
-	if err := tui.Run(configDir()); err != nil {
+	action, err := tui.Run(configDir())
+	if err != nil {
 		return failure(err)
 	}
-	return nil
+	if action == nil {
+		return nil
+	}
+	return runMenuAction(cmd, action)
+}
+
+// runMenuAction runs the sync the menu chose, through the same path as the
+// `sync` command. A menu dry run is a flag-layer value, so nothing below it
+// -- a pack's settings, the environment -- can turn it into a real commit.
+func runMenuAction(cmd *cobra.Command, action *tui.Action) error {
+	if action.DryRun {
+		state.stack.Flags["dry_run"] = true
+		state.run = state.stack.Resolve(nil)
+	}
+	only := action.Pack
+	if action.All {
+		only = ""
+	}
+	packs, err := app.LoadPacksIn(configDir(), only, workspace())
+	if err != nil {
+		return failure(err)
+	}
+	return runSync(cmd.Context(), packs)
 }

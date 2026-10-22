@@ -1,18 +1,15 @@
-// Command imt is the Ichava maintainer toolkit.
+// Command imt is the short alias of icon-sets-sync, kept for interactive use
+// and for anyone who installed it before the primary binary was renamed.
 //
-// Thin by design: it builds the cobra root and exits with whatever code the
-// command returned. Everything else lives under internal/, so the CLI and the
-// TUI stay two front-ends over one engine rather than two implementations.
-//
-// The binary ships under two names -- `ichava-maintainer-toolkit` for scripts
-// and docs, `imt` for interactive use -- matching the two console scripts the
-// Python declared.
+// It is the same program -- cli.Execute -- so the two cannot diverge. Install
+// either; the Docker image ships both, plus an ichava-maintainer-toolkit
+// symlink for scripts written against the Python console script.
 package main
 
 import (
 	"os"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/cli"
+	"github.com/ichava/icon-sets-sync/src/internal/cli"
 )
 
 func main() {

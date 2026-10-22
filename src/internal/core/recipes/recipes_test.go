@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/bundled"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/sinks"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/transforms"
+	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
+	"github.com/ichava/icon-sets-sync/src/internal/core/transforms"
 )
 
 func npmPack(name string) *config.PackConfig {
@@ -150,7 +150,7 @@ func TestBundledNeedsAManifestAndSaysSo(t *testing.T) {
 		Source: config.SourceConfig{Type: "url"},
 	}
 
-	_, err := Build(bundled, "2.2.0", false, t.TempDir())
+	_, err := Build(bundled, "2.2.0", Options{DryRun: false, ConfigDir: t.TempDir()})
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -185,7 +185,7 @@ func TestBundledBuildsOnePipelinePerSet(t *testing.T) {
 		Source: config.SourceConfig{Type: "url"},
 	}
 
-	built, err := Build(pack, "2.2.0", false, dir)
+	built, err := Build(pack, "2.2.0", Options{DryRun: false, ConfigDir: dir})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func TestBundledDoesNotEnforceThePolicy(t *testing.T) {
 		Source: config.SourceConfig{Type: "url"},
 	}
 
-	built, err := Build(pack, "2.2.0", true, dir)
+	built, err := Build(pack, "2.2.0", Options{DryRun: true, ConfigDir: dir})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +265,7 @@ func TestBundledRefusesAManifestForAnotherPack(t *testing.T) {
 		Source: config.SourceConfig{Type: "url"},
 	}
 
-	if _, err := Build(pack, "2.2.0", false, dir); err == nil ||
+	if _, err := Build(pack, "2.2.0", Options{DryRun: false, ConfigDir: dir}); err == nil ||
 		!strings.Contains(err.Error(), "names") {
 		t.Fatalf("err = %v, want it to refuse a manifest for another pack", err)
 	}
@@ -322,7 +322,7 @@ func indexOf(items []string, want string) int {
 // buildFor keeps the tests readable now that Build takes a config directory;
 // only the bundled recipe uses it.
 func buildFor(pack *config.PackConfig, version string, dryRun bool) ([]*pipeline.Pipeline, error) {
-	return Build(pack, version, dryRun, "")
+	return Build(pack, version, Options{DryRun: dryRun})
 }
 
 // TestBundledRetentionFloorMatchesTheAuditFloor pins the two together.
@@ -347,7 +347,7 @@ func TestBundledRetentionFloorMatchesTheAuditFloor(t *testing.T) {
 		Source: config.SourceConfig{Type: "url"},
 	}
 
-	built, err := Build(pack, "2.2.0", true, dir)
+	built, err := Build(pack, "2.2.0", Options{DryRun: true, ConfigDir: dir})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -391,7 +391,7 @@ func TestBundledFlattensAVariantSet(t *testing.T) {
 		Source: config.SourceConfig{Type: "url"},
 	}
 
-	built, err := Build(pack, "2.2.0", true, dir)
+	built, err := Build(pack, "2.2.0", Options{DryRun: true, ConfigDir: dir})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 )
 
 // tree builds a fetched tree and a context pointing at it.

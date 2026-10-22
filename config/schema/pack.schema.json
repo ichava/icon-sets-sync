@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ichava:icon-sets-sync:pack.schema.json",
+  "title": "icon-sets-sync pack config",
+  "description": "One config/<pack>.json (or .yaml). Validated on load; a file that fails is never run. Keys beginning with an underscore are authoring notes and are ignored.",
+  "type": "object",
+  "required": ["name", "pack", "pack_root", "version_check_url", "source"],
+  "additionalProperties": false,
+  "patternProperties": {
+    "^_": {}
+  },
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Editor hint. Ignored by the loader."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The pack slug, e.g. icon-sets-tabler."
+    },
+    "pack": {
+      "type": "string",
+      "pattern": "^[a-z0-9]([_.-]?[a-z0-9]+)*/[a-z0-9](([_.]|-{1,2})?[a-z0-9]+)*$",
+      "description": "Composer package name, e.g. ichava/icon-sets-tabler."
+    },
+    "pack_root": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the pack repository. Absolute, ~-prefixed, or relative to the `workspace` setting."
+    },
+    "current_version": {
+      "type": "string",
+      "description": "Fallback only. The version recorded in the pack repo's version_file wins."
+    },
+    "version_file": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Pack-relative JSON file recording the vendored upstream version."
+    },
+    "version_keys": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Dot-paths inside version_file. Read first-hit-wins, written at every existing key."
+    },
+    "version_check_url": {
+      "type": "string",
+      "pattern": "^https?://",
+      "description": "URL polled for the latest upstream version."
+    },
+    "recipe": {
+      "type": "string",
+      "enum": ["auto", "generic", "emoji-sets", "bundled"],
+      "description": "Which recipe builds the pipelines. `auto` (the default) picks by pack name, then by source type."
+    },
+    "source": { "$ref": "#/$defs/source" },
+    "sinks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sink" }
+    },
+    "transforms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/transform" },
+      "description": "Transforms run after source.source_path is applied. Empty means the default: sanitise."
+    },
+    "settings": { "$ref": "#/$defs/settings" }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "patternProperties": { "^_": {} },
+      "properties": {
+        "type": {
+          "enum": ["npm", "github-archive", "github-tag", "github-release", "url", "script"]
+        },
+        "package": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "repo": { "type": "string", "minLength": 1 },
+        "archive_url": { "type": "string", "pattern": "^https?://" },
+        "source_path": { "type": "string" },
+        "path": { "type": "string" },
+        "args": { "type": "array", "items": { "type": "string" } },
+        "version_field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Dot-path into the version_check_url response, for type url. Defaults to `version`."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "npm" } } },
+          "then": { "required": ["package"] }
+        }
+      ]
+    },
+    "sink": {
+      "type": "object",
+      "required": ["type"],
+      "patternProperties": { "^_": {} },
+      "properties": {
+        "type": { "enum": ["filesystem", "git-branch"] }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "filesystem" },
+            "root": { "type": "string", "minLength": 1 },
+            "incremental": { "type": "boolean" },
+            "min_retention": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "required": ["root"],
+          "additionalProperties": false,
+          "patternProperties": { "^_": {} }
+        },
+        {
+          "properties": {
+            "type": { "const": "git-branch" },
+            "repo_root": { "type": "string", "minLength": 1 },
+            "branch": { "type": "string", "minLength": 1 },
+            "commit_subject": { "type": "string", "minLength": 1 },
+            "commit_body": { "type": "string" },
+            "base": { "type": "string", "minLength": 1 },
+            "open_pr": { "type": "boolean" }
+          },
+          "additionalProperties": false,
+          "patternProperties": { "^_": {} }
+        }
+      ]
+    },
+    "transform": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["subset", "sanitise", "slugify", "categorise", "indexer", "flatten-variants"] }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "subset" },
+            "subdir": { "type": "string", "minLength": 1 }
+          },
+          "required": ["subdir"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": { "const": "sanitise" },
+            "also_strip_class": { "type": "boolean" },
+            "strict": { "type": "boolean" },
+            "report_only": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "properties": { "type": { "const": "slugify" } },
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": { "const": "categorise" },
+            "by": { "enum": ["cldr", "passthrough"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": { "const": "indexer" },
+            "targets": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "enum": ["codepoints", "names"] }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": { "const": "flatten-variants" },
+            "separator": { "type": "string" },
+            "variants": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["path"],
+                "additionalProperties": false,
+                "properties": {
+                  "path": { "type": "string", "minLength": 1 },
+                  "prefix": { "type": "string" },
+                  "suffix": { "type": "string" }
+                }
+              }
+            }
+          },
+          "required": ["variants"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "settings": {
+      "type": "object",
+      "description": "Per-pack settings. Overridden by the global config, ICHAVA_* environment variables and flags, in that order.",
+      "additionalProperties": false,
+      "properties": {
+        "dry_run": { "type": "boolean" },
+        "force": { "type": "boolean" },
+        "git": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "author": { "type": "string", "pattern": "^[^<>]+ <[^<>@]+@[^<>]+>$" },
+            "base": { "type": "string", "minLength": 1 },
+            "branch": { "type": "string", "minLength": 1 },
+            "commit_subject": { "type": "string", "minLength": 1 },
+            "commit_body": { "type": "string" },
+            "open_pr": { "type": "boolean" }
+          }
+        },
+        "emoji": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "unicode_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+            "openmoji_version": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

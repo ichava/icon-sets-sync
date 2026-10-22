@@ -3,15 +3,16 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/app"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/checker"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/recipes"
-	"github.com/ichava/maintainer-toolkit/src/internal/ui"
+	"github.com/ichava/icon-sets-sync/src/internal/app"
+	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
+	"github.com/ichava/icon-sets-sync/src/internal/ui"
 )
 
 // ---------------------------------------------------------------- list-packs
@@ -23,7 +24,7 @@ func newListPacksCommand() *cobra.Command {
 		Short:   "List the registered packs",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			packs, err := app.LoadPacks(configDir(), "")
+			packs, err := app.LoadPacksIn(configDir(), "", workspace())
 			if err != nil {
 				return failure(err)
 			}
@@ -35,6 +36,7 @@ func newListPacksCommand() *cobra.Command {
 						"name": p.Name, "pack": p.Pack,
 						"current": config.ResolvedCurrentVersion(p),
 						"source":  p.Source.Type,
+						"recipe":  recipes.Select(p),
 					})
 				}
 				return ui.JSON(rows)
@@ -70,7 +72,7 @@ func newCheckCommand() *cobra.Command {
 Exits 1 when any pack is behind upstream, so it can gate a scheduled job.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			packs, err := app.LoadPacks(configDir(), pack)
+			packs, err := app.LoadPacksIn(configDir(), pack, workspace())
 			if err != nil {
 				return failure(err)
 			}
@@ -115,113 +117,175 @@ func newSyncCommand() *cobra.Command {
 	var (
 		pack     string
 		allPacks bool
-		dryRun   bool
-		force    bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Refresh a pack's assets from upstream and open a pull request",
-		Args:  cobra.NoArgs,
+		Long: `Refresh a pack's assets from upstream and open a pull request.
+
+Fails (exit 1) when a pack's latest upstream version cannot be resolved, when
+a pack declares no sinks outside a dry run, or when any stage fails. The other
+packs still run first.`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if pack == "" && !allPacks {
 				return usageErr("pass --pack=<slug> or --all")
 			}
-			packs, err := app.LoadPacks(configDir(), pack)
+			if pack != "" && allPacks {
+				return usageErr("pass --pack=<slug> or --all, not both")
+			}
+			packs, err := app.LoadPacksIn(configDir(), pack, workspace())
 			if err != nil {
 				return failure(err)
 			}
-			return runSync(cmd.Context(), packs, dryRun, force)
+			return runSync(cmd.Context(), packs)
 		},
 	}
 	f := cmd.Flags()
 	f.StringVar(&pack, "pack", "", "sync one pack slug")
-	f.BoolVar(&allPacks, "all", false, "sync every pack")
-	f.BoolVar(&dryRun, "dry-run", false, "skip the git commit and pull request")
-	f.BoolVar(&force, "force", false, "refresh even when not stale")
+	f.BoolVar(&allPacks, "all", false, "sync every pack (same as sync-all)")
+	f.IntVar(&g.concurrency, "concurrency", 1, "packs synced at once with --all (setting concurrency)")
+	addRunFlags(f, true)
 	return cmd
 }
 
-func runSync(ctx context.Context, packs []*config.PackConfig, dryRun, force bool) error {
-	c := checker.New()
-	failed := false
-
-	for _, p := range packs {
-		result := c.CheckPack(ctx, p)
-
-		// An unresolvable upstream is reported and skipped, not fatal: one
-		// dead registry must not abort a run across every other pack.
-		if result.Latest == "" {
-			ui.Warning("%s: %s", p.Pack, result.Reason)
-			continue
-		}
-		if !result.Stale && !force {
-			ui.Success("%s: up-to-date (%s)", p.Pack, result.Current)
-			continue
-		}
-
-		ui.Info("%s: refreshing from %s %s %s", p.Pack, orDash(result.Current), ui.Sym.Arrow, result.Latest)
-
-		outcome, err := RunRecipe(ctx, p, result.Latest, dryRun)
-		if err != nil {
-			// The literal "recipe pending" is a cross-repository contract:
-			// icon-sets-bundled's sync-upstream.yml greps for it and turns
-			// this into a green run with a ::notice::, because that pack's
-			// recipe genuinely does not exist yet.
-			if errors.Is(err, pipeline.ErrRecipePending) {
-				ui.Warning("%s: %s", p.Pack, err)
-				failed = true
-				continue
+func newSyncAllCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "sync-all",
+		Short: "Refresh every registered pack, up to --concurrency at a time",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			packs, err := app.LoadPacksIn(configDir(), "", workspace())
+			if err != nil {
+				return failure(err)
 			}
-			ui.Failure("%s: %s", p.Pack, err)
-			failed = true
-			continue
+			return runSync(cmd.Context(), packs)
+		},
+	}
+	f := cmd.Flags()
+	f.IntVar(&g.concurrency, "concurrency", 1, "packs synced at once (setting concurrency)")
+	addRunFlags(f, true)
+	return cmd
+}
+
+// Seams for tests. Nil means the real checker and the real recipe runner,
+// which need the network and npm.
+var (
+	syncChecker app.Checker
+	syncRun     app.RunFunc
+)
+
+func runSync(ctx context.Context, packs []*config.PackConfig) error {
+	outcomes := app.Sync(ctx, packs, app.SyncOptions{
+		Checker:     syncChecker,
+		Run:         syncRun,
+		Stack:       state.stack,
+		ConfigDir:   configDir(),
+		Concurrency: state.run.Int("concurrency"),
+		Starting: func(p *config.PackConfig, r checker.Result, dryRun bool) {
+			mode := ""
+			if dryRun {
+				mode = " (dry run)"
+			}
+			ui.Info("%s: refreshing from %s %s %s%s", p.Pack, orDash(r.Current), ui.Sym.Arrow, r.Latest, mode)
+		},
+		Done: reportOutcome,
+	})
+
+	if ui.JSONMode() {
+		rows := make([]map[string]any, 0, len(outcomes))
+		for _, o := range outcomes {
+			row := map[string]any{
+				"pack": o.Pack, "status": o.Status, "current": o.Current,
+				"latest": o.Latest, "dry_run": o.DryRun,
+			}
+			if o.Err != nil {
+				row["error"] = o.Err.Error()
+			}
+			if o.Status == app.StatusSynced {
+				row["summary"] = o.Result.Summary()
+			}
+			rows = append(rows, row)
 		}
-		if !outcome.Success {
-			ui.Failure("%s: %s", p.Pack, outcome.Error())
-			failed = true
-			continue
+		if err := ui.JSON(rows); err != nil {
+			return failure(err)
 		}
-		ui.Success("%s: done -- %v", p.Pack, outcome.Summary())
 	}
 
-	if failed {
+	if app.AnyFailed(outcomes) {
 		return &ExitError{Code: ExitFailure}
 	}
 	return nil
 }
 
+func reportOutcome(o app.Outcome) {
+	if ui.JSONMode() {
+		return
+	}
+	switch o.Status {
+	case app.StatusUpToDate:
+		ui.Success("%s: up-to-date (%s)", o.Pack, o.Current)
+	case app.StatusSynced:
+		ui.Success("%s: done -- %v", o.Pack, o.Result.Summary())
+	default:
+		// The literal "recipe pending" is a cross-repository contract:
+		// icon-sets-bundled's sync-upstream.yml greps for it. No recipe
+		// returns it any more, but the wording is kept for any that might.
+		if errors.Is(o.Err, pipeline.ErrRecipePending) {
+			ui.Warning("%s: %s", o.Pack, o.Err)
+			return
+		}
+		ui.Failure("%s: %s", o.Pack, o.Err)
+	}
+}
+
 // --------------------------------------------------------------------- recipe
 
 func newRecipeCommand() *cobra.Command {
-	var (
-		versionFlag string
-		dryRun      bool
-	)
+	var versionFlag string
 
 	cmd := &cobra.Command{
 		Use:   "recipe <name>",
 		Short: "Run one pack's recipe directly, skipping the upstream check",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pack, err := config.LoadPack(args[0], configDir())
+			packs, err := app.LoadPacksIn(configDir(), args[0], workspace())
 			if err != nil {
 				return failure(err)
 			}
+			pack := packs[0]
 
-			resolved := versionFlag
-			if resolved == "" {
-				resolved = pack.CurrentVersion
+			resolved, err := app.PackSettings(state.stack, pack)
+			if err != nil {
+				return failure(err)
 			}
-			if resolved == "" {
+			s := resolved.Settings()
+
+			version := versionFlag
+			if version == "" {
+				version = pack.CurrentVersion
+			}
+			if version == "" {
 				return usageErr("%s: no version supplied and no current_version in config", pack.Pack)
 			}
+			if len(pack.Sinks) == 0 && !s.DryRun {
+				return failure(fmt.Errorf("%s declares no sinks, so the recipe would write nothing; add sinks or pass --dry-run", pack.Pack))
+			}
 
-			outcome, err := RunRecipe(cmd.Context(), pack, resolved, dryRun)
+			outcome, err := app.RunRecipe(cmd.Context(), pack, version, recipes.Options{
+				DryRun: s.DryRun, ConfigDir: configDir(), Settings: &resolved,
+			})
 			if err != nil {
 				return failure(err)
 			}
-			ui.Printf("%v\n", outcome.Summary())
+			if ui.JSONMode() {
+				if err := ui.JSON(outcome.Summary()); err != nil {
+					return failure(err)
+				}
+			} else {
+				ui.Printf("%v\n", outcome.Summary())
+			}
 			if !outcome.Success {
 				return &ExitError{Code: ExitFailure}
 			}
@@ -229,33 +293,7 @@ func newRecipeCommand() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&versionFlag, "version", "", "version override")
-	f.BoolVar(&dryRun, "dry-run", false, "skip the git commit and pull request")
+	f.StringVar(&versionFlag, "version", "", "version override (default: the config's current_version)")
+	addRunFlags(f, false)
 	return cmd
-}
-
-// RunRecipe builds a pack's pipelines and runs them in order.
-//
-// Aborts on the first failure and returns that result, rather than running the
-// rest: the emoji recipe's trailing pipeline commits whatever the three asset
-// pipelines left on disk, so continuing past a failed fetch would commit a
-// half-refreshed pack.
-func RunRecipe(ctx context.Context, pack *config.PackConfig, version string, dryRun bool) (pipeline.Result, error) {
-	built, err := recipes.Build(pack, version, dryRun, configDir())
-	if err != nil {
-		return pipeline.Result{}, err
-	}
-
-	var last pipeline.Result
-	for _, p := range built {
-		result, err := p.Run()
-		if err != nil {
-			return result, err
-		}
-		last = result
-		if !result.Success {
-			return result, nil
-		}
-	}
-	return last, nil
 }

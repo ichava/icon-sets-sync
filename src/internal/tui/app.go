@@ -17,11 +17,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/app"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/checker"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
-	"github.com/ichava/maintainer-toolkit/src/internal/ui"
-	"github.com/ichava/maintainer-toolkit/src/internal/version"
+	"github.com/ichava/icon-sets-sync/src/internal/app"
+	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/ui"
+	"github.com/ichava/icon-sets-sync/src/internal/version"
 )
 
 type screen int
@@ -32,6 +32,30 @@ const (
 	screenResults
 	screenPacks
 	screenDetail
+	screenConfirm
+)
+
+// Action is what the menu asks the CLI to do once the TUI has exited.
+//
+// A sync is run outside the alt screen, by the same code path as the `sync`
+// command, so its progress lines and any failure land in the terminal's
+// scrollback rather than vanishing with the TUI -- and so the two front-ends
+// cannot sync differently.
+type Action struct {
+	// Pack is the slug to sync; empty with All set means every pack.
+	Pack string
+	All  bool
+
+	// DryRun is the Python menu's "Sync all packs (dry-run)".
+	DryRun bool
+}
+
+// packMode says what choosing a pack on the pack list does.
+type packMode int
+
+const (
+	modeInspect packMode = iota
+	modeSync
 )
 
 type menuItem struct {
@@ -58,6 +82,10 @@ type Model struct {
 
 	packCursor int
 	selected   *config.PackConfig
+	mode       packMode
+
+	// Action is set when the user chose a sync; Run returns it.
+	Action *Action
 }
 
 // New builds the root model.
@@ -71,9 +99,26 @@ func New(configDir string) *Model {
 		{"Check upstream status (all packs)", "poll every registry and compare against what each pack vendors",
 			func(m *Model) (tea.Model, tea.Cmd) { return m, m.startCheck("") }},
 		{"Check upstream status (single pack)", "pick one pack, then poll just that registry",
-			func(m *Model) (tea.Model, tea.Cmd) { m.screen = screenPacks; return m, m.loadPacks() }},
+			func(m *Model) (tea.Model, tea.Cmd) {
+				m.mode, m.screen = modeInspect, screenPacks
+				return m, m.loadPacks()
+			}},
+		{"Sync one pack", "refresh one pack from upstream, commit and open a pull request (asks first)",
+			func(m *Model) (tea.Model, tea.Cmd) {
+				m.mode, m.screen = modeSync, screenPacks
+				return m, m.loadPacks()
+			}},
+		{"Sync all packs (dry-run)", "refresh every pack's files without committing; exits the menu to show progress",
+			func(m *Model) (tea.Model, tea.Cmd) {
+				m.Action = &Action{All: true, DryRun: true}
+				m.quitting = true
+				return m, tea.Quit
+			}},
 		{"List registered packs", "the registry, with the version each pack repo records",
-			func(m *Model) (tea.Model, tea.Cmd) { m.screen = screenPacks; return m, m.loadPacks() }},
+			func(m *Model) (tea.Model, tea.Cmd) {
+				m.mode, m.screen = modeInspect, screenPacks
+				return m, m.loadPacks()
+			}},
 		{"Quit", "", func(m *Model) (tea.Model, tea.Cmd) { m.quitting = true; return m, tea.Quit }},
 	}
 	return m
@@ -158,12 +203,25 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.quitting = true
 		return m, tea.Quit
 
+	case "y", "Y":
+		if m.screen == screenConfirm && m.selected != nil {
+			m.Action = &Action{Pack: m.selected.Name}
+			m.quitting = true
+			return m, tea.Quit
+		}
+
+	case "n", "N":
+		if m.screen == screenConfirm {
+			m.screen = screenPacks
+			return m, nil
+		}
+
 	case "esc":
 		switch m.screen {
 		case screenMenu:
 			m.quitting = true
 			return m, tea.Quit
-		case screenDetail:
+		case screenDetail, screenConfirm:
 			m.screen = screenPacks
 		default:
 			m.screen = screenMenu
@@ -208,6 +266,9 @@ func (m *Model) activate() (tea.Model, tea.Cmd) {
 		if m.packCursor < len(m.packs) {
 			m.selected = m.packs[m.packCursor]
 			m.screen = screenDetail
+			if m.mode == modeSync {
+				m.screen = screenConfirm
+			}
 		}
 	case screenDetail:
 		if m.selected != nil {
@@ -265,6 +326,8 @@ func (m *Model) View() string {
 		b.WriteString(m.viewPacks())
 	case screenDetail:
 		b.WriteString(m.viewDetail())
+	case screenConfirm:
+		b.WriteString(m.viewConfirm())
 	}
 
 	if m.err != nil {
@@ -349,6 +412,16 @@ func (m *Model) viewDetail() string {
 	return b.String()
 }
 
+func (m *Model) viewConfirm() string {
+	if m.selected == nil {
+		return ""
+	}
+	// Same question, same default, as the Python menu: refreshing commits and
+	// opens a pull request, so the answer has to be typed.
+	return fmt.Sprintf("Refresh %s from upstream + open a PR? %s\n",
+		titleStyle.Render(m.selected.Name), subtitleStyle.Render("[y/N]"))
+}
+
 func orDash(s string) string {
 	if s == "" {
 		return "-"
@@ -368,13 +441,21 @@ func (m *Model) help() string {
 		return "up/down move  enter open  esc back  q quit"
 	case screenDetail:
 		return "enter check this pack  esc back  q quit"
+	case screenConfirm:
+		return "y sync  n back  q quit"
 	}
 	return "q quit"
 }
 
-// Run starts the TUI.
-func Run(configDir string) error {
+// Run starts the TUI and returns the action chosen, if any.
+func Run(configDir string) (*Action, error) {
 	p := tea.NewProgram(New(configDir), tea.WithAltScreen())
-	_, err := p.Run()
-	return err
+	final, err := p.Run()
+	if err != nil {
+		return nil, err
+	}
+	if m, ok := final.(*Model); ok {
+		return m.Action, nil
+	}
+	return nil, nil
 }

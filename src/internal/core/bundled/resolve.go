@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/sources"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
 )
 
 // Fetcher retrieves an npm package into a directory and reports its version.

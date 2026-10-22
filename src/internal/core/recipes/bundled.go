@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/ichava/maintainer-toolkit/src/internal/core/bundled"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/config"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/pipeline"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/sinks"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/sources"
-	"github.com/ichava/maintainer-toolkit/src/internal/core/transforms"
+	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
+	"github.com/ichava/icon-sets-sync/src/internal/core/transforms"
 )
 
 // buildBundled composes the aggregator pack's refresh: one pipeline per set,
@@ -30,7 +30,8 @@ import (
 //     wiped, not touched. An aggregator pack that quietly stopped refreshing a
 //     third of itself would be bad; one that quietly *emptied* a third of
 //     itself would be unrecoverable from a scheduled job.
-func buildBundled(pack *config.PackConfig, configDir string, dryRun bool) ([]*pipeline.Pipeline, error) {
+func buildBundled(pack *config.PackConfig, opts Options) ([]*pipeline.Pipeline, error) {
+	configDir, dryRun := opts.ConfigDir, opts.DryRun
 	manifest, err := bundled.LoadManifest(configDir, pack.Name)
 	if err != nil {
 		return nil, err
@@ -108,7 +109,7 @@ func buildBundled(pack *config.PackConfig, configDir string, dryRun bool) ([]*pi
 				Config(cfg).
 				Source(sources.Static{Version: version}).
 				Sink(sinks.VersionStamp{Pack: pack}).
-				Sink(sinks.GitBranch{RepoRoot: pack.PackRoot, OpenPR: true}))
+				Sink(gitBranch(pack, firstSink(pack, "git-branch"), opts)))
 	}
 
 	return pipelines, nil
