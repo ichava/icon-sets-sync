@@ -27,8 +27,8 @@ Without Docker, with a Go toolchain:
 go -C src build -o ../build/icon-sets-sync ./cmd/icon-sets-sync
 ```
 
-The Python package under `src/ichava_maintainer_toolkit/` is **deprecated** since 0.2.0 and nothing
-runs it any more; see [Architecture](docs/architecture.md#why-go-and-what-happened-to-the-python).
+The original Python implementation was removed in 0.2.0; see
+[Architecture](docs/architecture.md#why-go-and-what-happened-to-the-python).
 
 ## Quick start guide and usage
 

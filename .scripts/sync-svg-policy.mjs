@@ -32,12 +32,10 @@ const CANONICAL = join(ROOT, 'core/resources/security/svg-policy.json');
 const TOOLKIT = existsSync(join(ROOT, 'icon-sets-sync')) ? 'icon-sets-sync' : 'maintainer-toolkit';
 
 const CONSUMERS = [
-  'browser/resources/assets/scripts/ichava-ts/security/svg-policy.json',
-  'react-browser/src/core/svg-policy.json',
-  `${TOOLKIT}/src/ichava_maintainer_toolkit/core/transforms/svg-policy.json`,
-  // The Go port embeds its own copy: //go:embed cannot reach outside the
-  // package directory, so it cannot share the Python one. Both entries stay
-  // until the Python is deleted at the cutover.
+  'icon-browser/resources/js/core/svg-policy.json',
+  'react-icon-browser/src/core/svg-policy.json',
+  // //go:embed cannot reach outside the package directory, so the Go module
+  // carries its own copy.
   `${TOOLKIT}/src/internal/core/svg/svg-policy.json`,
 ];
 

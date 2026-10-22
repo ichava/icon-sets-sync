@@ -124,10 +124,10 @@ pack's refresh, it fixed the emoji recipe's version stamp (the Python's commit p
 version to stamp, so that pack never converged), it filters `gh pr list` to open pull requests, and
 it ships as one static binary in a smaller image.
 
-From 0.2.0 the Docker image runs only the Go binary. **The Python package is deprecated, not
-removed**: it still imports, its CLI still runs and prints a `DeprecationWarning`, and its test job
-still runs in CI. The earliest release that could remove it is 0.3.0, and only once the owner
-approves each file. Until then nothing in the pack workflows reaches it.
+From 0.2.0 the Docker image runs only the Go binary, and **the Python package is removed**: the
+package, `pyproject.toml`, its tests and its CI job were deleted on the owner's decision of
+2026-10-21. The SVG filter's agreement with the lxml implementation it replaced is still checked,
+against `src/internal/core/svg/testdata/lxml-oracle.json`, the frozen results of the last lxml run.
 
 The Python's fluent API looked like this, for anyone reading an old recipe:
 

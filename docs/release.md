@@ -16,10 +16,9 @@ a private package.
    runs the first two in a container. The suite covers config loading and the schema, the settings
    precedence, the checker's version comparison, the pipeline, the recipes, git and gh invocation,
    the sync orchestration, and the vendored-version contract.
-2. The deprecated Python suite still runs in CI until it is removed: `make test-python`.
-3. Update `CHANGELOG.md`. The GitHub release body is that version's section; auto-generated notes
+2. Update `CHANGELOG.md`. The GitHub release body is that version's section; auto-generated notes
    are not a substitute. Keep exactly one `## [Unreleased]` heading.
-4. Tag `vX.Y.Z` and push the tag. The Go module is in `src/`, so a release that should be
+3. Tag `vX.Y.Z` and push the tag. The Go module is in `src/`, so a release that should be
    `go install`-able also needs `src/vX.Y.Z` on the same commit.
 
 The Tests workflow's Docker job builds the image and runs it the way the pack workflows do, which is

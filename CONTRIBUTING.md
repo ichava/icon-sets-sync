@@ -12,9 +12,6 @@ Or `make test-go` and `make lint`, which run the same in a container. The module
 so every `go` command names it with `-C src`: a bare `go test ./...` at the root finds no packages
 and passes.
 
-The Python package is deprecated but still tested until it is removed (`make test-python`, or
-`pip install -e '.[dev]' && pytest`). Do not add features to it.
-
 For an actual sync, use the Docker image. It is what CI runs, and a local machine with a different
 `npm` or `gh` is a different tool.
 

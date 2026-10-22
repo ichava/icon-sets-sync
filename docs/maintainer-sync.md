@@ -58,7 +58,7 @@ research notes inline in commit `feat(scripts): sync orchestrator`):
 ### 1. The toolkit (`ichava/icon-sets-sync`)
 
 A standalone Docker-first Go binary, `icon-sets-sync`, one per ecosystem. (The Python package it
-replaced is deprecated since 0.2.0 and no longer runs.) It:
+replaced was removed in 0.2.0.) It:
 
 - Reads each pack's config from its own `config/<slug>.json`
   (registry: `config/packs.json`).

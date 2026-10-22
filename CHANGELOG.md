@@ -33,15 +33,20 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
   prefix and the default sync commit body now name `icon-sets-sync`.
 - `docker-compose.yml` mounts this checkout's `config/` over `/app/config` and works from `/work`, so
   it no longer depends on the checkout's directory name.
-- The Makefile's `test`, `lint` and `format` run the Go checks first, in a `golang` container, then
-  the deprecated Python ones in a `python` container, because the image no longer contains Python.
+- The Makefile's `test`, `lint` and `format` run the Go checks in a `golang` container.
   `sync-all` uses the new `sync-all` command and takes `CONCURRENCY=`.
+
+### Removed
+
+- **The Python implementation**: `src/ichava_maintainer_toolkit/`, `pyproject.toml`, `tests/`, the
+  Python CI job, the `Setup Python` release step, the `pip` Dependabot entry, the Python Make
+  targets (`test-python`, `typecheck`, the ruff halves of `lint` and `format`) and the pip-cache
+  compose volume. The owner decided on 2026-10-21 to drop it entirely. The Go SVG filter's
+  agreement with lxml is still checked against `src/internal/core/svg/testdata/lxml-oracle.json`,
+  the frozen output of the last lxml run; the live cross-check that needed Python is gone with it.
 
 ### Deprecated
 
-- **The Python implementation** (`src/ichava_maintainer_toolkit/`, `pyproject.toml`, `tests/`),
-  in favour of the Go binary. It still imports and runs, its CLI prints a `DeprecationWarning` on
-  start, and its CI job still runs. Earliest removal: 0.3.0, with the owner's approval per file.
 - **The `ichava-maintainer-toolkit` command name**, in favour of `icon-sets-sync`. The image keeps
   it as a symlink that prints a notice. Earliest removal: 0.3.0.
 

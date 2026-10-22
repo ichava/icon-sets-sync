@@ -32,11 +32,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-
       # Two attempts, 45s apart, and the release publishes either way.
       #
       # The Syft installer fetches its checksums from GitHub's release-asset CDN.

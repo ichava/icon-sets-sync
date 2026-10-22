@@ -21,10 +21,6 @@ services:
       - ../:/work:rw
       # Persist npm cache between runs to skip redundant tarball downloads.
       - ichava_maintainer_toolkit_npm_cache:/root/.npm
-      # Deprecated: the pip cache served the Python image, which is gone from
-      # this service. Kept so `make nuke` and existing volumes behave as before;
-      # remove it with the Python implementation.
-      - ichava_maintainer_toolkit_pip_cache:/root/.cache/pip
       # This checkout's config/, so a local edit is what runs. Mounting it
       # also makes the service independent of this directory's name, which
       # still reads maintainer-toolkit on checkouts made before the rename.
@@ -45,4 +41,3 @@ services:
 
 volumes:
   ichava_maintainer_toolkit_npm_cache:
-  ichava_maintainer_toolkit_pip_cache:

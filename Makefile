@@ -1,8 +1,7 @@
 # icon-sets-sync (ichava/icon-sets-sync) -- Makefile.
 #
 # The run targets shell out to docker compose, so the host needs nothing but
-# Docker. The dev targets run Go (and the deprecated Python suite) in their
-# own throwaway containers for the same reason; `build-local` and `test-local`
+# Docker. The dev targets run Go in a throwaway container for the same reason; `build-local` and `test-local`
 # use a Go toolchain on the host when you have one. Run `make help`.
 
 SHELL := /usr/bin/env bash
@@ -23,10 +22,6 @@ SERVICE := ichava-maintainer-toolkit
 # `go test ./...` at the root finds no packages and passes.
 GO_IMAGE := golang:1.26-trixie
 GO_RUN := docker run --rm -v "$(CURDIR):/repo" -w /repo $(GO_IMAGE)
-
-# Deprecated Python implementation; kept testable until it is removed.
-PY_IMAGE := python:3.12-slim
-PY_RUN := docker run --rm -v "$(CURDIR):/repo" -w /repo $(PY_IMAGE) sh -c
 
 BIN := build/icon-sets-sync
 
@@ -105,29 +100,19 @@ config-print:  ## Print the effective settings and where each came from [PACK=<n
 # ---------------------------------------------------------------------------
 
 .PHONY: test
-test: test-go test-python  ## Run the Go suite, then the deprecated Python suite
+test: test-go  ## Run the Go suite
 
 .PHONY: test-go
 test-go:  ## Go: vet + test, in a golang container
 	$(GO_RUN) sh -c 'go -C src vet ./... && go -C src test -count=1 ./...'
 
-.PHONY: test-python
-test-python:  ## Deprecated Python implementation: pytest, in a python container
-	$(PY_RUN) 'pip install -q -e ".[dev]" && pytest -q'
-
 .PHONY: lint
-lint:  ## gofmt check + go vet, then ruff on the deprecated Python
+lint:  ## gofmt check + go vet
 	$(GO_RUN) sh -c 'test -z "$$(gofmt -l src)" || { gofmt -l src; exit 1; }; go -C src vet ./...'
-	$(PY_RUN) 'pip install -q -e ".[dev]" && ruff check src tests'
-
-.PHONY: typecheck
-typecheck:  ## mypy on the deprecated Python (Go is checked by the compiler)
-	$(PY_RUN) 'pip install -q -e ".[dev]" && mypy src'
 
 .PHONY: format
-format:  ## gofmt -w, then ruff format on the deprecated Python
+format:  ## gofmt -w
 	$(GO_RUN) gofmt -w src
-	$(PY_RUN) 'pip install -q -e ".[dev]" && ruff format src tests'
 
 .PHONY: build-local
 build-local:  ## Build $(BIN) with the host's Go toolchain
@@ -144,9 +129,8 @@ test-local:  ## go vet + go test with the host's Go toolchain
 
 .PHONY: clean
 clean:  ## Remove generated caches, temp dirs and build/
-	rm -rf .cache .downloads __pycache__ .pytest_cache .mypy_cache .ruff_cache build
-	find . -type d -name '__pycache__' -prune -exec rm -rf {} +
+	rm -rf .cache .downloads build
 
 .PHONY: nuke
-nuke:  ## Drop the docker volumes (npm cache, pip cache). Forces a cold rebuild.
+nuke:  ## Drop the docker volumes (npm cache). Forces a cold rebuild.
 	$(DC) down -v
