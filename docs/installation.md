@@ -35,12 +35,12 @@ docker run --rm -v "$PWD/..:/work" icon-sets-sync:local list-packs
 `/work` must be the directory that **contains** the pack repositories, not a pack itself: each
 shipped config's `pack_root` is `/work/<pack>`.
 
-This is the invocation every pack's `sync-upstream.yml` uses, unchanged from the Python image:
+This is the invocation every pack's `sync-upstream.yml` uses (the packs check this repository out into `.icon-sets-sync`):
 
 ```bash
 docker run --rm \
   -v "$PWD/..:/work" \
-  -v "$PWD/.ichava-maintainer-toolkit/config:/app/config" \
+  -v "$PWD/.icon-sets-sync/config:/app/config" \
   -e GH_TOKEN \
   icon-sets-sync:local sync --pack="$PACK_SLUG"
 ```

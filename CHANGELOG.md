@@ -6,6 +6,7 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
 
 ### Changed
 
+- **`docs/installation.md` shows the packs' current checkout path**, `.icon-sets-sync`, which they moved to with the rename.
 - **Breaking: the Docker image runs the Go binary, `icon-sets-sync`, and only that.** The
   Dockerfile is now a two-stage build (a `golang:1.26-trixie` builder, a `debian:trixie-slim`
   runtime with `git`, `gh`, `nodejs`/`npm` and `ca-certificates`), and its `ENTRYPOINT` is
