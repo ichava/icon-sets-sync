@@ -1,0 +1,176 @@
+version: 2
+project_name: icon-sets-sync
+
+# This config lives in src/ with the module, but GoReleaser is invoked from the
+# repository root (`goreleaser release --config src/.goreleaser.yaml`), so every
+# path here is repository-relative and only the Go build is pointed into the
+# module, via builds[].dir. Run from inside src/ and archive `files:` globbing
+# refuses the `../` prefix, so LICENSE and README become unreachable.
+#
+# Generated output goes to build/dist/, which .gitignore already covers.
+#
+# Reference: simtabi/ssh-manager's src/.goreleaser.yaml, minus the Homebrew,
+# Scoop and Winget channels -- ichava has no tap, bucket or winget fork yet.
+dist: build/dist
+
+# Two entrypoints, one program: imt is the short alias of icon-sets-sync and
+# calls the same cli.Execute, so both ship in every archive and package.
+builds:
+  - id: icon-sets-sync
+    dir: src
+    main: ./cmd/icon-sets-sync
+    binary: icon-sets-sync
+    env: &env
+      - CGO_ENABLED=0
+    flags: &flags
+      - -trimpath
+    goos: &goos
+      - linux
+      - darwin
+      - windows
+      - freebsd
+    goarch: &goarch
+      - amd64
+      - arm64
+      - arm
+      - "386"
+      - riscv64
+      - ppc64le
+      - s390x
+    goarm: &goarm
+      - "6"
+      - "7"
+    ignore: &ignore
+      # macOS ships amd64 and arm64 only.
+      - { goos: darwin, goarch: arm }
+      - { goos: darwin, goarch: "386" }
+      - { goos: darwin, goarch: riscv64 }
+      - { goos: darwin, goarch: ppc64le }
+      - { goos: darwin, goarch: s390x }
+      # 32-bit ARM is unsupported on Windows; the server architectures are Linux-only here.
+      - { goos: windows, goarch: arm }
+      - { goos: windows, goarch: riscv64 }
+      - { goos: windows, goarch: ppc64le }
+      - { goos: windows, goarch: s390x }
+      - { goos: freebsd, goarch: ppc64le }
+      - { goos: freebsd, goarch: s390x }
+    mod_timestamp: &ts "{{ .CommitTimestamp }}"
+    # The same variables the Dockerfile stamps, so `icon-sets-sync version`
+    # reports the tag whichever way the binary was built.
+    ldflags: &ldflags
+      - -s -w
+      - -X github.com/ichava/icon-sets-sync/src/internal/version.version={{ .Version }}
+      - -X github.com/ichava/icon-sets-sync/src/internal/version.commit={{ .Commit }}
+      - -X github.com/ichava/icon-sets-sync/src/internal/version.date={{ .CommitDate }}
+
+  - id: imt
+    dir: src
+    main: ./cmd/imt
+    binary: imt
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    goarm: *goarm
+    ignore: *ignore
+    mod_timestamp: *ts
+    ldflags: *ldflags
+
+# A macOS universal (amd64 + arm64) binary for each entrypoint.
+universal_binaries:
+  - id: icon-sets-sync
+    ids: [icon-sets-sync]
+    name_template: icon-sets-sync
+    replace: false
+  - id: imt
+    ids: [imt]
+    name_template: imt
+    replace: false
+
+# One flat, version-less naming scheme, darwin written as macos:
+#   icon-sets-sync_macos_arm64, icon-sets-sync_linux_armv7,
+#   icon-sets-sync_windows_amd64.exe, icon-sets-sync_macos_universal.
+# The tag carries the version.
+archives:
+  # The bare, ready-to-run executables, both entrypoints.
+  - id: binary
+    ids: [icon-sets-sync, imt]
+    formats: [binary]
+    name_template: >-
+      {{ .Binary }}_{{- if eq .Os "darwin" }}macos{{ else }}{{ .Os }}{{ end }}_
+      {{- if eq .Arch "all" }}universal{{ else if eq .Arch "arm" }}armv{{ .Arm }}{{ else }}{{ .Arch }}{{ end }}
+
+  # One compressed archive per platform, holding both entrypoints.
+  - id: archive
+    ids: [icon-sets-sync, imt]
+    name_template: >-
+      icon-sets-sync_{{- if eq .Os "darwin" }}macos{{ else }}{{ .Os }}{{ end }}_
+      {{- if eq .Arch "all" }}universal{{ else if eq .Arch "arm" }}armv{{ .Arm }}{{ else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+# Native Linux packages; nfpm takes the Linux builds only.
+nfpms:
+  - id: icon-sets-sync
+    ids: [icon-sets-sync, imt]
+    package_name: icon-sets-sync
+    vendor: Simtabi LLC
+    homepage: "https://opensource.simtabi.com/products/ichava/icon-sets-sync"
+    maintainer: "Imani Manyara <imani@simtabi.com>"
+    description: "Syncs the Ichava icon packs from their upstream sources."
+    license: MIT
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    file_name_template: 'icon-sets-sync_linux_{{ if eq .Arch "arm" }}armv{{ .Arm }}{{ else }}{{ .Arch }}{{ end }}'
+
+# Bare filenames, so install scripts and `sha256sum -c` resolve from any directory.
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+# The exact tree as a first-class asset, beside GitHub's "Source code" links.
+source:
+  enabled: true
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+
+# One SPDX SBOM per archive (syft).
+sboms:
+  - id: archive
+    artifacts: archive
+
+# Keyless Sigstore signature over checksums.txt, which names every other
+# artifact, so one signature covers the release. The workflow's id-token
+# permission is the identity; there is no key to hold. Produces
+# checksums.txt.sigstore.json, verified with:
+#   cosign verify-blob --bundle checksums.txt.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/ichava/icon-sets-sync/\.github/workflows/release\.yml@refs/tags/v' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt
+# Build provenance (attest-build-provenance in release.yml) is separate and
+# mandatory; this signature is the second, cosign-verifiable channel.
+signs:
+  - id: cosign-keyless
+    cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args:
+      - sign-blob
+      - "--bundle=${signature}"
+      - "${artifact}"
+      - "--yes"
+    output: true
+
+release:
+  github:
+    owner: ichava
+    name: icon-sets-sync
+  draft: false
+  prerelease: auto
+
+# The release body is the tagged CHANGELOG section, passed with --release-notes.
+changelog:
+  disable: true

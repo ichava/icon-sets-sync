@@ -27,7 +27,7 @@ Without Docker, with a Go toolchain:
 go -C src build -o ../build/icon-sets-sync ./cmd/icon-sets-sync
 ```
 
-The original Python implementation was removed in 0.2.0; see
+The original Python implementation was removed before the re-based 0.1.0; see
 [Architecture](docs/architecture.md#why-go-and-what-happened-to-the-python).
 
 ## Quick start guide and usage
