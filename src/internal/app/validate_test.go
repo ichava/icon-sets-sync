@@ -87,3 +87,22 @@ func TestValidateConfigsStopsAtAMissingRegistry(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+func TestValidatePackBytesChecksTheUnsavedDocument(t *testing.T) {
+	dir := t.TempDir()
+	writePack(t, dir, sprintf(demoPack, "icon-sets-demo", `[]`))
+	path := filepath.Join(dir, "icon-sets-demo.json")
+
+	renamed := []byte(sprintf(demoPack, "icon-sets-other", `[]`))
+	got := ValidatePackBytes(dir, "icon-sets-demo", path, renamed, settings.Stack{})
+	if Problems(got) != 1 || !strings.Contains(got[0].Text, "does not match its registry slug") {
+		t.Fatalf("findings %+v", got)
+	}
+	if got := ValidatePackBytes(dir, "icon-sets-demo", path, []byte(`{"name": 1}`), settings.Stack{}); Problems(got) != 1 {
+		t.Fatalf("an invalid document passed: %+v", got)
+	}
+	// The file on disk was not consulted: it is still the valid original.
+	if Problems(ValidatePack(dir, "icon-sets-demo", settings.Stack{})) != 0 {
+		t.Fatal("the file on disk changed")
+	}
+}

@@ -3,6 +3,7 @@ package settings
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -365,5 +366,24 @@ func TestLoadGlobal(t *testing.T) {
 
 	if v, err := LoadGlobal(""); err != nil || len(v) != 0 {
 		t.Fatalf("no path: %v, %v", v, err)
+	}
+}
+
+func TestParseGlobalMatchesLoadGlobal(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	doc := []byte("git:\n  base: develop\nconcurrency: 3\n")
+	if err := os.WriteFile(path, doc, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fromFile, err := LoadGlobal(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fromBytes, err := ParseGlobal(path, doc)
+	if err != nil || !reflect.DeepEqual(fromFile, fromBytes) {
+		t.Fatalf("%v %v", fromBytes, err)
+	}
+	if _, err := ParseGlobal("config.json", []byte(`{"nope": 1}`)); err == nil {
+		t.Error("an unknown key parsed")
 	}
 }

@@ -100,3 +100,21 @@ func TestWritePackFileAtomic(t *testing.T) {
 		t.Fatalf("saved bytes differ from the submitted bytes:\n%s", got)
 	}
 }
+
+func TestParseRegistryBytes(t *testing.T) {
+	dir := filepath.Join("..", "..", "..", "..", "config")
+	fromFile, err := LoadRegistry(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "packs.json"))
+	fromBytes, err := ParseRegistryBytes(filepath.Join(dir, "packs.json"), data)
+	if err != nil || !reflect.DeepEqual(fromFile, fromBytes) {
+		t.Fatalf("%v %v", fromBytes, err)
+	}
+	for _, doc := range []string{`{"packs": ["a", "a"]}`, `{"packs": [""]}`, `{"packz": []}`, `[`} {
+		if _, err := ParseRegistryBytes("packs.json", []byte(doc)); err == nil {
+			t.Errorf("%s parsed", doc)
+		}
+	}
+}
