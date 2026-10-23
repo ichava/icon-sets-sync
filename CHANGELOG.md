@@ -1,8 +1,12 @@
 # Changelog
 
-All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and [Semantic Versioning](https://semver.org/).
+All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-toolkit`) follow [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+
+## [0.1.0] - 2026-10-23
+
+Versioning re-based to 0.1.0. This is the first release of the Go implementation and the first with release binaries. It contains everything previously tagged v0.1.0 through v0.1.3 (2026-08-31 to 2026-09-22, the Python `ichava/maintainer-toolkit`) plus the changes below. Those tags and their GitHub releases were removed; every commit they pointed at is on `main`, and their sections are kept under *Archived pre-reset history*.
 
 ### Changed
 
@@ -465,9 +469,14 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
   by grepping for `` `…documentation/….md` `` rather than for links, after the estate-wide link
   scan came back at zero.
 
-## [0.1.3] - 2026-09-22
+## [Archived pre-reset history]
 
-### Added
+> Versioning was re-based to 0.1.0 on 2026-10-23. The tags and GitHub releases below were removed;
+> every commit they pointed at is on `main`. Sections reproduced verbatim, one heading level down.
+
+### [0.1.3] - 2026-09-22
+
+#### Added
 
 - **`.scripts/wt` — one git worktree per session, over one object store.** This estate is
   thirteen repositories and more than one agent session works in them at once. A working tree has
@@ -525,7 +534,7 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
   key, and an `if:` referencing a property that does not exist are all caught, while
   `yaml.safe_load` still parses the first of them without complaint.
 
-### Changed
+#### Changed
 
 - **Every pack slug moved to the `icon-sets-` names, and the config *filenames* had to move with
   them.** `load_pack(slug)` reads `config/{slug}.json`, and each pack's `sync-upstream.yml` passes
@@ -567,7 +576,7 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
   `SECURITY.md` were already stated inline and are unchanged; the Code of Conduct now cites the
   Contributor Covenant directly. Historical mentions in this changelog are left as written.
 
-### Fixed
+#### Fixed
 
 - **The README's link label named the old central docs repo.** The URL was already correct —
   `docs/upstream-tracking.md`, in this repository — while the text beside it still read
@@ -598,24 +607,24 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
   default, but the point of this change is that a missing SBOM must not fail the publish, so it
   should not rest on a default a future reader has to know.
 
-## [0.1.2] - 2026-09-21
+### [0.1.2] - 2026-09-21
 
-### Changed
+#### Changed
 
 - **`codecov/codecov-action` pinned to `303a32d` (v7.1.1).** Third-party actions are pinned to
   the commit SHA of their latest release, with the version in a trailing comment; Dependabot
   moves the SHA and the comment together. The pin exists to stop a mutable tag moving under us,
   not to freeze a version, so it tracks latest rather than being held back.
 
-## [0.1.1] - 2026-09-16
+### [0.1.1] - 2026-09-16
 
-### Added
+#### Added
 
 - `release.yml`, and third-party GitHub Actions pinned to the commit SHA of their latest
   release. `codecov/codecov-action` moved 4 → 7 and `docker/login-action` 3 → 4; the workflow
   already used the `files:` spelling v5 introduced, so no input changes were needed.
 
-### Added
+#### Added
 
 - `svg_policy` and `svg_filter`: the reader for the shared `svg-policy.json` and the pure
   policy enforcement it drives. Split so the rules can be tested without running a pipeline.
@@ -626,7 +635,7 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
   never had a policy file to do it with, so it silently fell back to DISCOVERY.
 - `lxml` as a dependency.
 
-### Changed
+#### Changed
 
 - **`Sanitise` moved from regex to lxml.** `_EVENT_ATTR` matched double-quoted attributes
   only, so `<path onload='x()'/>` and every unquoted or entity-encoded spelling passed the
@@ -638,7 +647,7 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
   tree is already clean in CI. Unparsable input is reported and left alone, never silently
   passed through.
 
-### Fixed
+#### Fixed
 
 - **The `emoji-sets` recipe pointed at upstream versions that do not exist**, which is why
   `ichava/emoji-sets` shipped a tagged package with zero SVGs (`V4`). `unicode_version`
@@ -649,7 +658,7 @@ All notable changes to `ichava/maintainer-toolkit` follow [Keep a Changelog](htt
 - `UnicodeCldr` points a failed fetch at the Unicode directory listing instead of surfacing
   a bare `HTTPError`.
 
-## [0.1.0] - 2026-08-31
+### [0.1.0] - 2026-08-31
 
 First open-source release: the pack ingest pipelines, the upstream version checker, the
 corpus census tool, and the CLI that drives them.
