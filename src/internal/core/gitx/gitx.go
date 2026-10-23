@@ -78,6 +78,11 @@ func (g *Git) HasUncommittedChanges(ctx context.Context, repo string) (bool, err
 	return out != "", nil
 }
 
+// CurrentBranch returns the checked-out branch, or "HEAD" when detached.
+func (g *Git) CurrentBranch(ctx context.Context, repo string) (string, error) {
+	return g.runner().Run(ctx, repo, nil, "git", "rev-parse", "--abbrev-ref", "HEAD")
+}
+
 // CreateBranch creates or resets a branch to HEAD.
 //
 // -B rather than -b, so a re-run over a branch a previous run left behind

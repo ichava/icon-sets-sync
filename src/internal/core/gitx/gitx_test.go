@@ -211,3 +211,14 @@ func TestCreateAndFetchBranch(t *testing.T) {
 		}
 	}
 }
+
+func TestCurrentBranch(t *testing.T) {
+	f := &fakeRunner{answers: map[string]string{"git rev-parse --abbrev-ref HEAD": "chore/sync"}}
+	got, err := (&Git{Run: f}).CurrentBranch(context.Background(), "/repo")
+	if err != nil || got != "chore/sync" {
+		t.Fatalf("got %q, %v", got, err)
+	}
+	if len(f.calls) != 1 || f.calls[0].dir != "/repo" {
+		t.Errorf("calls %+v", f.calls)
+	}
+}
