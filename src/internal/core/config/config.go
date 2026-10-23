@@ -295,7 +295,19 @@ func LoadPackFile(path string) (*PackConfig, error) {
 		}
 		return nil, err
 	}
+	return ParsePackBytes(path, data)
+}
 
+// ParsePackBytes is LoadPackFile on bytes already in hand: it validates and
+// decodes them exactly as if they had been read from path. The path decides
+// the format (JSON, or YAML by extension), prefixes every error, and is
+// recorded as the pack's File.
+//
+// It exists for an editor, which has to validate the exact bytes it is about
+// to write through the same loader that will later read them. Re-marshalling
+// a decoded PackConfig instead would silently drop every `_note` annotation,
+// because loading strips them.
+func ParsePackBytes(path string, data []byte) (*PackConfig, error) {
 	canonical, err := docfile.ToJSON(path, data)
 	if err != nil {
 		return nil, err
@@ -326,6 +338,17 @@ func LoadPackFile(path string) (*PackConfig, error) {
 	pack.File = path
 
 	return &pack, nil
+}
+
+// WritePackFileAtomic validates data as a pack config for path and, only if
+// it is valid, replaces the file atomically (see docfile.WriteAtomic). An
+// invalid document never reaches the disk, so a reader can never load half a
+// save or a save that would not load.
+func WritePackFileAtomic(path string, data []byte) error {
+	if _, err := ParsePackBytes(path, data); err != nil {
+		return err
+	}
+	return docfile.WriteAtomic(path, data)
 }
 
 // LoadRegistry reads and validates config/packs.json (or packs.yaml).
