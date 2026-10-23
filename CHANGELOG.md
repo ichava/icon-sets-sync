@@ -17,6 +17,11 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
   and `gh` call; `app.RunRecipe` uses it instead of discarding it. `Pipeline.Run()` is kept and is
   `RunContext(context.Background())`. A cancelled run is a failed result whose error is
   `context.Canceled`.
+- **A run can have its own logger and a stage observer.** `recipes.Options` and `app.SyncOptions`
+  take a `Logger` and a `pipeline.Observer`; every pipeline a recipe builds gets both, and a
+  stage with no logger of its own writes to its pipeline's through `pipeline.Context.Logger()`
+  instead of `slog.Default()`. The observer is told when each stage starts and finishes, with
+  its metrics and error. The CLI passes neither, so its output is unchanged.
 
 ### Fixed
 
