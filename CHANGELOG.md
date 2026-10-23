@@ -67,6 +67,8 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
 
 ### Added
 
+- **Release binaries, signed.** A `vX.Y.Z` tag now runs GoReleaser (`src/.goreleaser.yaml`): bare binaries for `icon-sets-sync` and `imt` across Linux, macOS (plus a universal binary), Windows and FreeBSD, `.tar.gz`/`.zip` archives, `.deb`/`.rpm`/`.apk`, a source tarball, an SPDX SBOM per archive and `checksums.txt`. Every artifact gets a build-provenance attestation, and `checksums.txt` a keyless Sigstore signature (`checksums.txt.sigstore.json`). The workflow also pushes the `src/vX.Y.Z` tag Go needs to resolve the module. The Tests workflow builds the same set as a snapshot on every pull request.
+
 - **Pack configs are validated against a JSON Schema**, `config/schema/pack.schema.json` (2020-12),
   on every load. Every violation is reported at once with its JSON pointer. The binary embeds a
   copy, and a test fails if the two differ.
