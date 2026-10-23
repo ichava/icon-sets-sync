@@ -102,6 +102,7 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ### Fixed
 
+- **The release pull request is found in the same run that opens it.** The step that hands the release branch to the changelog close asked `gh pr list --label 'autorelease: pending'`, which goes through GitHub's search index; on the first live run (js-motion#30) the index had not caught up with the pull request opened seconds earlier, so the close was skipped and a second dispatch was needed. It now takes the branch from release-please's own `pr` output, and only when the action reports nothing (the pull request was already current) falls back to the open pull requests, matched by the `release-please--branches--main` prefix rather than the label.
 - **Ctrl-C stops a sync cleanly.** The first SIGINT or SIGTERM cancels the run: the stage in flight
   is stopped and no later stage -- the version stamp, the commit, the push -- runs. Before, nothing
   listened for the signal, so it could only kill the process wherever it happened to be. A second

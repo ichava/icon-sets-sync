@@ -66,16 +66,31 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+      # The action's own output names the branch whenever this run opened or updated the release
+      # pull request. When the pull request was already current the action reports nothing, so fall
+      # back to the open pull requests, matched by release-please's branch prefix. Never by label:
+      # `gh pr list --label` goes through the search index, which lags a just-opened pull request.
+      # On the first live run (js-motion#30) it returned nothing and the changelog close was skipped.
       - name: Find the open release pull request
         id: pr
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
+          RELEASE_PR: ${{ steps.release.outputs.pr }}
         run: |
           set -euo pipefail
-          BRANCH="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open \
-            --label 'autorelease: pending' --json headRefName --jq '.[0].headRefName // ""')"
+          BRANCH=''
+          SOURCE='release-please output'
+          if [ -n "${RELEASE_PR}" ]; then
+            BRANCH="$(jq -r '.headBranchName // ""' <<<"${RELEASE_PR}")"
+          fi
+          if [ -z "${BRANCH}" ]; then
+            SOURCE='open pull requests'
+            BRANCH="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --base main --limit 100 \
+              --json headRefName \
+              --jq '[.[].headRefName | select(startswith("release-please--branches--main"))][0] // ""')"
+          fi
           echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
-          echo "open release branch: ${BRANCH:-none}"
+          echo "open release branch: ${BRANCH:-none} (from ${SOURCE})"
 
       - name: Check out the release branch
         if: steps.pr.outputs.branch != ''
