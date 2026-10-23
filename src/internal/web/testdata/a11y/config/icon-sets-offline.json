@@ -1,0 +1,10 @@
+{
+  "_note": "Fixture: an upstream that answers 404, so the pages render their failure states.",
+  "name": "icon-sets-offline",
+  "pack": "ichava/icon-sets-offline",
+  "pack_root": "icon-sets-offline",
+  "current_version": "2.0.0",
+  "version_check_url": "http://127.0.0.1:8765/missing.json",
+  "source": {"type": "npm", "package": "icon-sets-offline-fixture"},
+  "sinks": [{"type": "filesystem", "root": "{pack_root}/resources/assets/svg/files"}]
+}
