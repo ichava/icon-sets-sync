@@ -52,7 +52,17 @@ func LoadGlobal(path string) (Values, error) {
 	if path == "" {
 		return Values{}, nil
 	}
-	tree, err := docfile.ReadTree(path)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGlobal(path, data)
+}
+
+// ParseGlobal is LoadGlobal on bytes already in hand, so an editor validates
+// a global config with the loader that will read it.
+func ParseGlobal(path string, data []byte) (Values, error) {
+	tree, err := docfile.ParseTree(path, data)
 	if err != nil {
 		return nil, err
 	}

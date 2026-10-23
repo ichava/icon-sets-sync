@@ -58,9 +58,6 @@ func ValidateConfigs(dir string, stack settings.Stack) []Finding {
 // recipe can run it and, for the bundled pack, that its set manifest loads.
 // A pack with no sinks is a warning, not an error.
 func ValidatePack(dir, slug string, stack settings.Stack) []Finding {
-	bad := func(format string, a ...any) []Finding {
-		return []Finding{{LevelError, fmt.Sprintf(format, a...)}}
-	}
 	path, err := config.PackFile(slug, dir)
 	if err != nil {
 		return bad("%s", err)
@@ -69,6 +66,25 @@ func ValidatePack(dir, slug string, stack settings.Stack) []Finding {
 	if err != nil {
 		return bad("%s", err)
 	}
+	return checkPack(dir, slug, path, pack, stack)
+}
+
+// ValidatePackBytes runs ValidatePack's checks on a document that is not yet
+// on disk -- the bytes an editor is about to save to path.
+func ValidatePackBytes(dir, slug, path string, data []byte, stack settings.Stack) []Finding {
+	pack, err := config.ParsePackBytes(path, data)
+	if err != nil {
+		return bad("%s", err)
+	}
+	return checkPack(dir, slug, path, pack, stack)
+}
+
+func bad(format string, a ...any) []Finding {
+	return []Finding{{LevelError, fmt.Sprintf(format, a...)}}
+}
+
+// checkPack is every check after the document has loaded.
+func checkPack(dir, slug, path string, pack *config.PackConfig, stack settings.Stack) []Finding {
 	if pack.Name != slug {
 		return bad("%s: name %q does not match its registry slug %q", path, pack.Name, slug)
 	}

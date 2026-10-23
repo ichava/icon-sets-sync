@@ -11,3 +11,11 @@ main:focus { outline: none; }
 .log-pane[data-level="info"] .log-debug,
 .log-pane[data-level="warn"] .log-debug, .log-pane[data-level="warn"] .log-info,
 .log-pane[data-level="error"] .log-debug, .log-pane[data-level="error"] .log-info, .log-pane[data-level="error"] .log-warn { display: none; }
+.editor { display: flex; max-height: 70vh; overflow: auto; font-family: var(--tblr-font-monospace); font-size: .8125rem; line-height: 1.5; }
+.editor-gutter { margin: 0; padding: .75rem .5rem .75rem 3rem; color: var(--tblr-secondary); text-align: right; user-select: none; border-right: 1px solid var(--tblr-border-color); }
+.editor-gutter li { height: 1.5em; }
+.editor-text { flex: 1; min-height: 24rem; border: 0; padding: .75rem; resize: vertical; background: transparent; color: inherit; font: inherit; line-height: inherit; white-space: pre; overflow: hidden; }
+.editor-text:focus { outline: 2px solid var(--tblr-primary); outline-offset: -2px; }
+.finding { white-space: pre-wrap; margin-bottom: .25rem; }
+.finding-error { color: var(--tblr-danger); }
+.finding-warn { color: var(--tblr-warning); }

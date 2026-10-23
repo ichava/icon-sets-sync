@@ -31,6 +31,18 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
   log by level, and has a Cancel button that stops the stage in flight. Finished runs are kept as
   JSON Lines under `$XDG_STATE_HOME/icon-sets-sync/runs/` (newest 50), listed and filtered on the
   Runs page and downloadable.
+- **A config editor in the web UI.** `/config` lists `packs.json`, every pack config, the bundled
+  set manifest and the global config; each opens as raw text, so `_note` annotations survive a
+  save. Validate runs the same loader and checks as `config validate` on the unsaved bytes (as you
+  type, with JavaScript), listing every problem with its JSON pointer. Save is refused for an
+  invalid document, writes atomically, and is refused with 409 if the file changed on disk after
+  it was opened, keeping your text. A directory that cannot be written (the Docker image's `:ro`
+  config mount) is detected by trying, and the editor opens read-only with the reason. Saving the
+  global config creates it under `$XDG_CONFIG_HOME/icon-sets-sync/` if needed and applies it to the
+  running server's next run.
+- `config.ParseRegistryBytes`, `bundled.ParseManifestBytes`, `docfile.ParseTree`,
+  `settings.ParseGlobal` and `app.ValidatePackBytes`: each file loader's body, on bytes in hand;
+  the loaders read the file and delegate.
 - **`app.Recipe`**, the body of the `recipe` command, which now delegates to it.
 - **`make tabler-update` and `make tabler-vendor`.** The Tabler version is pinned in one place,
   `src/internal/web/assets/vendor/TABLER_VERSION`. `tabler-update` moves `@tabler/core` and

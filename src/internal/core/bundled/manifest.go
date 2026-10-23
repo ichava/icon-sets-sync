@@ -93,7 +93,13 @@ func LoadManifest(configDir, packName string) (*Manifest, error) {
 		}
 		return nil, err
 	}
+	return ParseManifestBytes(path, data)
+}
 
+// ParseManifestBytes validates and decodes a set manifest as if read from
+// path. LoadManifest reads the file and calls it; an editor calls it on the
+// bytes it is about to save.
+func ParseManifestBytes(path string, data []byte) (*Manifest, error) {
 	var m Manifest
 	dec := json.NewDecoder(strings.NewReader(string(data)))
 	dec.DisallowUnknownFields()

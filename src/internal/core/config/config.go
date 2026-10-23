@@ -368,6 +368,13 @@ func LoadRegistry(configDir string) (*PacksRegistry, error) {
 	if err != nil {
 		return nil, err
 	}
+	return ParseRegistryBytes(registryFile, data)
+}
+
+// ParseRegistryBytes validates and decodes a registry document as if read
+// from path. LoadRegistry reads the file and calls it; an editor calls it on
+// the bytes it is about to save.
+func ParseRegistryBytes(registryFile string, data []byte) (*PacksRegistry, error) {
 	canonical, err := docfile.ToJSON(registryFile, data)
 	if err != nil {
 		return nil, err

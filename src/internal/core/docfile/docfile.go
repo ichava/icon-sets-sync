@@ -136,6 +136,11 @@ func ReadTree(path string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	return ParseTree(path, data)
+}
+
+// ParseTree is ReadTree on bytes already in hand; path picks the format.
+func ParseTree(path string, data []byte) (map[string]any, error) {
 	canonical, err := ToJSON(path, data)
 	if err != nil {
 		return nil, err

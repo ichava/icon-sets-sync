@@ -19,6 +19,10 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /jobs/{id}", s.handleJob)
 	mux.HandleFunc("GET /jobs/{id}/log.jsonl", s.handleJobLog)
 	mux.HandleFunc("GET /events/jobs/{id}", s.handleEvents)
+	mux.HandleFunc("GET /config", s.handleConfigList)
+	mux.HandleFunc("GET /config/{name}", s.handleConfigEdit)
+	// Validation writes nothing, so a read-only server keeps it.
+	mux.HandleFunc("POST /config/{name}/validate", s.handleConfigValidate)
 
 	if !s.opts.ReadOnly {
 		s.writeRoutes(mux)
@@ -42,4 +46,5 @@ func (s *Server) writeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /packs/{slug}/recipe", s.handleRecipe)
 	mux.HandleFunc("POST /sync-all", s.handleSyncAll)
 	mux.HandleFunc("POST /jobs/{id}/cancel", s.handleCancel)
+	mux.HandleFunc("POST /config/{name}", s.handleConfigSave)
 }

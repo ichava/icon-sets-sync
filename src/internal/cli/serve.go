@@ -80,7 +80,7 @@ Runs from the UI are dry runs unless you turn that off and confirm twice.
 			srv, err := web.New(web.Options{
 				Engine: &web.AppEngine{
 					ConfigDir: configDir(), Workspace: workspace(),
-					GlobalPath: state.globalPath, Stack: state.stack, Git: gitx.New(),
+					GlobalPath: state.globalPath, GlobalHome: configHome(), Stack: state.stack, Git: gitx.New(),
 				},
 				Token:        token,
 				AllowedHosts: web.AllowedHosts(host, bound, allowHosts),
@@ -137,6 +137,19 @@ Runs from the UI are dry runs unless you turn that off and confirm twice.
 	f.BoolVar(&noOpen, "no-open", false, "do not open a browser")
 	f.StringVar(&tokenFile, "token-file", "", "also write the sign-in address to this file, mode 0600, for scripts")
 	return cmd
+}
+
+// configHome is where a new global config is created: $XDG_CONFIG_HOME, else
+// ~/.config, on every platform, per the house layout.
+func configHome() string {
+	if x := os.Getenv("XDG_CONFIG_HOME"); x != "" {
+		return x
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".config")
 }
 
 // splitAddr accepts "host" or "host:port".

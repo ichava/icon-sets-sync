@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
@@ -54,6 +55,15 @@ type Engine interface {
 
 	// Recipe runs one pack's recipe at a version, as `recipe` does.
 	Recipe(ctx context.Context, pack *config.PackConfig, version string, req RunRequest, hooks RunHooks) (pipeline.Result, error)
+
+	// ConfigFiles lists the documents the editor offers.
+	ConfigFiles() ([]ConfigFile, error)
+	// ReadConfig returns one document's bytes and revision.
+	ReadConfig(name string) (ConfigDoc, error)
+	// ValidateConfig checks bytes as the loader would, without writing.
+	ValidateConfig(name string, data []byte) []app.Finding
+	// WriteConfig validates and saves, refusing a stale base revision.
+	WriteConfig(name string, data []byte, base string) error
 }
 
 // RunRequest is what a run form may set. It enters the settings as the flag
@@ -102,8 +112,22 @@ type AppEngine struct {
 	ConfigDir  string
 	Workspace  string
 	GlobalPath string
+	// GlobalHome is $XDG_CONFIG_HOME (or ~/.config): where the editor creates
+	// a global config when none exists yet.
+	GlobalHome string
 	Stack      settings.Stack
 	Git        *gitx.Git
+
+	// mu guards Stack and GlobalPath, which a global-config save replaces;
+	// writeMu serialises saves.
+	mu      sync.Mutex
+	writeMu sync.Mutex
+}
+
+func (e *AppEngine) stack() settings.Stack {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.Stack
 }
 
 // Packs implements Engine.
@@ -123,7 +147,10 @@ func (e *AppEngine) PackStats(ctx context.Context, pack *config.PackConfig) Pack
 
 // Settings implements Engine.
 func (e *AppEngine) Settings() SettingsView {
-	return BuildSettingsView(e.Stack.Resolve(nil), e.ConfigDir, e.GlobalPath)
+	e.mu.Lock()
+	stack, global := e.Stack, e.GlobalPath
+	e.mu.Unlock()
+	return BuildSettingsView(stack.Resolve(nil), e.ConfigDir, global)
 }
 
 // Pack implements Engine.
@@ -137,7 +164,7 @@ func (e *AppEngine) Pack(slug string) (*config.PackConfig, error) {
 
 // PackSettings implements Engine.
 func (e *AppEngine) PackSettings(pack *config.PackConfig) (SettingsView, error) {
-	r, err := app.PackSettings(e.Stack, pack)
+	r, err := app.PackSettings(e.stack(), pack)
 	if err != nil {
 		return SettingsView{}, err
 	}
@@ -188,7 +215,7 @@ func (e *AppEngine) configDir() string {
 // withFlags returns the stack with a run form's choices as flag-layer values,
 // over whatever the command line already put there.
 func (e *AppEngine) withFlags(req RunRequest) (settings.Stack, error) {
-	return WithRunFlags(e.Stack, req)
+	return WithRunFlags(e.stack(), req)
 }
 
 // WithRunFlags copies stack's flag layer and sets dry_run and force on it --
