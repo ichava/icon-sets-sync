@@ -1,4 +1,11 @@
 version: 2
+
+# release.yml pushes src/vX.Y.Z (the Go module alias) on the same commit as
+# vX.Y.Z. Without this, GoReleaser can take src/vX.Y.Z as the current tag:
+# "not semver" on a release, and a snapshot path with a slash in it.
+git:
+  ignore_tags:
+    - "src/*"
 project_name: icon-sets-sync
 
 # This config lives in src/ with the module, but GoReleaser is invoked from the
@@ -183,4 +190,7 @@ release:
 
 # The release body is the tagged CHANGELOG section, passed with --release-notes.
 changelog:
-  disable: true
+  # Not disabled: `disable: true` also drops --release-notes, which published
+  # v0.1.0 and v0.1.1 with an empty body. With --release-notes passed, that
+  # file is the body and nothing is generated from commits.
+  use: git
