@@ -19,9 +19,22 @@ a private package.
    runs the first two in a container. The suite covers config loading and the schema, the settings
    precedence, the checker's version comparison, the pipeline, the recipes, git and gh invocation,
    the sync orchestration, and the vendored-version contract.
-2. Update `CHANGELOG.md`. The GitHub release body is that version's section; auto-generated notes
-   are not a substitute. Keep exactly one `## [Unreleased]` heading.
-3. Tag `vX.Y.Z` (annotated) on `main` and push that tag alone.
+2. Write the notes in `CHANGELOG.md`'s one `## [Unreleased]` section, on `main`, through the pull
+   requests that make the changes. The GitHub release body is that version's section;
+   auto-generated notes are not a substitute.
+3. Run *Release Please* from the Actions tab (it also runs every Monday). It opens or refreshes one
+   release pull request that bumps `.release-please-manifest.json` and closes `[Unreleased]` as
+   `## [X.Y.Z] - date` on that branch; it fails when `[Unreleased]` is empty. Merging it tags
+   `vX.Y.Z` and creates the GitHub release. GoReleaser runs with `release.mode: replace`, so the
+   changelog section replaces the generated body release-please wrote.
+
+On 0.x a breaking change (`feat!:` or a `BREAKING CHANGE:` footer) bumps the minor and everything
+else bumps the patch. icon-sets-sync is versioned independently of the coupled ichava packages.
+Never edit the release pull request by hand: release-please rebuilds its branch and drops anything
+it did not write. Change the notes on `main` instead.
+
+If a tag ever starts nothing, run `release.yml` by hand against it:
+`gh workflow run release.yml --ref vX.Y.Z`.
 
 The tag starts two workflows:
 
