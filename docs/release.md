@@ -35,6 +35,13 @@ The tag starts two workflows:
 named after the subdirectory. **A `src/` tag is permanent once the Go proxy has fetched it**: never
 move or recreate one. The step leaves an existing alias alone.
 
+**Vendored web assets and the SBOM.** The web UI embeds Tabler (with the Bootstrap and Popper it
+bundles) and a Tabler Icons subset as committed files, not as an npm dependency, so Syft's SBOM does
+not list them. Their exact versions are in `src/internal/web/assets/vendor/TABLER_VERSION`, their
+hashes in `MANIFEST.sha256`, and their licences in `THIRD_PARTY_NOTICES.md`, which every archive and
+Linux package carries. Four pinned MIT components are clearer there than in a generated SBOM; move
+them with `make tabler-update` before a release, never by hand.
+
 The release config is `src/.goreleaser.yaml`, run from the repository root. The Tests workflow
 builds the whole release set on every pull request (`goreleaser release --snapshot`, no publish, no
 signature) and asserts what came out, and its Docker job builds the image the way the pack

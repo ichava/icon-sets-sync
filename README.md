@@ -66,6 +66,12 @@ Refresh every pack's files as a dry run, two at a time, against a different base
 ICHAVA_GIT_BASE=develop docker compose run --rm ichava-maintainer-toolkit sync-all --dry-run --concurrency=2
 ```
 
+Or do the same from a browser, dry run first:
+
+```bash
+go -C src run ./cmd/icon-sets-sync serve   # prints http://127.0.0.1:7878/?token=...
+```
+
 The full walkthrough is in [Getting started](docs/getting-started.md), and everything else is under
 [Documentation](#documentation).
 
@@ -83,6 +89,11 @@ The full walkthrough is in [Getting started](docs/getting-started.md), and every
 
 - [Maintainer sync](docs/maintainer-sync.md) -- the cron, pull request, tag and fan-out cycle
 - [Upstream tracking](docs/upstream-tracking.md) -- the end-user side of the same story
+- [`serve`](docs/tools/serve.md) -- the web UI: pages, flags, sign-in, safety, updating Tabler
+
+### Recipes
+
+- [Run a sync from the browser](docs/recipes/run-a-sync-from-the-browser.md) -- dry run, review, then the real pull request
 
 ## Community
 
