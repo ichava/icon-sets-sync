@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"sync"
 
@@ -98,6 +99,11 @@ type SyncOptions struct {
 
 	Checker Checker
 	Run     RunFunc
+
+	// Logger and Observer are handed to every pack's recipe; see
+	// recipes.Options. Nil means slog.Default() and no observer.
+	Logger   *slog.Logger
+	Observer pipeline.Observer
 
 	// Starting and Done are called around each pack, from that pack's
 	// goroutine, for progress output. Either may be nil. Calls are
@@ -202,6 +208,8 @@ func syncOne(ctx context.Context, pack *config.PackConfig, opts SyncOptions, chk
 		DryRun:    s.DryRun,
 		ConfigDir: opts.ConfigDir,
 		Settings:  &resolved,
+		Logger:    opts.Logger,
+		Observer:  opts.Observer,
 	})
 	o.Result = res
 	switch {

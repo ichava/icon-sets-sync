@@ -1,8 +1,11 @@
 package sources
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
@@ -44,5 +47,20 @@ func TestDownloadsUseTheRunContext(t *testing.T) {
 				t.Fatalf("download contexts %v, want [run-3]", d.seen)
 			}
 		})
+	}
+}
+
+// A source with no logger of its own writes to the run's logger, so a
+// server's per-run log stream shows what each source fetched.
+func TestSourcesLogToTheRunLogger(t *testing.T) {
+	var buf bytes.Buffer
+	d := &seenDownloader{}
+	_, _ = pipeline.Named("demo").
+		Source(GithubArchive{Owner: "o", Repo: "r", Version: "1.0.0", HTTP: d}).
+		Sink(nopSink{}).
+		Logger(slog.New(slog.NewTextHandler(&buf, nil))).
+		Run()
+	if !strings.Contains(buf.String(), "msg=downloading") {
+		t.Fatalf("the run's logger lacks the source's line:\n%s", buf.String())
 	}
 }

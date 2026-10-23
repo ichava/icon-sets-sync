@@ -45,6 +45,20 @@ type Context struct {
 	// cancelling a run stops the work in flight rather than only the next
 	// stage.
 	run context.Context
+
+	// log is the pipeline's logger, which a stage with no logger of its own
+	// writes to. A per-run logger set with Pipeline.Logger therefore reaches
+	// every stage's lines, not only the pipeline's.
+	log *slog.Logger
+}
+
+// Logger returns the logger a stage should write to when it has none of its
+// own: the pipeline's, else slog.Default().
+func (c *Context) Logger() *slog.Logger {
+	if c == nil || c.log == nil {
+		return slog.Default()
+	}
+	return c.log
 }
 
 // Context returns the run's context.Context. A stage executed outside a
@@ -128,6 +142,16 @@ func (c *Context) ConfigString(key string) string {
 // Metric records a per-stage counter under a namespaced key.
 func (c *Context) Metric(stage string, values map[string]any) {
 	c.Metrics[stage] = values
+}
+
+// Observer is told when each stage starts and finishes. It exists so a
+// front-end can draw stage progress from typed events rather than by parsing
+// log lines. Calls arrive on the goroutine running the pipeline.
+type Observer interface {
+	StageStarted(pipeline, stage string)
+	// StageFinished carries a snapshot of the run's metrics after the stage
+	// and the stage's error, nil on success.
+	StageFinished(pipeline, stage string, metrics map[string]any, err error)
 }
 
 // Stage is one step. Implementations are a Source, a Transform or a Sink.
@@ -229,6 +253,7 @@ type Pipeline struct {
 	workingDir string
 	config     map[string]any
 	log        *slog.Logger
+	observer   Observer
 
 	// buildErr defers a builder misuse to Run, so the fluent chain stays
 	// unbroken. Python raised immediately; a Go builder cannot without either
@@ -287,6 +312,12 @@ func (p *Pipeline) Logger(l *slog.Logger) *Pipeline {
 	if l != nil {
 		p.log = l
 	}
+	return p
+}
+
+// Observer sets the stage observer. Nil leaves none.
+func (p *Pipeline) Observer(o Observer) *Pipeline {
+	p.observer = o
 	return p
 }
 
@@ -364,6 +395,7 @@ func (p *Pipeline) RunContext(runCtx context.Context) (Result, error) {
 
 	ctx := newContext(p.name, workingDir, p.config)
 	ctx.run = runCtx
+	ctx.log = p.log
 	p.log.Info("pipeline starting", "pipeline", p.name, "working_dir", workingDir)
 
 	for _, stage := range p.Stages() {
@@ -379,7 +411,14 @@ func (p *Pipeline) RunContext(runCtx context.Context) (Result, error) {
 			}, nil
 		}
 		p.log.Info("stage", "pipeline", p.name, "stage", stage.Name())
-		if err := stage.Execute(ctx); err != nil {
+		if p.observer != nil {
+			p.observer.StageStarted(p.name, stage.Name())
+		}
+		err := stage.Execute(ctx)
+		if p.observer != nil {
+			p.observer.StageFinished(p.name, stage.Name(), cloneMetrics(ctx.Metrics), err)
+		}
+		if err != nil {
 			p.log.Error("pipeline failed", "pipeline", p.name, "stage", stage.Name(), "error", err)
 			return Result{
 				PipelineName: p.name,
@@ -398,6 +437,14 @@ func (p *Pipeline) RunContext(runCtx context.Context) (Result, error) {
 		Metrics:      ctx.Metrics,
 		Extras:       ctx.Extras,
 	}, nil
+}
+
+func cloneMetrics(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }
 
 // ErrRecipePending is returned for a pack whose recipe has not been written.

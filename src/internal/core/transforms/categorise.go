@@ -176,7 +176,7 @@ func (t Categorise) Execute(ctx *pipeline.Context) error {
 
 	log := t.Log
 	if log == nil {
-		log = slog.Default()
+		log = ctx.Logger()
 	}
 	log.Info("categorise", "taxonomy", "cldr", "copied", copied, "missing", missing)
 	return nil

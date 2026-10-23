@@ -7,6 +7,7 @@ package recipes
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
@@ -40,6 +41,14 @@ type Options struct {
 
 	// Git overrides the git/gh runner, for tests. Nil means real subprocesses.
 	Git gitx.Runner
+
+	// Logger receives every pipeline's and every stage's log lines. Nil means
+	// slog.Default(), which is what the CLI wants; a server running several
+	// syncs at once passes one per run so their lines stay apart.
+	Logger *slog.Logger
+
+	// Observer is told when each stage starts and finishes. May be nil.
+	Observer pipeline.Observer
 }
 
 func (o Options) resolved() settings.Resolved {
@@ -57,6 +66,17 @@ func (o Options) resolved() settings.Resolved {
 // *version* is discovered while its assets come from three separate upstreams
 // that only the named recipe knows about.
 func Build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.Pipeline, error) {
+	built, err := build(pack, version, opts)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range built {
+		p.Logger(opts.Logger).Observer(opts.Observer)
+	}
+	return built, nil
+}
+
+func build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.Pipeline, error) {
 	switch Select(pack) {
 	case RecipeEmojiSets:
 		return buildEmojiSets(pack, version, opts)

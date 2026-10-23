@@ -49,7 +49,7 @@ func (s NpmTarball) Execute(ctx *pipeline.Context) error {
 
 	log := s.Log
 	if log == nil {
-		log = slog.Default()
+		log = ctx.Logger()
 	}
 
 	workDir := filepath.Join(ctx.WorkingDir, "npm")
@@ -155,7 +155,7 @@ func (s GithubArchive) Execute(ctx *pipeline.Context) error {
 
 	log := s.Log
 	if log == nil {
-		log = slog.Default()
+		log = ctx.Logger()
 	}
 	client := s.HTTP
 	if client == nil {
@@ -255,7 +255,7 @@ func (s UnicodeCldr) Execute(ctx *pipeline.Context) error {
 	}
 	log := s.Log
 	if log == nil {
-		log = slog.Default()
+		log = ctx.Logger()
 	}
 
 	url := fmt.Sprintf("https://unicode.org/Public/emoji/%s/emoji-test.txt", version)
