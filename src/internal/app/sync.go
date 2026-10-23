@@ -228,7 +228,10 @@ func configName(pack *config.PackConfig) string {
 // rest: the emoji recipe's trailing pipeline commits whatever the three asset
 // pipelines left on disk, so continuing past a failed fetch would commit a
 // half-refreshed pack.
-func RunRecipe(_ context.Context, pack *config.PackConfig, version string, opts recipes.Options) (pipeline.Result, error) {
+//
+// ctx reaches every stage, so cancelling it stops the pipeline in flight and
+// skips the pipelines after it.
+func RunRecipe(ctx context.Context, pack *config.PackConfig, version string, opts recipes.Options) (pipeline.Result, error) {
 	built, err := recipes.Build(pack, version, opts)
 	if err != nil {
 		return pipeline.Result{}, err
@@ -236,7 +239,7 @@ func RunRecipe(_ context.Context, pack *config.PackConfig, version string, opts 
 
 	var last pipeline.Result
 	for _, p := range built {
-		result, err := p.Run()
+		result, err := p.RunContext(ctx)
 		if err != nil {
 			return result, err
 		}
