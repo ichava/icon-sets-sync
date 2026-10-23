@@ -4,6 +4,19 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ## [Unreleased]
 
+### Changed
+
+- **The settings stack, config validation and the bundled audit are `internal/app` functions.**
+  `app.BuildStack`, `app.ValidateConfigs`/`app.ValidatePack` and `app.AuditBundled`/`app.ResolveSets`
+  hold what used to be the bodies of `resolveState`, `config validate` and `bundled audit`, so a
+  second front-end resolves precedence, validates and surveys through the same code. The commands
+  delegate to them; their output and exit codes are unchanged. `app.UsageError` carries the
+  usage-versus-failure distinction that maps onto exit code 2.
+
+### Deprecated
+
+- **`cli.resolveAll`**, which now forwards to `app.ResolveSets`. Earliest removal: 0.3.0.
+
 ## [0.1.0] - 2026-10-23
 
 Versioning re-based to 0.1.0. This is the first release of the Go implementation and the first with release binaries. It contains everything previously tagged v0.1.0 through v0.1.3 (2026-08-31 to 2026-09-22, the Python `ichava/maintainer-toolkit`) plus the changes below. Those tags and their GitHub releases were removed; every commit they pointed at is on `main`, and their sections are kept under *Archived pre-reset history*.
