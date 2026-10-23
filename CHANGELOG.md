@@ -42,7 +42,10 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 - **An accessibility gate for the web UI.** The Tests workflow's `Web UI accessibility` job serves
   the UI against a fixture and runs axe (`@axe-core/cli`, pinned) over every page in the light and
   the dark theme, failing on any serious or critical violation and on scanning fewer pages than
-  intended.
+  intended. Its first run found 17 serious violations across both themes, all fixed here: status
+  badges and alerts below 4.5:1 contrast (Tabler's tinted `-lt` colours), outline buttons below it
+  in the dark theme, links inside text told apart by colour alone, and scrollable licence texts
+  that a keyboard could not reach. A test now refuses Tabler's `-lt` badge classes.
 - **Docs:** [`serve`](docs/tools/serve.md) and the recipe
   [Run a sync from the browser](docs/recipes/run-a-sync-from-the-browser.md); `docs/release.md`
   records why the vendored web assets are listed in `TABLER_VERSION` and `THIRD_PARTY_NOTICES.md`

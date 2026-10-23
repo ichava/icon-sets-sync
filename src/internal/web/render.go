@@ -99,11 +99,11 @@ func funcs(a *assetSet) template.FuncMap {
 		"statusClass": func(s checker.Status) string {
 			switch s {
 			case checker.StatusOK:
-				return "bg-green-lt"
+				return "badge-ok"
 			case checker.StatusUpdateAvailable:
-				return "bg-yellow-lt"
+				return "badge-warn"
 			}
-			return "bg-red-lt"
+			return "badge-bad"
 		},
 		"statusText": func(s checker.Status) string {
 			switch s {
@@ -125,13 +125,13 @@ func funcs(a *assetSet) template.FuncMap {
 		"runClass": func(s any) string {
 			switch fmt.Sprint(s) {
 			case "succeeded", "synced", "up-to-date":
-				return "bg-green-lt"
+				return "badge-ok"
 			case "running":
-				return "bg-blue-lt"
+				return "badge-info"
 			case "cancelled":
-				return "bg-secondary-lt"
+				return "badge-muted"
 			}
-			return "bg-red-lt"
+			return "badge-bad"
 		},
 		"runAlert": func(s jobs.Status) string {
 			switch s {
@@ -158,11 +158,11 @@ func funcs(a *assetSet) template.FuncMap {
 		"stageClass": func(state string) string {
 			switch state {
 			case jobs.StageFinished:
-				return "bg-green-lt"
+				return "badge-ok"
 			case jobs.StageStarted:
-				return "bg-blue-lt"
+				return "badge-info"
 			}
-			return "bg-red-lt"
+			return "badge-bad"
 		},
 		"outcomes": func() []string {
 			return []string{string(jobs.StatusRunning), string(jobs.StatusSucceeded), string(jobs.StatusFailed), string(jobs.StatusCancelled)}

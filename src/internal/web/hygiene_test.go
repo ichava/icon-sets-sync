@@ -2,6 +2,7 @@ package web
 
 import (
 	"io/fs"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -87,6 +88,38 @@ func TestAppJSAvoidsDynamicCode(t *testing.T) {
 	for _, bad := range []string{"eval(", "new Function", "innerHTML", "document.write", "setAttribute(\"style\""} {
 		if strings.Contains(string(js), bad) {
 			t.Errorf("app.js uses %s", bad)
+		}
+	}
+}
+
+// Tabler's -lt badge colours measure 2.4-4.4:1 against their own tint, under
+// WCAG's 4.5:1; the ui-a11y job found every use. Status colours go through
+// the badge-ok/warn/bad/info/muted classes in app.css instead.
+var tintedBadge = regexp.MustCompile(`\bbg-[a-z]+-lt\b`)
+
+func TestNoLowContrastTablerBadges(t *testing.T) {
+	if !tintedBadge.MatchString(`<span class="badge bg-green-lt">`) {
+		t.Fatal("the pattern does not catch its sample")
+	}
+	files := map[string][]byte{}
+	_ = fs.WalkDir(templateFS, "templates", func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			files[p], _ = templateFS.ReadFile(p)
+		}
+		return nil
+	})
+	files["assets/app.js"], _ = assetFS.ReadFile("assets/app.js")
+	for _, src := range []string{"render.go", "handle_audit.go"} {
+		if b, err := os.ReadFile(src); err == nil {
+			files[src] = b
+		}
+	}
+	if len(files) < minTemplates+2 {
+		t.Fatalf("inspected %d files", len(files))
+	}
+	for name, body := range files {
+		if m := tintedBadge.Find(body); m != nil {
+			t.Errorf("%s uses %s; use a badge-* class from app.css", name, m)
 		}
 	}
 }

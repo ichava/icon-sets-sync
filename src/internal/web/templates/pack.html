@@ -23,7 +23,7 @@
           <dt class="col-4">File</dt><dd class="col-8"><code class="text-break">{{.Pack.File}}</code></dd>
           <dt class="col-4">Pack root</dt><dd class="col-8"><code class="text-break">{{.Pack.PackRoot}}</code></dd>
           <dt class="col-4">Version check</dt><dd class="col-8"><code class="text-break">{{.Pack.VersionCheckURL}}</code></dd>
-          <dt class="col-4">Pack repo</dt><dd class="col-8">{{if .Stats.Err}}<span class="text-danger">{{.Stats.Err}}</span>{{else if .Stats.Branch}}{{icon "git-branch"}} <code>{{.Stats.Branch}}</code>{{if .Stats.Dirty}} <span class="badge bg-orange-lt">uncommitted changes</span>{{end}} · {{thousands .Stats.SVGs}} SVGs{{else}}not checked yet{{end}}</dd>
+          <dt class="col-4">Pack repo</dt><dd class="col-8">{{if .Stats.Err}}<span class="text-danger">{{.Stats.Err}}</span>{{else if .Stats.Branch}}{{icon "git-branch"}} <code>{{.Stats.Branch}}</code>{{if .Stats.Dirty}} <span class="badge badge-warn">uncommitted changes</span>{{end}} · {{thousands .Stats.SVGs}} SVGs{{else}}not checked yet{{end}}</dd>
         </dl>
         {{if .Notes}}
         <h3 class="mt-3 h4">Notes from the config file</h3>
@@ -48,7 +48,7 @@
           <caption class="visually-hidden">This pack's effective settings and where each came from</caption>
           <thead><tr><th scope="col">Setting</th><th scope="col">Value</th><th scope="col">From</th></tr></thead>
           <tbody>
-            {{range .Settings.Rows}}{{if .PackScoped}}<tr><th scope="row"><code>{{.Name}}</code></th><td><code class="text-break">{{orDash .Value}}</code></td><td><span class="badge {{if eq .Origin "default"}}bg-secondary-lt{{else}}bg-blue-lt{{end}}">{{.Origin}}</span></td></tr>{{end}}{{end}}
+            {{range .Settings.Rows}}{{if .PackScoped}}<tr><th scope="row"><code>{{.Name}}</code></th><td><code class="text-break">{{orDash .Value}}</code></td><td><span class="badge {{if eq .Origin "default"}}badge-muted{{else}}badge-info{{end}}">{{.Origin}}</span></td></tr>{{end}}{{end}}
           </tbody>
         </table>
       </div>

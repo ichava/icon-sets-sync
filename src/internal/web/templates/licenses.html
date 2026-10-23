@@ -1,12 +1,12 @@
 {{define "content"}}
 {{template "page_header" "Third-party licences"}}
 <p class="text-secondary">This page's styles, scripts and icons are third-party software embedded in the binary. Each is MIT-licensed; its full notice follows.</p>
-{{range .Data}}
-<section class="card mb-3" aria-labelledby="lic-{{.Package}}">
-  <div class="card-header"><h2 class="card-title" id="lic-{{.Package}}">{{.Package}} {{.Version}}</h2></div>
+{{range $i, $l := .Data}}
+<section class="card mb-3" aria-labelledby="lic-{{$i}}">
+  <div class="card-header"><h2 class="card-title" id="lic-{{$i}}">{{.Package}} {{.Version}}</h2></div>
   <div class="card-body">
     <p class="text-secondary">Used for: {{.What}}.</p>
-    <pre class="licence-text">{{.Text}}</pre>
+    <pre class="licence-text" tabindex="0" aria-label="Licence text of {{.Package}}">{{.Text}}</pre>
   </div>
 </section>
 {{end}}

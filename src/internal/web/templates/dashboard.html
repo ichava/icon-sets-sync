@@ -57,7 +57,7 @@
           <td><code>{{orDash .Current}}</code></td>
           <td>{{if .Checked}}<code>{{orDash .Result.Latest}}</code>{{if .Result.ReleaseURL}} <a href="{{.Result.ReleaseURL}}" rel="noreferrer noopener" target="_blank">{{icon "external-link"}}<span class="visually-hidden">Release notes for {{.Slug}} (opens in a new tab)</span></a>{{end}}{{else}}–{{end}}</td>
           <td>{{if .Checked}}{{thousands .Stats.SVGs}}{{else}}–{{end}}</td>
-          <td>{{if .Stats.Err}}<span class="text-danger small">{{.Stats.Err}}</span>{{else if .Stats.Branch}}{{icon "git-branch"}} <code>{{.Stats.Branch}}</code>{{if .Stats.Dirty}} <span class="badge bg-orange-lt">uncommitted changes</span>{{end}}{{else}}–{{end}}</td>
+          <td>{{if .Stats.Err}}<span class="text-danger small">{{.Stats.Err}}</span>{{else if .Stats.Branch}}{{icon "git-branch"}} <code>{{.Stats.Branch}}</code>{{if .Stats.Dirty}} <span class="badge badge-warn">uncommitted changes</span>{{end}}{{else}}–{{end}}</td>
           <td>{{orDash .Recipe}}</td>
         </tr>
         {{else}}
