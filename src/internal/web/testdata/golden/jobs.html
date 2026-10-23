@@ -28,6 +28,9 @@
   <a class="nav-link" href="/jobs" aria-current="page"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-history"></use></svg><span class="ms-1">Runs</span></a>
 </li>
           <li class="nav-item">
+  <a class="nav-link" href="/bundled/audit"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-search"></use></svg><span class="ms-1">Bundled audit</span></a>
+</li>
+          <li class="nav-item">
   <a class="nav-link" href="/config"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-file-code"></use></svg><span class="ms-1">Config</span></a>
 </li>
           <li class="nav-item">
@@ -59,7 +62,7 @@
     <label class="form-label" for="filter-pack">Pack</label>
     <select class="form-select" id="filter-pack" name="pack">
       <option value="">all packs</option>
-      <option value="icon-sets-flag">icon-sets-flag</option>
+      <option value="icon-sets-flag">icon-sets-flag</option><option value="icon-sets-bundled">icon-sets-bundled</option>
     </select>
   </div>
   <div class="col-auto">
@@ -82,6 +85,16 @@
           <td><a href="/jobs/JOBID"><time datetime="2026-10-23T12:00:00Z">2026-10-23 12:00:00 UTC</time></a></td>
           <td>sync</td>
           <td><code>icon-sets-flag</code></td>
+          <td>dry run</td>
+          <td><span class="badge badge-ok">succeeded</span></td>
+          <td>0s</td>
+          <td><a href="/jobs/JOBID/log.jsonl"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-download"></use></svg><span class="visually-hidden">Download the log of the run started 2026-10-23 12:00:00 UTC</span></a></td>
+        </tr>
+        
+        <tr>
+          <td><a href="/jobs/JOBID"><time datetime="2026-10-23T12:00:00Z">2026-10-23 12:00:00 UTC</time></a></td>
+          <td>audit</td>
+          <td><code>icon-sets-bundled</code></td>
           <td>dry run</td>
           <td><span class="badge badge-ok">succeeded</span></td>
           <td>0s</td>

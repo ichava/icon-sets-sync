@@ -47,6 +47,12 @@ func goldenPages(t *testing.T) map[string]string {
 	jobPath := run.Header().Get("Location")
 	waitJob(t, s, jobPath)
 
+	audit := c.post("/bundled/audit", nil)
+	if audit.Code != http.StatusSeeOther {
+		t.Fatalf("starting an audit: %d", audit.Code)
+	}
+	waitJob(t, s, audit.Header().Get("Location"))
+
 	pages := map[string]string{
 		"confirm": normalise(c.post("/packs/icon-sets-flag/sync", url.Values{"mode": {"real"}}).Body.String()),
 	}
@@ -60,6 +66,7 @@ func goldenPages(t *testing.T) map[string]string {
 		"jobs":      "/jobs",
 		"config":    "/config",
 		"editor":    "/config/icon-sets-demo.json",
+		"audit":     "/bundled/audit",
 	} {
 		rec := c.get(path)
 		if name != "error" && rec.Code != http.StatusOK {

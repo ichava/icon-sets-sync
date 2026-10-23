@@ -1,0 +1,61 @@
+{{define "content"}}{{with .Data}}
+{{template "page_header" "Bundled audit"}}
+<p class="text-secondary">For every set in <code>icon-sets-bundled</code>, fetches candidate npm packages and scores them against the committed icons. Nothing is accepted on a name: a candidate is believed only when the bytes it ships match the bytes already committed. A survey, not a gate: unresolved sets are work for a person. It reads the pack tree and writes only temporary downloads.</p>
+
+{{if not $.ReadOnly}}
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="post" action="/bundled/audit" class="row g-2 align-items-end">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <div class="col-sm-4">
+        <label class="form-label" for="audit-set">Set <span class="text-secondary">(optional)</span></label>
+        <input class="form-control" id="audit-set" name="set" placeholder="every set" autocomplete="off" spellcheck="false" value="{{.Set}}">
+      </div>
+      <div class="col-sm-5">
+        <label class="form-label" for="audit-package">Verify this npm package <span class="text-secondary">(needs a set)</span></label>
+        <input class="form-control" id="audit-package" name="package" autocomplete="off" spellcheck="false" value="{{.Pkg}}">
+      </div>
+      <div class="col-sm-3">
+        <button type="submit" class="btn btn-primary w-100"{{if .Live}} disabled{{end}}>{{icon "player-play"}}<span class="ms-1">Start audit</span></button>
+      </div>
+    </form>
+  </div>
+</div>
+{{end}}
+
+{{if .Job}}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3" role="status" aria-live="polite">
+  <span class="badge {{runClass .Job.Status}}">{{.Job.Status}}</span>
+  <span>Latest audit: {{.Job.Label}}, started <time datetime="{{iso .Job.Started}}">{{when .Job.Started}}</time>.</span>
+  <a href="/jobs/{{.Job.ID}}">Watch the run</a>
+  {{if .Results}}<a class="ms-auto btn btn-outline-secondary btn-sm" href="/bundled/audit/{{.Job.ID}}/manifest.json">{{icon "download"}}<span class="ms-1">Download as a set manifest</span></a>{{end}}
+</div>
+{{if .Results}}
+<div class="row row-cards mb-3">
+  {{range .Order}}<div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">{{.}}</div><div class="h2 mb-0">{{index $.Data.Summary .}}</div></div></div></div>{{end}}
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <caption class="visually-hidden">Each set, how confidently its upstream was identified, and where</caption>
+      <thead><tr><th scope="col">Set</th><th scope="col">Icons</th><th scope="col">Confidence</th><th scope="col">Identical</th><th scope="col">Package</th><th scope="col">Path</th></tr></thead>
+      <tbody>
+        {{range .Results}}
+        <tr>
+          <th scope="row"><code>{{.Set}}</code>{{if .Note}}<div class="text-secondary small fw-normal">{{.Note}}</div>{{end}}</th>
+          <td>{{thousands .Icons}}</td>
+          <td><span class="badge {{confClass .Confidence}}">{{.Confidence}}</span></td>
+          <td>{{.Identical}}/{{.Icons}}</td>
+          <td>{{if .Package}}<code>{{.Package}}{{if .Version}}@{{.Version}}{{end}}</code>{{else}}–{{end}}</td>
+          <td>{{if and .Path (ne .Path ".")}}<code>{{.Path}}</code>{{else}}–{{end}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{else if .Live}}<p class="text-secondary">Running; results appear here when it finishes.</p>{{end}}
+{{else}}
+<p class="text-secondary">No audit has run yet.</p>
+{{end}}
+{{end}}{{end}}

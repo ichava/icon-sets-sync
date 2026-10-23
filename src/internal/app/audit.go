@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -36,6 +37,13 @@ type AuditOptions struct {
 
 	// Starting is called once the sets are known, before any fetch. May be nil.
 	Starting func(sets int, filesRoot string)
+
+	// SetDone is called as each set is resolved, in completion order, one
+	// call at a time. May be nil.
+	SetDone func(bundled.Resolution)
+
+	// Logger receives the resolver's lines. Nil means slog.Default().
+	Logger *slog.Logger
 }
 
 // AuditBundled identifies, by measurement, which upstream each vendored set of
@@ -79,9 +87,9 @@ func AuditBundled(ctx context.Context, opts AuditOptions) ([]bundled.Resolution,
 	}
 	fetcher := opts.Fetcher
 	if fetcher == nil {
-		fetcher = bundled.NpmFetcher{}
+		fetcher = bundled.NpmFetcher{Log: opts.Logger}
 	}
-	results := ResolveSets(ctx, sets, filesRoot, workDir, parallel, opts.Package, fetcher)
+	results := resolveSets(ctx, sets, filesRoot, workDir, parallel, opts.Package, fetcher, opts.Logger, opts.SetDone)
 	bundled.SortResolutions(results)
 	return results, nil
 }
@@ -93,6 +101,11 @@ func AuditBundled(ctx context.Context, opts AuditOptions) ([]bundled.Resolution,
 // are written into a fixed slot per set rather than appended, so the output
 // order stays deterministic regardless of which finishes first.
 func ResolveSets(ctx context.Context, sets []string, filesRoot, workDir string, parallel int, pkg string, fetcher bundled.Fetcher) []bundled.Resolution {
+	return resolveSets(ctx, sets, filesRoot, workDir, parallel, pkg, fetcher, nil, nil)
+}
+
+func resolveSets(ctx context.Context, sets []string, filesRoot, workDir string, parallel int, pkg string,
+	fetcher bundled.Fetcher, log *slog.Logger, done func(bundled.Resolution)) []bundled.Resolution {
 	var explicit []string
 	if pkg != "" {
 		explicit = []string{pkg}
@@ -103,6 +116,7 @@ func ResolveSets(ctx context.Context, sets []string, filesRoot, workDir string, 
 	results := make([]bundled.Resolution, len(sets))
 
 	var wg sync.WaitGroup
+	var mu sync.Mutex
 	slots := make(chan struct{}, parallel)
 
 	for i, set := range sets {
@@ -113,7 +127,12 @@ func ResolveSets(ctx context.Context, sets []string, filesRoot, workDir string, 
 			defer func() { <-slots }()
 
 			results[i] = bundled.ResolveSet(
-				ctx, filepath.Join(filesRoot, set), fetcher, workDir, nil, explicit...)
+				ctx, filepath.Join(filesRoot, set), fetcher, workDir, log, explicit...)
+			if done != nil {
+				mu.Lock()
+				done(results[i])
+				mu.Unlock()
+			}
 		}(i, set)
 	}
 	wg.Wait()
