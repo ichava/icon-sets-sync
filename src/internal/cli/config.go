@@ -9,7 +9,6 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
@@ -79,40 +78,19 @@ Exits 1 if anything is invalid.`,
 	}
 }
 
+// validatePack reports one registered pack's checks. The checks themselves
+// live in app.ValidatePack, which the web UI calls too; this only renders.
 func validatePack(dir, slug string, ok, bad func(string, ...any)) {
-	path, err := config.PackFile(slug, dir)
-	if err != nil {
-		bad("%s", err)
-		return
-	}
-	pack, err := config.LoadPackFile(path)
-	if err != nil {
-		bad("%s", err)
-		return
-	}
-	if pack.Name != slug {
-		bad("%s: name %q does not match its registry slug %q", path, pack.Name, slug)
-		return
-	}
-	if _, err := app.PackSettings(state.stack, pack); err != nil {
-		bad("%s: %s", path, err)
-		return
-	}
-	recipe := recipes.Select(pack)
-	if recipe == "" {
-		bad("%s: no recipe can run source.type=%q; set `recipe`", path, pack.Source.Type)
-		return
-	}
-	if recipe == recipes.RecipeBundled {
-		if _, err := bundled.LoadManifest(dir, pack.Name); err != nil {
-			bad("%s: %s", path, err)
-			return
+	for _, f := range app.ValidatePack(dir, slug, state.stack) {
+		switch f.Level {
+		case app.LevelError:
+			bad("%s", f.Text)
+		case app.LevelWarn:
+			ui.Warning("%s", f.Text)
+		default:
+			ok("%s", f.Text)
 		}
 	}
-	if len(pack.Sinks) == 0 {
-		ui.Warning("%s: declares no sinks; sync will refuse it outside --dry-run", path)
-	}
-	ok("%s (recipe %s)", path, recipe)
 }
 
 func validationResult(problems int) error {
