@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
+	"github.com/ichava/icon-sets-sync/src/internal/web/jobs"
 )
 
 // assetSet is the embedded assets with a content hash each, for
@@ -120,6 +121,52 @@ func funcs(a *assetSet) template.FuncMap {
 			return s
 		},
 		"thousands": thousands,
+		"clock":     func(t time.Time) string { return t.UTC().Format("15:04:05") },
+		"runClass": func(s any) string {
+			switch fmt.Sprint(s) {
+			case "succeeded", "synced", "up-to-date":
+				return "bg-green-lt"
+			case "running":
+				return "bg-blue-lt"
+			case "cancelled":
+				return "bg-secondary-lt"
+			}
+			return "bg-red-lt"
+		},
+		"runAlert": func(s jobs.Status) string {
+			switch s {
+			case jobs.StatusSucceeded:
+				return "alert-success"
+			case jobs.StatusRunning:
+				return "alert-info"
+			case jobs.StatusCancelled:
+				return "alert-secondary"
+			}
+			return "alert-danger"
+		},
+		"runText": func(s jobs.Status) string {
+			switch s {
+			case jobs.StatusSucceeded:
+				return "Finished"
+			case jobs.StatusRunning:
+				return "Running"
+			case jobs.StatusCancelled:
+				return "Cancelled"
+			}
+			return "Failed"
+		},
+		"stageClass": func(state string) string {
+			switch state {
+			case jobs.StageFinished:
+				return "bg-green-lt"
+			case jobs.StageStarted:
+				return "bg-blue-lt"
+			}
+			return "bg-red-lt"
+		},
+		"outcomes": func() []string {
+			return []string{string(jobs.StatusRunning), string(jobs.StatusSucceeded), string(jobs.StatusFailed), string(jobs.StatusCancelled)}
+		},
 		"navItem": func(v view, key, href, icon, label string) navItem {
 			return navItem{Active: v.Nav == key, Href: href, Icon: icon, Label: label}
 		},
@@ -254,13 +301,21 @@ func (s *Server) render(w http.ResponseWriter, status int, page string, v view) 
 }
 
 type errorData struct {
-	Status  int
-	Heading string
-	Message string
+	Status         int
+	Heading        string
+	Message        string
+	Link, LinkText string
 }
 
 func (s *Server) renderError(w http.ResponseWriter, r *http.Request, status int, heading, message string) {
-	s.render(w, status, "error", s.newView(r, "", heading, errorData{status, heading, message}))
+	s.render(w, status, "error", s.newView(r, "", heading, errorData{Status: status, Heading: heading, Message: message}))
+}
+
+// renderErrorLink is renderError with a way forward, e.g. to the job that
+// holds the lock a request wanted.
+func (s *Server) renderErrorLink(w http.ResponseWriter, r *http.Request, status int, heading, message, link, text string) {
+	s.render(w, status, "error", s.newView(r, "", heading,
+		errorData{Status: status, Heading: heading, Message: message, Link: link, LinkText: text}))
 }
 
 func (s *Server) renderUnauthorized(w http.ResponseWriter, r *http.Request) {

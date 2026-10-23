@@ -25,6 +25,9 @@
   <a class="nav-link" href="/" aria-current="page"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-layout-dashboard"></use></svg><span class="ms-1">Packs</span></a>
 </li>
           <li class="nav-item">
+  <a class="nav-link" href="/jobs"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-history"></use></svg><span class="ms-1">Runs</span></a>
+</li>
+          <li class="nav-item">
   <a class="nav-link" href="/settings"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-settings"></use></svg><span class="ms-1">Settings</span></a>
 </li>
         </ul>
@@ -49,7 +52,14 @@
         Upstream checked <time datetime="2026-10-23T12:00:00Z">2026-10-23 12:00:00 UTC</time>.
       </div>
     </div>
-    <div class="col-auto ms-auto">
+    <div class="col-auto ms-auto d-flex gap-2 flex-wrap">
+      
+      <form method="post" action="/sync-all" class="d-inline">
+        <input type="hidden" name="csrf" value="CSRF">
+        <input type="hidden" name="mode" value="dry-run">
+        <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-player-play"></use></svg><span class="ms-1">Sync stale packs (dry run)</span></button>
+      </form>
+      
       <form method="post" action="/check" class="d-inline">
         <input type="hidden" name="csrf" value="CSRF">
         <button type="submit" class="btn btn-outline-primary"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-refresh"></use></svg><span class="ms-1">Refresh check</span></button>
@@ -85,7 +95,7 @@
       <tbody>
         
         <tr>
-          <th scope="row"><div>icon-sets-tabler</div><div class="text-secondary small fw-normal">ichava/icon-sets-tabler</div></th>
+          <th scope="row"><div><a href="/packs/icon-sets-tabler">icon-sets-tabler</a></div><div class="text-secondary small fw-normal">ichava/icon-sets-tabler</div></th>
           <td><span class="badge bg-yellow-lt">Update available</span></td>
           <td><code>3.40.0</code></td>
           <td><code>3.49.0</code> <a href="https://github.com/tabler/tabler-icons/releases/tag/v3.49.0" rel="noreferrer noopener" target="_blank"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-external-link"></use></svg><span class="visually-hidden">Release notes for icon-sets-tabler (opens in a new tab)</span></a></td>
@@ -95,7 +105,7 @@
         </tr>
         
         <tr>
-          <th scope="row"><div>icon-sets-flag</div><div class="text-secondary small fw-normal">ichava/icon-sets-flag</div></th>
+          <th scope="row"><div><a href="/packs/icon-sets-flag">icon-sets-flag</a></div><div class="text-secondary small fw-normal">ichava/icon-sets-flag</div></th>
           <td><span class="badge bg-green-lt">Up to date</span></td>
           <td><code>7.2.3</code></td>
           <td><code>7.2.3</code></td>
@@ -105,7 +115,7 @@
         </tr>
         
         <tr>
-          <th scope="row"><div>icon-sets-emoji</div><div class="text-secondary small fw-normal">ichava/icon-sets-emoji</div></th>
+          <th scope="row"><div><a href="/packs/icon-sets-emoji">icon-sets-emoji</a></div><div class="text-secondary small fw-normal">ichava/icon-sets-emoji</div></th>
           <td><span class="badge bg-red-lt">Check failed</span><div class="text-secondary small">GET https://example.invalid: 503</div></td>
           <td><code>16.0.1</code></td>
           <td><code>–</code></td>

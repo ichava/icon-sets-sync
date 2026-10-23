@@ -21,6 +21,7 @@
       <nav class="me-auto" aria-label="Main">
         <ul class="navbar-nav flex-row flex-wrap">
           {{template "navlink" (navItem . "dashboard" "/" "layout-dashboard" "Packs")}}
+          {{template "navlink" (navItem . "jobs" "/jobs" "history" "Runs")}}
           {{template "navlink" (navItem . "settings" "/settings" "settings" "Settings")}}
         </ul>
       </nav>

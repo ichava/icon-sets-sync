@@ -1,0 +1,66 @@
+{{define "content"}}{{with .Data}}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col">
+      <div class="page-pretitle"><a href="/jobs">{{icon "arrow-left"}} Runs</a></div>
+      <h1 class="page-title">{{.Info.Kind}}{{range .Info.Packs}} <code class="ms-1">{{.}}</code>{{end}}</h1>
+      <div class="text-secondary mt-1">{{.Info.Label}} · started <time datetime="{{iso .Info.Started}}">{{when .Info.Started}}</time>{{if not .Info.Ended.IsZero}} · took {{.Duration}}{{end}}</div>
+    </div>
+    <div class="col-auto ms-auto d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="/jobs/{{.Info.ID}}/log.jsonl">{{icon "download"}}<span class="ms-1">Download log</span></a>
+      {{if and .Live (not $.ReadOnly)}}
+      <form method="post" action="/jobs/{{.Info.ID}}/cancel" data-confirm="Cancel this run? The stage in flight is stopped and nothing after it runs.">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <button type="submit" class="btn btn-outline-danger">{{icon "player-stop"}}<span class="ms-1">Cancel</span></button>
+      </form>
+      {{end}}
+    </div>
+  </div>
+</div>
+
+<div id="job" data-events-url="/events/jobs/{{.Info.ID}}" data-last-id="{{.LastID}}" data-live="{{if .Live}}1{{end}}">
+  <div class="alert {{runAlert .Info.Status}}" role="status" aria-live="polite" id="job-status">
+    <strong>{{runText .Info.Status}}</strong>{{if .Info.Err}}: {{.Info.Err}}{{end}}
+    {{if .Live}}<noscript> Reload the page to see progress.</noscript>{{end}}
+  </div>
+
+  <div class="row row-cards">
+    <div class="col-lg-5">
+      <div class="card mb-3">
+        <div class="card-header"><h2 class="card-title">Packs</h2></div>
+        <ul class="list-group list-group-flush" id="job-packs">
+          {{range .Packs}}<li class="list-group-item" data-pack="{{.Pack}}"><div class="d-flex justify-content-between"><code>{{.Pack}}</code><span class="badge {{runClass .Status}}" data-role="status">{{.Status}}</span></div>{{if .Detail}}<div class="text-secondary small" data-role="detail">{{.Detail}}</div>{{end}}{{if .Err}}<div class="text-danger small" data-role="error">{{.Err}}</div>{{end}}</li>{{else}}<li class="list-group-item text-secondary" data-role="empty">No pack has started yet.</li>{{end}}
+        </ul>
+      </div>
+      <div class="card mb-3">
+        <div class="card-header"><h2 class="card-title">Stages</h2></div>
+        <ol class="list-group list-group-flush list-group-numbered" id="job-stages">
+          {{range .Stages}}<li class="list-group-item" data-stage="{{.Pipeline}}|{{.Stage}}"><span class="badge {{stageClass .State}} me-2" data-role="state">{{.State}}</span><code>{{.Stage}}</code> <span class="text-secondary small">{{.Pipeline}}</span>{{if .Err}}<div class="text-danger small" data-role="error">{{.Err}}</div>{{end}}</li>{{end}}
+        </ol>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Log</h2>
+          <div class="card-actions d-flex gap-3 align-items-center">
+            <label class="d-flex align-items-center gap-1 mb-0" for="log-level">Show
+              <select class="form-select form-select-sm" id="log-level" data-log-filter>
+                <option value="debug">everything</option>
+                <option value="info" selected>info and above</option>
+                <option value="warn">warnings and errors</option>
+                <option value="error">errors only</option>
+              </select>
+            </label>
+            <label class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="log-follow" checked><span class="form-check-label">Follow</span></label>
+          </div>
+        </div>
+        {{if .Dropped}}<div class="card-body py-2 text-secondary small">Earlier lines are not shown here; the download has everything this run kept.</div>{{end}}
+        <ol class="log-pane list-unstyled mb-0" id="job-log" data-level="info">
+          {{range .Log}}<li class="log-line log-{{.Level}}"><time datetime="{{iso .Time}}">{{clock .Time}}</time> <span class="log-level">{{.Level}}</span> {{.Msg}}{{range $k, $v := .Attrs}} <span class="log-attr">{{$k}}={{$v}}</span>{{end}}</li>{{end}}
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}{{end}}

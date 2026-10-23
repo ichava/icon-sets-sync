@@ -9,7 +9,14 @@
         {{else}}Upstream checked <time datetime="{{iso .CheckedAt}}">{{when .CheckedAt}}</time>.{{end}}
       </div>
     </div>
-    <div class="col-auto ms-auto">
+    <div class="col-auto ms-auto d-flex gap-2 flex-wrap">
+      {{if not $.ReadOnly}}
+      <form method="post" action="/sync-all" class="d-inline">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="mode" value="dry-run">
+        <button type="submit" class="btn btn-primary">{{icon "player-play"}}<span class="ms-1">Sync stale packs (dry run)</span></button>
+      </form>
+      {{end}}
       <form method="post" action="/check" class="d-inline">
         <input type="hidden" name="csrf" value="{{$.CSRF}}">
         <button type="submit" class="btn btn-outline-primary"{{if .Running}} disabled{{end}}>{{icon "refresh"}}<span class="ms-1">Refresh check</span></button>
@@ -45,7 +52,7 @@
       <tbody>
         {{range .Rows}}
         <tr>
-          <th scope="row"><div>{{.Slug}}</div><div class="text-secondary small fw-normal">{{.Pack}}</div></th>
+          <th scope="row"><div><a href="/packs/{{.Slug}}">{{.Slug}}</a></div><div class="text-secondary small fw-normal">{{.Pack}}</div></th>
           <td>{{template "status_badge" .}}{{if and .Checked .Result.Reason}}<div class="text-secondary small">{{.Result.Reason}}</div>{{end}}</td>
           <td><code>{{orDash .Current}}</code></td>
           <td>{{if .Checked}}<code>{{orDash .Result.Latest}}</code>{{if .Result.ReleaseURL}} <a href="{{.Result.ReleaseURL}}" rel="noreferrer noopener" target="_blank">{{icon "external-link"}}<span class="visually-hidden">Release notes for {{.Slug}} (opens in a new tab)</span></a>{{end}}{{else}}–{{end}}</td>

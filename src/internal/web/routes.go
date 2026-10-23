@@ -14,6 +14,11 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /settings", s.handleSettings)
 	mux.HandleFunc("GET /about/licenses", s.handleLicenses)
 	mux.HandleFunc("GET /schema/pack.schema.json", s.handleSchema)
+	mux.HandleFunc("GET /packs/{slug}", s.handlePack)
+	mux.HandleFunc("GET /jobs", s.handleJobs)
+	mux.HandleFunc("GET /jobs/{id}", s.handleJob)
+	mux.HandleFunc("GET /jobs/{id}/log.jsonl", s.handleJobLog)
+	mux.HandleFunc("GET /events/jobs/{id}", s.handleEvents)
 
 	if !s.opts.ReadOnly {
 		s.writeRoutes(mux)
@@ -31,6 +36,10 @@ func (s *Server) routes() http.Handler {
 	return mux
 }
 
-// writeRoutes registers the routes that change something. Later phases add
-// to it; it is empty while the UI is read-only by construction.
-func (s *Server) writeRoutes(_ *http.ServeMux) {}
+// writeRoutes registers the routes that run a sync or change a file.
+func (s *Server) writeRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /packs/{slug}/sync", s.handleSync)
+	mux.HandleFunc("POST /packs/{slug}/recipe", s.handleRecipe)
+	mux.HandleFunc("POST /sync-all", s.handleSyncAll)
+	mux.HandleFunc("POST /jobs/{id}/cancel", s.handleCancel)
+}

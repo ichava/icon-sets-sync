@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,8 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 )
 
@@ -25,6 +28,8 @@ type fakeEngine struct {
 	mu     sync.Mutex
 	packs  []*config.PackConfig
 	checks int
+	calls  []runCall
+	block  chan struct{}
 }
 
 func newFakeEngine() *fakeEngine {
@@ -81,6 +86,88 @@ func (f *fakeEngine) Settings() SettingsView {
 		Env:    settings.Values{"concurrency": 2},
 	}
 	return BuildSettingsView(stack.Resolve(nil), "/work/config", "/home/me/.config/icon-sets-sync/config.json")
+}
+
+func (f *fakeEngine) Pack(slug string) (*config.PackConfig, error) {
+	for _, p := range f.packs {
+		if p.Name == slug {
+			return p, nil
+		}
+	}
+	return nil, fmt.Errorf("missing pack config: %s.json", slug)
+}
+
+func (f *fakeEngine) PackSettings(p *config.PackConfig) (SettingsView, error) {
+	r, err := app.PackSettings(settings.Stack{}, p)
+	if err != nil {
+		return SettingsView{}, err
+	}
+	return BuildSettingsView(r, "/work/config", ""), nil
+}
+
+func (f *fakeEngine) PackNotes(p *config.PackConfig) map[string]string {
+	if p.Name == "icon-sets-tabler" {
+		return map[string]string{"_note": "Tabler ships outline and filled variants."}
+	}
+	return nil
+}
+
+// runCall is one Sync or Recipe the fake was asked for.
+type runCall struct {
+	Kind    string
+	Packs   []string
+	Req     RunRequest
+	Version string
+}
+
+func (f *fakeEngine) record(c runCall) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, c)
+}
+
+func (f *fakeEngine) runs() []runCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]runCall(nil), f.calls...)
+}
+
+// Sync emits what a real run would through the hooks: a start, one stage, a
+// log line, a done. With block set it waits for its context, so a test can
+// cancel it mid-run.
+func (f *fakeEngine) Sync(ctx context.Context, packs []*config.PackConfig, req RunRequest, h RunHooks) []app.Outcome {
+	names := make([]string, len(packs))
+	for i, p := range packs {
+		names[i] = p.Name
+	}
+	f.record(runCall{Kind: "sync", Packs: names, Req: req})
+	out := make([]app.Outcome, len(packs))
+	for i, p := range packs {
+		h.Starting(p, checker.Result{Current: p.CurrentVersion, Latest: "9.9.9", Stale: true}, req.DryRun)
+		h.Observer.StageStarted(p.Name+"@9.9.9", "NpmTarball")
+		h.Logger.Info("npm pack", "spec", p.Name+"@9.9.9")
+		if f.block != nil {
+			select {
+			case <-ctx.Done():
+				h.Observer.StageFinished(p.Name+"@9.9.9", "NpmTarball", nil, ctx.Err())
+				out[i] = app.Outcome{Pack: p.Pack, Status: app.StatusFailed, Err: ctx.Err()}
+				h.Done(out[i])
+				continue
+			case <-f.block:
+			}
+		}
+		h.Observer.StageFinished(p.Name+"@9.9.9", "NpmTarball", map[string]any{"npm": map[string]any{"files": 3}}, nil)
+		out[i] = app.Outcome{Pack: p.Pack, Status: app.StatusSynced, DryRun: req.DryRun,
+			Result: pipeline.Result{Success: true, Metrics: map[string]any{"filesystem": map[string]any{"copied": 3}}}}
+		h.Done(out[i])
+	}
+	return out
+}
+
+func (f *fakeEngine) Recipe(_ context.Context, p *config.PackConfig, version string, req RunRequest, h RunHooks) (pipeline.Result, error) {
+	f.record(runCall{Kind: "recipe", Packs: []string{p.Name}, Req: req, Version: version})
+	h.Logger.Info("recipe", "version", version)
+	return pipeline.Result{Success: true}, nil
 }
 
 const testToken = "test-launch-token"
@@ -160,4 +247,18 @@ func (c *client) post(path string, form url.Values) *httptest.ResponseRecorder {
 	r.Header.Set("Origin", "http://"+testHost)
 	r.AddCookie(c.cookie)
 	return do(c.s, r)
+}
+
+// waitJob waits for the job behind a /jobs/{id} path to finish.
+func waitJob(t *testing.T, s *Server, path string) {
+	t.Helper()
+	j := s.jobs.Get(strings.TrimPrefix(path, "/jobs/"))
+	if j == nil {
+		t.Fatalf("no job at %s", path)
+	}
+	select {
+	case <-j.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("job did not finish")
+	}
 }

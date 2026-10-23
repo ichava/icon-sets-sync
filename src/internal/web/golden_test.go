@@ -3,6 +3,7 @@ package web
 import (
 	"flag"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,12 +18,14 @@ var update = flag.Bool("update", false, "rewrite testdata/golden from the curren
 var (
 	volatileCSRF  = regexp.MustCompile(`(name="csrf-token" content="|name="csrf" value=")[^"]*"`)
 	volatileAsset = regexp.MustCompile(`/assets/[0-9a-f]{12}/`)
+	volatileJobID = regexp.MustCompile(`\d{8}T\d{6}Z-[0-9a-f]{6}`)
 )
 
 // normalise replaces what changes between runs, so a golden diff is a change
 // in the page and nothing else.
 func normalise(body string) string {
 	body = volatileCSRF.ReplaceAllString(body, `${1}CSRF"`)
+	body = volatileJobID.ReplaceAllString(body, "JOBID")
 	return volatileAsset.ReplaceAllString(body, "/assets/HASH/")
 }
 
@@ -35,12 +38,24 @@ func goldenPages(t *testing.T) map[string]string {
 	if !s.waitIdle(5 * time.Second) {
 		t.Fatal("check did not finish")
 	}
-	pages := map[string]string{}
+	run := c.post("/packs/icon-sets-flag/sync", nil)
+	if run.Code != http.StatusSeeOther {
+		t.Fatalf("starting a run: %d", run.Code)
+	}
+	jobPath := run.Header().Get("Location")
+	waitJob(t, s, jobPath)
+
+	pages := map[string]string{
+		"confirm": normalise(c.post("/packs/icon-sets-flag/sync", url.Values{"mode": {"real"}}).Body.String()),
+	}
 	for name, path := range map[string]string{
 		"dashboard": "/",
 		"settings":  "/settings",
 		"licenses":  "/about/licenses",
 		"error":     "/no-such-page",
+		"pack":      "/packs/icon-sets-tabler",
+		"job":       jobPath,
+		"jobs":      "/jobs",
 	} {
 		rec := c.get(path)
 		if name != "error" && rec.Code != http.StatusOK {

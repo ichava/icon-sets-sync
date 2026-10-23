@@ -2,3 +2,12 @@
 .skip-link:focus { position: absolute; z-index: 1080; top: .5rem; left: .5rem; padding: .5rem 1rem; background: var(--tblr-bg-surface); }
 .licence-text { white-space: pre-wrap; font-size: .8125rem; max-height: 24rem; overflow: auto; }
 main:focus { outline: none; }
+.log-pane { font-family: var(--tblr-font-monospace); font-size: .8125rem; max-height: 32rem; overflow: auto; padding: .75rem 1rem; }
+.log-line { white-space: pre-wrap; word-break: break-word; }
+.log-level { display: inline-block; min-width: 3.5em; font-weight: 600; }
+.log-warn .log-level { color: var(--tblr-warning); }
+.log-error .log-level { color: var(--tblr-danger); }
+.log-attr { color: var(--tblr-secondary); }
+.log-pane[data-level="info"] .log-debug,
+.log-pane[data-level="warn"] .log-debug, .log-pane[data-level="warn"] .log-info,
+.log-pane[data-level="error"] .log-debug, .log-pane[data-level="error"] .log-info, .log-pane[data-level="error"] .log-warn { display: none; }

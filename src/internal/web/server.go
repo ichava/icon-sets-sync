@@ -12,12 +12,40 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/web/jobs"
 )
+
+// DefaultHistoryDir is where finished runs are kept: XDG state, on every
+// platform but Windows, per the house layout ($XDG_STATE_HOME, else
+// ~/.local/state; %LocalAppData% on Windows).
+func DefaultHistoryDir(lookup func(string) (string, bool)) string {
+	if lookup == nil {
+		lookup = os.LookupEnv
+	}
+	base, _ := lookup("XDG_STATE_HOME")
+	if base == "" && runtime.GOOS == "windows" {
+		base, _ = lookup("LOCALAPPDATA")
+	}
+	if base == "" {
+		home, _ := lookup("HOME")
+		if home == "" {
+			home, _ = os.UserHomeDir()
+		}
+		if home == "" {
+			return ""
+		}
+		base = filepath.Join(home, ".local", "state")
+	}
+	return filepath.Join(base, "icon-sets-sync", "runs")
+}
 
 // Options configures a Server.
 type Options struct {
@@ -41,6 +69,10 @@ type Options struct {
 	Version  string
 	BindAddr string
 
+	// HistoryDir keeps finished jobs as JSON Lines. Empty keeps them in
+	// memory only. See DefaultHistoryDir.
+	HistoryDir string
+
 	// CheckTTL is how old a cached upstream check may be before a page load
 	// starts a new one. Zero means ten minutes.
 	CheckTTL time.Duration
@@ -57,6 +89,8 @@ type Server struct {
 	sessions sessions
 	handler  http.Handler
 	status   statusCache
+	jobs     *jobs.Registry
+	history  *jobs.Store
 
 	// base is cancelled on shutdown, stopping background work.
 	base   context.Context
@@ -88,6 +122,10 @@ func New(opts Options) (*Server, error) {
 	}
 	s := &Server{opts: opts, pages: pages, assets: assets}
 	s.base, s.cancel = context.WithCancel(context.Background())
+	if opts.HistoryDir != "" {
+		s.history = &jobs.Store{Dir: opts.HistoryDir}
+	}
+	s.jobs = jobs.NewRegistry(s.base, s.history, opts.Now)
 	s.handler = securityHeaders(s.hostCheck(s.auth(s.sameOrigin(s.routes()))))
 	return s, nil
 }
@@ -114,12 +152,15 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 		return err
 	case <-ctx.Done():
 	}
+	// Cancel the runs first: an open event stream only ends when its job
+	// does, so shutting the server down before them would wait out the grace.
 	s.cancel()
 	shutdown, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	if err := srv.Shutdown(shutdown); err != nil {
 		return err
 	}
+	s.jobs.Wait()
 	if err := <-errc; err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
