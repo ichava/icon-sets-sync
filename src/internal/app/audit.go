@@ -1,0 +1,121 @@
+package app
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sync"
+
+	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+)
+
+// BundledPack is the registry slug of the aggregator pack the audit surveys.
+const BundledPack = "icon-sets-bundled"
+
+// AuditOptions configures AuditBundled.
+type AuditOptions struct {
+	ConfigDir string
+	Workspace string
+
+	// Set restricts the audit to one set. Package verifies one named npm
+	// package against it instead of guessing; it needs Set.
+	Set     string
+	Package string
+
+	// WorkDir keeps the downloads. Empty means a temporary directory that is
+	// removed afterwards.
+	WorkDir string
+
+	// Parallel bounds the concurrent sets. Below 1 means the CPU count.
+	Parallel int
+
+	// Fetcher fetches candidate packages. Nil means npm.
+	Fetcher bundled.Fetcher
+
+	// Starting is called once the sets are known, before any fetch. May be nil.
+	Starting func(sets int, filesRoot string)
+}
+
+// AuditBundled identifies, by measurement, which upstream each vendored set of
+// the bundled pack came from. It is the body of `bundled audit`, so the CLI
+// and the web UI cannot survey differently. Results are sorted.
+func AuditBundled(ctx context.Context, opts AuditOptions) ([]bundled.Resolution, error) {
+	pack, err := config.LoadPack(BundledPack, opts.ConfigDir)
+	if err != nil {
+		return nil, err
+	}
+	ApplyWorkspace(pack, opts.Workspace)
+
+	filesRoot := filepath.Join(pack.PackRoot, "resources", "assets", "svg", "files")
+	sets, err := bundled.ListSets(filesRoot)
+	if err != nil {
+		return nil, err
+	}
+	if opts.Set != "" {
+		sets = []string{opts.Set}
+	}
+	if opts.Package != "" && opts.Set == "" {
+		return nil, usage(errf("--package needs --set: a package can only be verified against one set"))
+	}
+
+	workDir := opts.WorkDir
+	if workDir == "" {
+		workDir, err = os.MkdirTemp("", "imt-bundled-audit-")
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = os.RemoveAll(workDir) }()
+	}
+
+	parallel := opts.Parallel
+	if parallel <= 0 {
+		parallel = runtime.NumCPU()
+	}
+
+	if opts.Starting != nil {
+		opts.Starting(len(sets), filesRoot)
+	}
+	fetcher := opts.Fetcher
+	if fetcher == nil {
+		fetcher = bundled.NpmFetcher{}
+	}
+	results := ResolveSets(ctx, sets, filesRoot, workDir, parallel, opts.Package, fetcher)
+	bundled.SortResolutions(results)
+	return results, nil
+}
+
+// ResolveSets audits sets concurrently.
+//
+// Each set is independent and dominated by a network fetch, so this is
+// worthwhile -- 72 sets fetched one at a time is minutes of waiting. Results
+// are written into a fixed slot per set rather than appended, so the output
+// order stays deterministic regardless of which finishes first.
+func ResolveSets(ctx context.Context, sets []string, filesRoot, workDir string, parallel int, pkg string, fetcher bundled.Fetcher) []bundled.Resolution {
+	var explicit []string
+	if pkg != "" {
+		explicit = []string{pkg}
+	}
+	if parallel < 1 {
+		parallel = 1
+	}
+	results := make([]bundled.Resolution, len(sets))
+
+	var wg sync.WaitGroup
+	slots := make(chan struct{}, parallel)
+
+	for i, set := range sets {
+		wg.Add(1)
+		go func(i int, set string) {
+			defer wg.Done()
+			slots <- struct{}{}
+			defer func() { <-slots }()
+
+			results[i] = bundled.ResolveSet(
+				ctx, filepath.Join(filesRoot, set), fetcher, workDir, nil, explicit...)
+		}(i, set)
+	}
+	wg.Wait()
+	return results
+}

@@ -1,16 +1,10 @@
 package cli
 
 import (
-	"os"
-	"path/filepath"
-	"runtime"
-	"sync"
-
 	"github.com/spf13/cobra"
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
-	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/ui"
 )
 
@@ -69,39 +63,25 @@ the tool answer whether its bytes are the ones already committed:
   imt bundled audit --set phosphor-icons --package @phosphor-icons/core`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			pack, err := config.LoadPack("icon-sets-bundled", configDir())
+			// The survey itself is app.AuditBundled, which the web UI runs
+			// too. This command maps its errors and renders its results.
+			results, err := app.AuditBundled(cmd.Context(), app.AuditOptions{
+				ConfigDir: configDir(),
+				Workspace: workspace(),
+				Set:       only,
+				Package:   pkg,
+				WorkDir:   workDir,
+				Parallel:  parallel,
+				Starting: func(sets int, filesRoot string) {
+					ui.Info("auditing %d sets from %s", sets, filesRoot)
+				},
+			})
 			if err != nil {
-				return failure(err)
-			}
-			app.ApplyWorkspace(pack, workspace())
-
-			filesRoot := filepath.Join(pack.PackRoot, "resources", "assets", "svg", "files")
-			sets, err := bundled.ListSets(filesRoot)
-			if err != nil {
-				return failure(err)
-			}
-			if only != "" {
-				sets = []string{only}
-			}
-			if pkg != "" && only == "" {
-				return usageErr("--package needs --set: a package can only be verified against one set")
-			}
-
-			if workDir == "" {
-				workDir, err = os.MkdirTemp("", "imt-bundled-audit-")
-				if err != nil {
-					return failure(err)
+				if app.IsUsage(err) {
+					return usageErr("%s", err)
 				}
-				defer os.RemoveAll(workDir)
+				return failure(err)
 			}
-
-			if parallel <= 0 {
-				parallel = runtime.NumCPU()
-			}
-
-			ui.Info("auditing %d sets from %s", len(sets), filesRoot)
-			results := resolveAll(cmd, sets, filesRoot, workDir, parallel, pkg)
-			bundled.SortResolutions(results)
 
 			if ui.JSONMode() {
 				return ui.JSON(results)
@@ -131,34 +111,12 @@ the tool answer whether its bytes are the ones already committed:
 
 // resolveAll audits sets concurrently.
 //
-// Each set is independent and dominated by a network fetch, so this is
-// worthwhile -- 72 sets fetched one at a time is minutes of waiting. Results
-// are written into a fixed slot per set rather than appended, so the output
-// order stays deterministic regardless of which finishes first.
+// Deprecated: the audit runs through app.AuditBundled, and this forwards to
+// app.ResolveSets for any caller still holding it. Earliest removal: 0.3.0.
+//
+//nolint:unused // kept working on purpose; see the deprecation note above.
 func resolveAll(cmd *cobra.Command, sets []string, filesRoot, workDir string, parallel int, pkg string) []bundled.Resolution {
-	var explicit []string
-	if pkg != "" {
-		explicit = []string{pkg}
-	}
-	results := make([]bundled.Resolution, len(sets))
-	fetcher := bundled.NpmFetcher{}
-
-	var wg sync.WaitGroup
-	slots := make(chan struct{}, parallel)
-
-	for i, set := range sets {
-		wg.Add(1)
-		go func(i int, set string) {
-			defer wg.Done()
-			slots <- struct{}{}
-			defer func() { <-slots }()
-
-			results[i] = bundled.ResolveSet(
-				cmd.Context(), filepath.Join(filesRoot, set), fetcher, workDir, nil, explicit...)
-		}(i, set)
-	}
-	wg.Wait()
-	return results
+	return app.ResolveSets(cmd.Context(), sets, filesRoot, workDir, parallel, pkg, bundled.NpmFetcher{})
 }
 
 func renderAudit(results []bundled.Resolution) string {
