@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
+	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
@@ -64,6 +65,21 @@ type Engine interface {
 	ValidateConfig(name string, data []byte) []app.Finding
 	// WriteConfig validates and saves, refusing a stale base revision.
 	WriteConfig(name string, data []byte, base string) error
+
+	// AuditBundled surveys where each of the bundled pack's sets came from,
+	// as `bundled audit` does.
+	AuditBundled(ctx context.Context, req AuditRequest, hooks AuditHooks) ([]bundled.Resolution, error)
+}
+
+// AuditRequest is the audit form: one set, optionally verified against one
+// named package; empty means every set.
+type AuditRequest struct{ Set, Package string }
+
+// AuditHooks route an audit's progress into a job.
+type AuditHooks struct {
+	Logger   *slog.Logger
+	Starting func(sets int, filesRoot string)
+	SetDone  func(bundled.Resolution)
 }
 
 // RunRequest is what a run form may set. It enters the settings as the flag
@@ -151,6 +167,14 @@ func (e *AppEngine) Settings() SettingsView {
 	stack, global := e.Stack, e.GlobalPath
 	e.mu.Unlock()
 	return BuildSettingsView(stack.Resolve(nil), e.ConfigDir, global)
+}
+
+// AuditBundled implements Engine.
+func (e *AppEngine) AuditBundled(ctx context.Context, req AuditRequest, h AuditHooks) ([]bundled.Resolution, error) {
+	return app.AuditBundled(ctx, app.AuditOptions{
+		ConfigDir: e.configDir(), Workspace: e.Workspace, Set: req.Set, Package: req.Package,
+		Starting: h.Starting, SetDone: h.SetDone, Logger: h.Logger,
+	})
 }
 
 // Pack implements Engine.

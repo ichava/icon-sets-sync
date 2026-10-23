@@ -131,6 +131,14 @@ test-local:  ## go vet + go test with the host's Go toolchain
 serve:  ## Run the web UI (icon-sets-sync serve) with the host's Go toolchain
 	go -C src run ./cmd/icon-sets-sync serve
 
+.PHONY: ui
+ui:  ## Run the web UI in Docker on http://127.0.0.1:7878 (the address it logs has the token)
+	$(DC) --profile ui up ui
+
+.PHONY: tabler-check
+tabler-check:  ## Say whether a newer Tabler or Tabler Icons release is out (writes nothing)
+	go -C src run ./internal/tools/tablervendor -check -root ..
+
 .PHONY: tabler-update
 tabler-update:  ## Move the web UI to the newest Tabler + Tabler Icons; re-vendor, notices, hashes
 	go -C src run ./internal/tools/tablervendor -latest -root ..

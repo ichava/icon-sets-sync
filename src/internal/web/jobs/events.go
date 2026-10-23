@@ -4,6 +4,7 @@
 package jobs
 
 import (
+	"encoding/json"
 	"sync"
 	"time"
 )
@@ -15,6 +16,9 @@ const (
 	EventPackStart = "pack-start"
 	EventPackDone  = "pack-done"
 	EventDone      = "done"
+	// EventResult carries a kind-specific payload in Data -- the audit's
+	// resolutions -- so it is kept with the run and survives a restart.
+	EventResult = "result"
 )
 
 // Stage states, on EventStage.
@@ -47,6 +51,9 @@ type Event struct {
 	Pack   string `json:"pack,omitempty"`
 	Status string `json:"status,omitempty"`
 	Err    string `json:"error,omitempty"`
+
+	// result
+	Data json.RawMessage `json:"data,omitempty"`
 }
 
 // DefaultCapacity is how many events a job keeps in memory: enough for the

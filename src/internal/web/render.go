@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/web/jobs"
 )
@@ -161,6 +162,15 @@ func funcs(a *assetSet) template.FuncMap {
 				return "badge-ok"
 			case jobs.StageStarted:
 				return "badge-info"
+			}
+			return "badge-bad"
+		},
+		"confClass": func(c bundled.Confidence) string {
+			switch c {
+			case bundled.ConfidenceExact, bundled.ConfidenceStrong:
+				return "badge-ok"
+			case bundled.ConfidencePackage, bundled.ConfidenceAmbiguous, bundled.ConfidencePartial:
+				return "badge-warn"
 			}
 			return "badge-bad"
 		},

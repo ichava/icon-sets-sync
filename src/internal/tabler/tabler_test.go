@@ -208,3 +208,26 @@ func TestSameMajor(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckReportsAPinBehindTheRegistry(t *testing.T) {
+	v, assets := vendorDir(t)
+	v.Fetch = fakeTabler(t, "1.7.1")
+	pin := Versions{PkgCore: "1.7.0", PkgIcons: "3.49.0", PkgBootstrap: "5.3.8", PkgPopper: "2.11.8"}
+	if err := os.WriteFile(filepath.Join(assets, VersionFile), pin.Format(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	behind, err := v.Check()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(behind) != 1 || !strings.Contains(behind[0], "pinned at 1.7.0; 1.7.1 is out") {
+		t.Fatalf("behind %v", behind)
+	}
+	pin[PkgCore] = "1.7.1"
+	if err := os.WriteFile(filepath.Join(assets, VersionFile), pin.Format(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if behind, err := v.Check(); err != nil || len(behind) != 0 {
+		t.Fatalf("an up-to-date pin reported %v %v", behind, err)
+	}
+}

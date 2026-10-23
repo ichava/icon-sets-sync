@@ -11,7 +11,7 @@ import (
 // minTemplates is the number of template files this package ships. The walk
 // below must inspect at least this many, so a glob that stops matching fails
 // rather than passing over nothing. Raise it when you add a template.
-const minTemplates = 15
+const minTemplates = 16
 
 var (
 	inlineScript = regexp.MustCompile(`(?i)<script(?:\s[^>]*)?>`)

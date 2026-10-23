@@ -78,7 +78,9 @@ func bundledFixture(t *testing.T) (configDir, upstream string) {
 func TestAuditBundledScoresAgainstTheCommittedBytes(t *testing.T) {
 	configDir, upstream := bundledFixture(t)
 	var started int
+	var done []string
 	results, err := AuditBundled(context.Background(), AuditOptions{
+		SetDone:   func(r bundled.Resolution) { done = append(done, r.Set) },
 		ConfigDir: configDir,
 		Set:       "demo-icons",
 		Package:   "demo-pkg",
@@ -89,7 +91,7 @@ func TestAuditBundledScoresAgainstTheCommittedBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if started != 1 || len(results) != 1 {
+	if started != 1 || len(results) != 1 || len(done) != 1 || done[0] != "demo-icons" {
 		t.Fatalf("started %d, results %+v", started, results)
 	}
 	r := results[0]

@@ -40,6 +40,15 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
   config mount) is detected by trying, and the editor opens read-only with the reason. Saving the
   global config creates it under `$XDG_CONFIG_HOME/icon-sets-sync/` if needed and applies it to the
   running server's next run.
+- **The bundled audit in the web UI.** `/bundled/audit` runs `bundled audit` as a background run,
+  for every set or one set verified against a named package, shows each set's confidence, package,
+  path and identical-icon count, and downloads the result as a set manifest. The results are kept
+  with the run, so they survive a restart. `app.AuditOptions` gained `SetDone` and `Logger`.
+- **`make ui`**: the web UI in Docker, through a new `ui` compose profile that publishes
+  `127.0.0.1:7878` only and keeps run history in a named volume.
+- **A weekly run of the Tests workflow on `main`**, which also warns (never fails, never opens a
+  pull request) when a newer Tabler or Tabler Icons release is out; `make tabler-check` asks the
+  same question locally.
 - **An accessibility gate for the web UI.** The Tests workflow's `Web UI accessibility` job serves
   the UI against a fixture and runs axe (`@axe-core/cli`, pinned) over every page in the light and
   the dark theme, failing on any serious or critical violation and on scanning fewer pages than

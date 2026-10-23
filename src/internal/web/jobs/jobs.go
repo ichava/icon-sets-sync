@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -111,6 +112,16 @@ func (j *Job) Result() any {
 // Logf records a log line from the job's own orchestration.
 func (j *Job) Logf(level, format string, a ...any) {
 	j.append(Event{Type: EventLog, Level: level, Msg: fmt.Sprintf(format, a...)})
+}
+
+// Record stores a kind-specific payload as a result event.
+func (j *Job) Record(v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	j.append(Event{Type: EventResult, Data: data})
+	return nil
 }
 
 // PackStarted and PackDone record a pack's boundaries.

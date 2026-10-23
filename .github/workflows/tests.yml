@@ -1,6 +1,9 @@
 # Tests + lint + typecheck for ichava/icon-sets-sync.
 #
-# Runs on every pull request, and on demand via workflow_dispatch.
+# Runs on every pull request, on demand via workflow_dispatch, and once a week
+# on main: nothing re-runs after a merge, so drift on main (an upstream
+# release that breaks the build, two green PRs that interact) would otherwise
+# stay invisible until an unrelated pull request goes red.
 #
 # The Go job tests the implementation the Docker image runs.
 # The Docker job builds the image the pack workflows build, and runs it the way
@@ -11,6 +14,8 @@ name: Tests
 on:
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '17 10 * * 1'   # Mondays, 06:17 New York
 
 concurrency:
   group: tests-${{ github.ref }}
@@ -81,6 +86,11 @@ jobs:
         run: |
           docker run --rm -v "$PWD/config:/app/config" icon-sets-sync:ci config validate
 
+      - name: The web UI is in the image
+        run: |
+          docker run --rm icon-sets-sync:ci serve --help | grep -q -- '--allow-remote' \
+            || { echo "::error::the image's binary has no serve command"; exit 1; }
+
       - name: The runtime tools are present
         run: |
           docker run --rm --entrypoint sh icon-sets-sync:ci -c \
@@ -129,6 +139,27 @@ jobs:
           path: ${{ runner.temp }}/ui-a11y/*.json
           if-no-files-found: ignore
           retention-days: 7
+
+  tabler-latest:
+    name: Tabler is current
+    # Weekly and on demand only: a new Tabler release is not a reason to fail
+    # someone's pull request. It warns and never opens one -- the vendored
+    # files move with `make tabler-update`, reviewed like any other change.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+
+      - name: Compare TABLER_VERSION with npm
+        run: go -C src run ./internal/tools/tablervendor -check -root ..
 
   actionlint:
     name: Workflow lint
