@@ -4,6 +4,32 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ## [Unreleased]
 
+### Added
+
+- **`icon-sets-sync serve` (alias `ui`): a localhost web UI.** Server-rendered pages over the same
+  `internal/app` functions the CLI calls, styled with Tabler and embedded in the binary, so the
+  page makes no request beyond the server. This first cut shows the packs dashboard (vendored vs
+  upstream version, status, SVG count, the pack repo's branch and uncommitted changes; the upstream
+  check is cached for ten minutes and refreshed on request), the effective settings with the
+  layer each came from, the pack schema and the third-party licences. It listens on
+  `127.0.0.1:7878`; when that port is taken it takes the next free one and prints the address it
+  bound, and `--port` (or a port in `--addr`) pins one and fails if it is taken. A non-loopback
+  `--addr` needs `--allow-remote`. The printed address carries a one-time token exchanged for an
+  `HttpOnly`, `SameSite=Strict` cookie; every response carries a strict Content-Security-Policy;
+  requests with an unknown `Host` are refused (DNS rebinding), and every state change needs a
+  same-origin `Origin` and a per-session CSRF token. `--read-only` serves no route that runs or
+  edits anything; `--token-file` writes the address to a `0600` file for scripts.
+- **`make tabler-update` and `make tabler-vendor`.** The Tabler version is pinned in one place,
+  `src/internal/web/assets/vendor/TABLER_VERSION`. `tabler-update` moves `@tabler/core` and
+  `@tabler/icons-sprite` to their newest releases; `tabler-vendor` re-vendors what is pinned. Both
+  verify every npm tarball against the registry's sha512 integrity, cut the icon subset the UI
+  uses, and rewrite the licence texts, `MANIFEST.sha256` and `THIRD_PARTY_NOTICES.md` together.
+  Vendored now: `@tabler/core` 1.7.1 (bundling Bootstrap 5.3.8 and Popper 2.11.8) and
+  `@tabler/icons-sprite` 3.49.0.
+- **`THIRD_PARTY_NOTICES.md` ships in every release archive and Linux package**, and the binary
+  serves the same notices at `/about/licenses`.
+- `gitx.CurrentBranch`.
+
 ### Changed
 
 - **The settings stack, config validation and the bundled audit are `internal/app` functions.**
