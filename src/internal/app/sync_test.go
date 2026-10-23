@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -220,5 +221,31 @@ func TestApplyWorkspace(t *testing.T) {
 		if p.PackRoot != tt.want {
 			t.Errorf("(%q, %q) = %q, want %q", tt.root, tt.workspace, p.PackRoot, tt.want)
 		}
+	}
+}
+
+type nopObserver struct{}
+
+func (nopObserver) StageStarted(string, string)                         {}
+func (nopObserver) StageFinished(string, string, map[string]any, error) {}
+
+// Sync hands its logger and observer to every pack's recipe, which is how a
+// server keeps concurrent runs' logs and progress apart.
+func TestSyncPassesTheLoggerAndObserver(t *testing.T) {
+	rec := &recorded{}
+	logger := slog.New(slog.DiscardHandler)
+	obs := nopObserver{}
+	Sync(context.Background(), []*config.PackConfig{pack("icon-sets-a", "filesystem")}, SyncOptions{
+		Checker:  fakeChecker{"icon-sets-a": {Latest: "2.0.0", Stale: true}},
+		Run:      rec.run(pipeline.Result{Success: true}, nil),
+		Logger:   logger,
+		Observer: obs,
+	})
+	opts, ok := rec.runs["icon-sets-a@2.0.0"]
+	if !ok {
+		t.Fatalf("the recipe did not run: %v", rec.runs)
+	}
+	if opts.Logger != logger || opts.Observer != obs {
+		t.Errorf("recipe options lost the logger or observer: %+v", opts)
 	}
 }
