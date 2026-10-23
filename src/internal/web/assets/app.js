@@ -31,6 +31,58 @@
   }
   scrollLog();
 
+  // Config editor: keep the line numbers in step, and validate as you type
+  // (debounced) through the same endpoint the Validate button posts to.
+  var editor = document.getElementById("editor-text");
+  if (editor) {
+    var gutter = document.getElementById("editor-gutter");
+    var form = document.getElementById("editor-form");
+    var save = document.getElementById("editor-save");
+    var findings = document.getElementById("editor-findings-list");
+    var title = document.getElementById("findings-title");
+    var timer = null;
+    var csrf = document.querySelector("meta[name=csrf-token]").getAttribute("content");
+
+    var syncGutter = function () {
+      var n = editor.value.split("\n").length;
+      if (editor.value.slice(-1) === "\n") { n--; }
+      n = Math.max(n, 1);
+      while (gutter.children.length < n) { gutter.appendChild(document.createElement("li")); }
+      while (gutter.children.length > n) { gutter.removeChild(gutter.lastChild); }
+      editor.style.height = "auto";
+      editor.style.height = editor.scrollHeight + "px";
+    };
+    var show = function (res) {
+      while (findings.firstChild) { findings.removeChild(findings.firstChild); }
+      (res.findings || []).forEach(function (f) {
+        var li = document.createElement("li");
+        li.className = "finding finding-" + f.level;
+        li.textContent = (f.level === "error" ? "✗ " : f.level === "warn" ? "! " : "✓ ") + f.text;
+        findings.appendChild(li);
+      });
+      title.textContent = res.ok ? "Valid" : res.problems + " problem(s)";
+      if (save) { save.disabled = !res.ok; }
+    };
+    var validate = function () {
+      var body = new URLSearchParams();
+      body.set("content", editor.value);
+      body.set("csrf", csrf);
+      fetch(form.getAttribute("data-validate-url"), {
+        method: "POST",
+        headers: { "Accept": "application/json", "X-CSRF-Token": csrf, "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString(),
+        credentials: "same-origin"
+      }).then(function (r) { return r.json(); }).then(show).catch(function () {});
+    };
+    editor.addEventListener("input", function () {
+      syncGutter();
+      if (save) { save.disabled = true; }
+      window.clearTimeout(timer);
+      timer = window.setTimeout(validate, 400);
+    });
+    syncGutter();
+  }
+
   var job = document.getElementById("job");
   if (!job || job.getAttribute("data-live") !== "1" || !window.EventSource) {
     return;

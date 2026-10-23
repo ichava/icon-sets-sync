@@ -19,6 +19,7 @@ var (
 	volatileCSRF  = regexp.MustCompile(`(name="csrf-token" content="|name="csrf" value=")[^"]*"`)
 	volatileAsset = regexp.MustCompile(`/assets/[0-9a-f]{12}/`)
 	volatileJobID = regexp.MustCompile(`\d{8}T\d{6}Z-[0-9a-f]{6}`)
+	volatileTemp  = regexp.MustCompile(`/[^"<>\s]*?/(config|xdg)/`)
 )
 
 // normalise replaces what changes between runs, so a golden diff is a change
@@ -26,6 +27,7 @@ var (
 func normalise(body string) string {
 	body = volatileCSRF.ReplaceAllString(body, `${1}CSRF"`)
 	body = volatileJobID.ReplaceAllString(body, "JOBID")
+	body = volatileTemp.ReplaceAllString(body, "/TMP/$1/")
 	return volatileAsset.ReplaceAllString(body, "/assets/HASH/")
 }
 
@@ -56,6 +58,8 @@ func goldenPages(t *testing.T) map[string]string {
 		"pack":      "/packs/icon-sets-tabler",
 		"job":       jobPath,
 		"jobs":      "/jobs",
+		"config":    "/config",
+		"editor":    "/config/icon-sets-demo.json",
 	} {
 		rec := c.get(path)
 		if name != "error" && rec.Code != http.StatusOK {

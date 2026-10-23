@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -30,6 +32,51 @@ type fakeEngine struct {
 	checks int
 	calls  []runCall
 	block  chan struct{}
+	// cfg answers the config editor's calls: a real AppEngine over a fixture
+	// directory, because the editor's whole point is the real loaders.
+	cfg *AppEngine
+}
+
+func (f *fakeEngine) ConfigFiles() ([]ConfigFile, error)     { return f.cfg.ConfigFiles() }
+func (f *fakeEngine) ReadConfig(n string) (ConfigDoc, error) { return f.cfg.ReadConfig(n) }
+func (f *fakeEngine) ValidateConfig(n string, d []byte) []app.Finding {
+	return f.cfg.ValidateConfig(n, d)
+}
+func (f *fakeEngine) WriteConfig(n string, d []byte, base string) error {
+	return f.cfg.WriteConfig(n, d, base)
+}
+
+// demoPackJSON is a valid pack config with an authoring note.
+const demoPackJSON = `{
+  "_note": "kept verbatim by the editor",
+  "name": "icon-sets-demo",
+  "pack": "ichava/icon-sets-demo",
+  "pack_root": "/work/icon-sets-demo",
+  "current_version": "1.0.0",
+  "version_check_url": "https://registry.npmjs.org/demo/latest",
+  "source": {"type": "npm", "package": "demo"},
+  "sinks": [{"type": "filesystem", "root": "{pack_root}/files"}]
+}
+`
+
+// configFixture writes a config directory and an XDG config home, and
+// returns them.
+func configFixture(t *testing.T) (dir, home string) {
+	t.Helper()
+	root := t.TempDir()
+	dir, home = filepath.Join(root, "config"), filepath.Join(root, "xdg")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{
+		"packs.json":          `{"packs": ["icon-sets-demo"]}` + "\n",
+		"icon-sets-demo.json": demoPackJSON,
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir, home
 }
 
 func newFakeEngine() *fakeEngine {
@@ -175,6 +222,8 @@ const testToken = "test-launch-token"
 func newTestServer(t *testing.T, mutate ...func(*Options)) (*Server, *fakeEngine) {
 	t.Helper()
 	eng := newFakeEngine()
+	dir, home := configFixture(t)
+	eng.cfg = &AppEngine{ConfigDir: dir, GlobalHome: home}
 	opts := Options{
 		Engine:       eng,
 		Token:        testToken,

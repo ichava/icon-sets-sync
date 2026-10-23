@@ -1,0 +1,38 @@
+{{define "content"}}{{with .Data}}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col">
+      <div class="page-pretitle"><a href="/config">{{icon "arrow-left"}} Config</a></div>
+      <h1 class="page-title"><code>{{.Doc.Name}}</code></h1>
+      <div class="text-secondary mt-1"><code class="text-break">{{.Doc.Path}}</code> · {{.Doc.Kind}}{{if not .Doc.Exists}} · does not exist yet; saving creates it{{end}}</div>
+    </div>
+  </div>
+</div>
+
+{{if .Saved}}<div class="alert alert-success" role="status">{{icon "circle-check"}} Saved. The next run reads it.</div>{{end}}
+{{if .Conflict}}<div class="alert alert-warning" role="alert">{{icon "alert-triangle"}} This file changed on disk after you opened it, so nothing was saved. Your text is below; <a href="/config/{{.Doc.Name}}">reload the file</a> to see the current version, then apply your change again.</div>{{end}}
+{{if .Doc.ReadOnly}}<div class="alert alert-info" role="status">{{icon "lock"}} Read-only: {{.Doc.Why}}</div>{{else if $.ReadOnly}}<div class="alert alert-info" role="status">{{icon "lock"}} This server was started with --read-only.</div>{{end}}
+
+<form method="post" action="/config/{{.Doc.Name}}" id="editor-form" data-validate-url="/config/{{.Doc.Name}}/validate">
+  <input type="hidden" name="csrf" value="{{$.CSRF}}">
+  <input type="hidden" name="base" value="{{.Base}}">
+  <div class="card mb-3">
+    <div class="editor">
+      <ol class="editor-gutter" aria-hidden="true" id="editor-gutter">{{range .Lines}}<li></li>{{end}}</ol>
+      <label class="visually-hidden" for="editor-text">Contents of {{.Doc.Name}}</label>
+      <textarea class="editor-text" id="editor-text" name="content" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-describedby="editor-findings"{{if not .Editable}} readonly{{end}}>{{.Text}}</textarea>
+    </div>
+  </div>
+  <div class="d-flex gap-2 mb-3">
+    <button type="submit" class="btn btn-outline-primary" formaction="/config/{{.Doc.Name}}/validate">{{icon "shield-check"}}<span class="ms-1">Validate</span></button>
+    {{if .Editable}}<button type="submit" class="btn btn-primary" id="editor-save">{{icon "device-floppy"}}<span class="ms-1">Save</span></button>{{end}}
+  </div>
+</form>
+
+<section id="editor-findings" aria-live="polite" aria-labelledby="findings-title">
+  <h2 class="h3" id="findings-title">{{if .Checked}}{{if .Problems}}{{.Problems}} problem(s){{else}}Valid{{end}}{{else}}Not validated yet{{end}}</h2>
+  <ul class="list-unstyled" id="editor-findings-list">
+    {{range .Findings}}<li class="finding finding-{{.Level}}">{{if eq .Level "error"}}{{icon "circle-x"}}{{else if eq .Level "warn"}}{{icon "alert-triangle"}}{{else}}{{icon "circle-check"}}{{end}} <span class="finding-text">{{.Text}}</span></li>{{end}}
+  </ul>
+</section>
+{{end}}{{end}}

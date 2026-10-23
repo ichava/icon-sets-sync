@@ -32,7 +32,7 @@
           <dt class="col-5">Version</dt><dd class="col-7">{{.Version}}</dd>
           <dt class="col-5">Listening on</dt><dd class="col-7"><code>{{.BindAddr}}</code></dd>
           <dt class="col-5">Config dir</dt><dd class="col-7"><code class="text-break">{{.ConfigDir}}</code></dd>
-          <dt class="col-5">Global config</dt><dd class="col-7">{{if .GlobalPath}}<code class="text-break">{{.GlobalPath}}</code>{{else}}none{{end}}</dd>
+          <dt class="col-5">Global config</dt><dd class="col-7">{{if .GlobalPath}}<code class="text-break">{{.GlobalPath}}</code>{{else}}none{{end}} · <a href="/config/global">{{if $.ReadOnly}}view{{else}}edit{{end}}</a></dd>
           <dt class="col-5">Mode</dt><dd class="col-7">{{if .ReadOnly}}{{icon "lock"}} read-only{{else}}runs and edits allowed{{end}}</dd>
         </dl>
       </div>
