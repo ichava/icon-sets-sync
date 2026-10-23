@@ -7,7 +7,7 @@
     {{range .Files}}
     <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="/config/{{.Name}}">
       <span>{{icon "file-code"}} <code class="ms-1">{{.Name}}</code><span class="text-secondary small d-block">{{.Path}}</span></span>
-      <span class="badge bg-secondary-lt">{{.Kind}}</span>
+      <span class="badge badge-muted">{{.Kind}}</span>
     </a>
     {{end}}
   </div>

@@ -96,10 +96,10 @@
   }
   function badgeClass(status) {
     switch (status) {
-      case "succeeded": case "synced": case "up-to-date": case "finished": return "badge bg-green-lt";
-      case "running": case "started": return "badge bg-blue-lt";
-      case "cancelled": return "badge bg-secondary-lt";
-      default: return "badge bg-red-lt";
+      case "succeeded": case "synced": case "up-to-date": case "finished": return "badge badge-ok";
+      case "running": case "started": return "badge badge-info";
+      case "cancelled": return "badge badge-muted";
+      default: return "badge badge-bad";
     }
   }
   function clock(iso) {

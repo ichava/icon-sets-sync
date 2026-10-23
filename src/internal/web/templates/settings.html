@@ -16,7 +16,7 @@
             <tr>
               <th scope="row"><code>{{.Name}}</code><div class="text-secondary small fw-normal">{{.Help}}</div></th>
               <td><code class="text-break">{{orDash .Value}}</code></td>
-              <td><span class="badge {{if eq .Origin "default"}}bg-secondary-lt{{else}}bg-blue-lt{{end}}">{{.Origin}}</span></td>
+              <td><span class="badge {{if eq .Origin "default"}}badge-muted{{else}}badge-info{{end}}">{{.Origin}}</span></td>
             </tr>
             {{end}}
           </tbody>

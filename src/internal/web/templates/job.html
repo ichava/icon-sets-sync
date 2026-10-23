@@ -56,7 +56,7 @@
           </div>
         </div>
         {{if .Dropped}}<div class="card-body py-2 text-secondary small">Earlier lines are not shown here; the download has everything this run kept.</div>{{end}}
-        <ol class="log-pane list-unstyled mb-0" id="job-log" data-level="info">
+        <ol class="log-pane list-unstyled mb-0" id="job-log" data-level="info" tabindex="0" aria-label="Run log">
           {{range .Log}}<li class="log-line log-{{.Level}}"><time datetime="{{iso .Time}}">{{clock .Time}}</time> <span class="log-level">{{.Level}}</span> {{.Msg}}{{range $k, $v := .Attrs}} <span class="log-attr">{{$k}}={{$v}}</span>{{end}}</li>{{end}}
         </ol>
       </div>

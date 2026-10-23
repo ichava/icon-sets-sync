@@ -92,6 +92,44 @@ jobs:
           echo "$out"
           printf '%s' "$out" | grep -q 'deprecated' || { echo "::error::no deprecation notice"; exit 1; }
 
+  ui-a11y:
+    name: Web UI accessibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Serves the web UI against a fixture and runs axe over every page in the
+    # light and the dark theme, failing on any serious or critical violation.
+    # Node is used here and only here: the Go build never needs it. Not
+    # path-filtered, so it can be a required check (a path-filtered required
+    # check never reports and blocks the merge). The script asserts how many
+    # pages it scanned, so a run that loaded nothing cannot pass.
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+
+      - name: Build
+        run: go -C src build -o "$RUNNER_TEMP/icon-sets-sync" ./cmd/icon-sets-sync
+
+      - name: axe, light and dark
+        env:
+          AXE_VERSION: 4.14.0
+          BIN: ${{ runner.temp }}/icon-sets-sync
+        run: CHROMEDRIVER="$CHROMEWEBDRIVER/chromedriver" .github/scripts/ui-a11y.sh
+
+      - name: Keep the reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-a11y
+          path: ${{ runner.temp }}/ui-a11y/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
   actionlint:
     name: Workflow lint
     runs-on: ubuntu-latest

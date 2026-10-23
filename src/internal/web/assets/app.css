@@ -19,3 +19,32 @@ main:focus { outline: none; }
 .finding { white-space: pre-wrap; margin-bottom: .25rem; }
 .finding-error { color: var(--tblr-danger); }
 .finding-warn { color: var(--tblr-warning); }
+
+/* Accessible status colours. Tabler's -lt badges put the base colour on a
+   tint of itself, which measures 2.4-4.4:1 -- below WCAG's 4.5:1 for text this
+   size (the ui-a11y job's first run found every one). These keep the same hues
+   at >= 5.7:1 in both themes. */
+.badge-ok    { color: #1a6b2b; background: #e3f3e6; }
+.badge-warn  { color: #6e4700; background: #fbefd5; }
+.badge-bad   { color: #a3191b; background: #fbe4e4; }
+.badge-info  { color: #0a4d92; background: #e2edf9; }
+.badge-muted { color: #474747; background: #ececec; }
+:root[data-bs-theme=dark] .badge-ok    { color: #8fd8a0; background: #1d3324; }
+:root[data-bs-theme=dark] .badge-warn  { color: #f2c46e; background: #3a2f16; }
+:root[data-bs-theme=dark] .badge-bad   { color: #ffa3a3; background: #3d2020; }
+:root[data-bs-theme=dark] .badge-info  { color: #a6cbf6; background: #1c2a3b; }
+:root[data-bs-theme=dark] .badge-muted { color: #d0d0d0; background: #2e2e2e; }
+
+/* Alerts: body-coloured text on the tinted background, rather than the
+   variant colour on a tint of itself. */
+.alert { --tblr-alert-color: var(--tblr-body-color); }
+
+/* Outline buttons in the dark theme: the light theme's primary is 3-3.6:1 on
+   a dark surface. */
+:root[data-bs-theme=dark] .btn-outline-primary { --tblr-btn-variant: #79aae7; --tblr-btn-variant-fg: #0b1a2b; }
+:root[data-bs-theme=dark] .btn-outline-danger { --tblr-btn-variant: #ff8f8f; --tblr-btn-variant-fg: #2b0b0b; }
+
+/* A link inside running text is told apart by more than its colour. */
+.page-body p a, .page-body dd a, .page-body .text-secondary a, .alert a { text-decoration: underline; }
+
+.licence-text:focus-visible, .log-pane:focus-visible { outline: 2px solid var(--tblr-primary); outline-offset: 2px; }
