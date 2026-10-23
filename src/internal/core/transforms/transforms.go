@@ -110,7 +110,7 @@ func (t Sanitise) Execute(ctx *pipeline.Context) error {
 
 	log := t.Log
 	if log == nil {
-		log = slog.Default()
+		log = ctx.Logger()
 	}
 
 	var cleaned, unparsable int

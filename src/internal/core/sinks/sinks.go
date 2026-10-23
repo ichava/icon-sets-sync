@@ -70,7 +70,7 @@ func (s Filesystem) Execute(ctx *pipeline.Context) error {
 
 	log := s.Log
 	if log == nil {
-		log = slog.Default()
+		log = ctx.Logger()
 	}
 
 	if !s.Incremental {
@@ -216,7 +216,7 @@ func (VersionStamp) Name() string { return "VersionStamp" }
 func (s VersionStamp) Execute(ctx *pipeline.Context) error {
 	log := s.Log
 	if log == nil {
-		log = slog.Default()
+		log = ctx.Logger()
 	}
 
 	version, ok := ctx.FetchedVersion()
@@ -273,7 +273,7 @@ const (
 func (s GitBranch) Execute(ctx *pipeline.Context) error {
 	log := s.Log
 	if log == nil {
-		log = slog.Default()
+		log = ctx.Logger()
 	}
 	g := s.Git
 	if g == nil {
