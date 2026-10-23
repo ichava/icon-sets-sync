@@ -12,6 +12,18 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
   second front-end resolves precedence, validates and surveys through the same code. The commands
   delegate to them; their output and exit codes are unchanged. `app.UsageError` carries the
   usage-versus-failure distinction that maps onto exit code 2.
+- **A run carries a `context.Context` from the command to every stage.** `pipeline.RunContext`
+  checks it before each stage and stages hand it to `npm pack`, the HTTP downloads and every `git`
+  and `gh` call; `app.RunRecipe` uses it instead of discarding it. `Pipeline.Run()` is kept and is
+  `RunContext(context.Background())`. A cancelled run is a failed result whose error is
+  `context.Canceled`.
+
+### Fixed
+
+- **Ctrl-C stops a sync cleanly.** The first SIGINT or SIGTERM cancels the run: the stage in flight
+  is stopped and no later stage -- the version stamp, the commit, the push -- runs. Before, nothing
+  listened for the signal, so it could only kill the process wherever it happened to be. A second
+  Ctrl-C still kills the process outright.
 
 ### Deprecated
 
