@@ -8,6 +8,19 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 - **Releases are prepared by release-please.** A *Release Please* workflow reads the Conventional Commit log, keeps one release pull request open that bumps `.release-please-manifest.json`, and tags the release when that pull request merges; the tag starts `release.yml` as before. On 0.x a breaking change bumps the minor and everything else bumps the patch. Release notes stay hand-written: release-please is set to `skip-changelog`, and the workflow closes this `[Unreleased]` section under the new version on the release branch, failing if it is empty. It runs on `workflow_dispatch`, a weekly schedule, and the merge of a release pull request, so the only `push` trigger is still the tag. The pull request and the tag are made with a per-run Refresh Bot token, because ones made with `GITHUB_TOKEN` start no workflows. GoReleaser now runs with `release.mode: replace`, because release-please creates the GitHub release first and the default mode would keep its generated body instead of this changelog.
 
+### Changed
+
+- **The settings stack, config validation and the bundled audit are `internal/app` functions.**
+  `app.BuildStack`, `app.ValidateConfigs`/`app.ValidatePack` and `app.AuditBundled`/`app.ResolveSets`
+  hold what used to be the bodies of `resolveState`, `config validate` and `bundled audit`, so a
+  second front-end resolves precedence, validates and surveys through the same code. The commands
+  delegate to them; their output and exit codes are unchanged. `app.UsageError` carries the
+  usage-versus-failure distinction that maps onto exit code 2.
+
+### Deprecated
+
+- **`cli.resolveAll`**, which now forwards to `app.ResolveSets`. Earliest removal: 0.3.0.
+
 ## [0.1.0] - 2026-10-23
 
 Versioning re-based to 0.1.0. This is the first release of the Go implementation and the first with release binaries. It contains everything previously tagged v0.1.0 through v0.1.3 (2026-08-31 to 2026-09-22, the Python `ichava/maintainer-toolkit`) plus the changes below. Those tags and their GitHub releases were removed; every commit they pointed at is on `main`, and their sections are kept under *Archived pre-reset history*.
