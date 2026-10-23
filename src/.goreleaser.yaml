@@ -176,6 +176,10 @@ release:
     name: icon-sets-sync
   draft: false
   prerelease: auto
+  # release-please creates the GitHub release before this runs. The default mode,
+  # keep-existing, would keep its commit-generated body and drop --release-notes;
+  # replace publishes the CHANGELOG section instead.
+  mode: replace
 
 # The release body is the tagged CHANGELOG section, passed with --release-notes.
 changelog:
