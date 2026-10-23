@@ -26,6 +26,12 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
   stage with no logger of its own writes to its pipeline's through `pipeline.Context.Logger()`
   instead of `slog.Default()`. The observer is told when each stage starts and finishes, with
   its metrics and error. The CLI passes neither, so its output is unchanged.
+- **A pack config can be validated from bytes and written atomically.** `config.ParsePackBytes`
+  is the body of `LoadPackFile`, which now reads the file and calls it, so both validate and
+  decode identically. `config.WritePackFileAtomic` refuses a document that would not load and
+  otherwise replaces the file through `docfile.WriteAtomic` (temporary file in the same
+  directory, fsync, the old file's permissions, rename), keeping the submitted bytes and their
+  `_note` annotations exactly.
 
 ### Fixed
 
