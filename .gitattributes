@@ -12,3 +12,10 @@
 /.editorconfig  export-ignore
 /.gitattributes export-ignore
 /CONTRIBUTING.md export-ignore
+
+# The web UI's vendored Tabler build: minified third-party files, rewritten
+# only by `make tabler-update` / `make tabler-vendor` and checked against
+# MANIFEST.sha256 by a test. Not reviewed line by line.
+/src/internal/web/assets/vendor/tabler/** -diff linguist-vendored
+/src/internal/web/assets/vendor/tabler-icons.svg -diff linguist-vendored
+/src/internal/web/testdata/golden/** linguist-generated

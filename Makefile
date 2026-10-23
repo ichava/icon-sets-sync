@@ -124,6 +124,22 @@ test-local:  ## go vet + go test with the host's Go toolchain
 	go -C src test -count=1 ./...
 
 # ---------------------------------------------------------------------------
+# Web UI
+# ---------------------------------------------------------------------------
+
+.PHONY: serve
+serve:  ## Run the web UI (icon-sets-sync serve) with the host's Go toolchain
+	go -C src run ./cmd/icon-sets-sync serve
+
+.PHONY: tabler-update
+tabler-update:  ## Move the web UI to the newest Tabler + Tabler Icons; re-vendor, notices, hashes
+	go -C src run ./internal/tools/tablervendor -latest -root ..
+
+.PHONY: tabler-vendor
+tabler-vendor:  ## Re-vendor exactly what src/internal/web/assets/vendor/TABLER_VERSION pins
+	go -C src run ./internal/tools/tablervendor -root ..
+
+# ---------------------------------------------------------------------------
 # House-keeping
 # ---------------------------------------------------------------------------
 
