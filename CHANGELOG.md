@@ -20,6 +20,18 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
   requests with an unknown `Host` are refused (DNS rebinding), and every state change needs a
   same-origin `Origin` and a per-session CSRF token. `--read-only` serves no route that runs or
   edits anything; `--token-file` writes the address to a `0600` file for scripts.
+- **Runs from the web UI.** A pack's page shows its config (with the `_note` annotations loading
+  strips), its pipeline, its settings with origins and its recent runs, and starts a sync or a
+  recipe at a chosen version; the dashboard syncs every stale pack. Every run is a dry run unless
+  the form says otherwise, and a real run asks twice: a confirmation page where the pack name (or
+  `all packs`) has to be typed, then a browser prompt. The form's choices enter the settings as
+  the flag layer, so no pack config or environment variable can turn a dry run into a commit. One
+  run per pack at a time; a second gets 409 and a link to the first. The run page streams stage
+  progress and the log over Server-Sent Events, resumes exactly with `Last-Event-ID`, filters the
+  log by level, and has a Cancel button that stops the stage in flight. Finished runs are kept as
+  JSON Lines under `$XDG_STATE_HOME/icon-sets-sync/runs/` (newest 50), listed and filtered on the
+  Runs page and downloadable.
+- **`app.Recipe`**, the body of the `recipe` command, which now delegates to it.
 - **`make tabler-update` and `make tabler-vendor`.** The Tabler version is pinned in one place,
   `src/internal/web/assets/vendor/TABLER_VERSION`. `tabler-update` moves `@tabler/core` and
   `@tabler/icons-sprite` to their newest releases; `tabler-vendor` re-vendors what is pinned. Both

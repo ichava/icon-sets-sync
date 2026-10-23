@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -254,29 +253,15 @@ func newRecipeCommand() *cobra.Command {
 			if err != nil {
 				return failure(err)
 			}
-			pack := packs[0]
-
-			resolved, err := app.PackSettings(state.stack, pack)
-			if err != nil {
-				return failure(err)
-			}
-			s := resolved.Settings()
-
-			version := versionFlag
-			if version == "" {
-				version = pack.CurrentVersion
-			}
-			if version == "" {
-				return usageErr("%s: no version supplied and no current_version in config", pack.Pack)
-			}
-			if len(pack.Sinks) == 0 && !s.DryRun {
-				return failure(fmt.Errorf("%s declares no sinks, so the recipe would write nothing; add sinks or pass --dry-run", pack.Pack))
-			}
-
-			outcome, err := app.RunRecipe(cmd.Context(), pack, version, recipes.Options{
-				DryRun: s.DryRun, ConfigDir: configDir(), Settings: &resolved,
+			// The checks and the run are app.Recipe, which the web UI calls
+			// too; this maps its errors and renders the summary.
+			outcome, err := app.Recipe(cmd.Context(), app.RecipeRequest{
+				Stack: state.stack, Pack: packs[0], ConfigDir: configDir(), Version: versionFlag,
 			})
 			if err != nil {
+				if app.IsUsage(err) {
+					return usageErr("%s", err)
+				}
 				return failure(err)
 			}
 			if ui.JSONMode() {

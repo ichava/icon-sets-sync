@@ -55,7 +55,7 @@ jobs:
         run: |
           n=$(go -C src list ./... | wc -l)
           echo "packages: $n"
-          [ "$n" -ge 23 ] || { echo "::error::only $n Go packages found under src/"; exit 1; }
+          [ "$n" -ge 24 ] || { echo "::error::only $n Go packages found under src/"; exit 1; }
 
   docker:
     name: Docker image

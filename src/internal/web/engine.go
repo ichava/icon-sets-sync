@@ -2,14 +2,19 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"io/fs"
+	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 )
@@ -32,6 +37,41 @@ type Engine interface {
 
 	// Settings is the effective run-wide settings, with where each came from.
 	Settings() SettingsView
+
+	// Pack loads one registered pack.
+	Pack(slug string) (*config.PackConfig, error)
+
+	// PackSettings is one pack's effective settings, its own layer merged in.
+	PackSettings(pack *config.PackConfig) (SettingsView, error)
+
+	// PackNotes returns the authoring annotations (`_note` and the like) of a
+	// pack's config file, which loading strips.
+	PackNotes(pack *config.PackConfig) map[string]string
+
+	// Sync refreshes packs that are behind upstream (or all, with Force),
+	// exactly as `sync` does, with req applied as the flag layer.
+	Sync(ctx context.Context, packs []*config.PackConfig, req RunRequest, hooks RunHooks) []app.Outcome
+
+	// Recipe runs one pack's recipe at a version, as `recipe` does.
+	Recipe(ctx context.Context, pack *config.PackConfig, version string, req RunRequest, hooks RunHooks) (pipeline.Result, error)
+}
+
+// RunRequest is what a run form may set. It enters the settings as the flag
+// layer -- the same way the TUI's dry-run choice does -- so nothing below it,
+// not a pack config and not the environment, can turn a dry run into a
+// real commit.
+type RunRequest struct {
+	DryRun      bool
+	Force       bool
+	Concurrency int // 0 leaves the setting alone
+}
+
+// RunHooks route a run's output into a job.
+type RunHooks struct {
+	Logger   *slog.Logger
+	Observer pipeline.Observer
+	Starting func(pack *config.PackConfig, result checker.Result, dryRun bool)
+	Done     func(app.Outcome)
 }
 
 // PackStats is the local state of one pack repository.
@@ -84,6 +124,130 @@ func (e *AppEngine) PackStats(ctx context.Context, pack *config.PackConfig) Pack
 // Settings implements Engine.
 func (e *AppEngine) Settings() SettingsView {
 	return BuildSettingsView(e.Stack.Resolve(nil), e.ConfigDir, e.GlobalPath)
+}
+
+// Pack implements Engine.
+func (e *AppEngine) Pack(slug string) (*config.PackConfig, error) {
+	packs, err := app.LoadPacksIn(e.ConfigDir, slug, e.Workspace)
+	if err != nil {
+		return nil, err
+	}
+	return packs[0], nil
+}
+
+// PackSettings implements Engine.
+func (e *AppEngine) PackSettings(pack *config.PackConfig) (SettingsView, error) {
+	r, err := app.PackSettings(e.Stack, pack)
+	if err != nil {
+		return SettingsView{}, err
+	}
+	return BuildSettingsView(r, e.ConfigDir, e.GlobalPath), nil
+}
+
+// PackNotes implements Engine.
+func (e *AppEngine) PackNotes(pack *config.PackConfig) map[string]string {
+	return ReadNotes(pack.File)
+}
+
+// Sync implements Engine.
+func (e *AppEngine) Sync(ctx context.Context, packs []*config.PackConfig, req RunRequest, hooks RunHooks) []app.Outcome {
+	stack, err := e.withFlags(req)
+	if err != nil {
+		out := make([]app.Outcome, len(packs))
+		for i, p := range packs {
+			out[i] = app.Outcome{Pack: p.Pack, Status: app.StatusFailed, Err: err}
+		}
+		return out
+	}
+	r := stack.Resolve(nil)
+	return app.Sync(ctx, packs, app.SyncOptions{
+		Stack: stack, ConfigDir: e.configDir(), Concurrency: r.Int("concurrency"),
+		Logger: hooks.Logger, Observer: hooks.Observer, Starting: hooks.Starting, Done: hooks.Done,
+	})
+}
+
+// Recipe implements Engine.
+func (e *AppEngine) Recipe(ctx context.Context, pack *config.PackConfig, version string, req RunRequest, hooks RunHooks) (pipeline.Result, error) {
+	stack, err := e.withFlags(req)
+	if err != nil {
+		return pipeline.Result{}, err
+	}
+	return app.Recipe(ctx, app.RecipeRequest{
+		Stack: stack, Pack: pack, ConfigDir: e.configDir(), Version: version,
+		Logger: hooks.Logger, Observer: hooks.Observer,
+	})
+}
+
+func (e *AppEngine) configDir() string {
+	if e.ConfigDir == "" {
+		return config.DefaultConfigDir()
+	}
+	return e.ConfigDir
+}
+
+// withFlags returns the stack with a run form's choices as flag-layer values,
+// over whatever the command line already put there.
+func (e *AppEngine) withFlags(req RunRequest) (settings.Stack, error) {
+	return WithRunFlags(e.Stack, req)
+}
+
+// WithRunFlags copies stack's flag layer and sets dry_run and force on it --
+// always, so the form's choice is the effective one -- and concurrency when
+// given.
+func WithRunFlags(stack settings.Stack, req RunRequest) (settings.Stack, error) {
+	flags := settings.Values{}
+	for k, v := range stack.Flags {
+		flags[k] = v
+	}
+	if err := flags.Set("dry_run", req.DryRun); err != nil {
+		return stack, err
+	}
+	if err := flags.Set("force", req.Force); err != nil {
+		return stack, err
+	}
+	if req.Concurrency != 0 {
+		if err := flags.Set("concurrency", req.Concurrency); err != nil {
+			return stack, err
+		}
+	}
+	stack.Flags = flags
+	return stack, nil
+}
+
+// ReadNotes returns a config file's top-level annotation keys: those starting
+// with "_". Unreadable or non-JSON files yield none.
+func ReadNotes(path string) map[string]string {
+	if path == "" {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	canonical, err := docfile.ToJSON(path, data)
+	if err != nil {
+		return nil
+	}
+	var raw map[string]json.RawMessage
+	if json.Unmarshal(canonical, &raw) != nil {
+		return nil
+	}
+	out := map[string]string{}
+	for k, v := range raw {
+		if !strings.HasPrefix(k, "_") {
+			continue
+		}
+		var s string
+		if json.Unmarshal(v, &s) == nil {
+			out[k] = s
+		} else {
+			out[k] = string(v)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // ReadPackStats counts a pack's vendored SVGs and reads its git state. A

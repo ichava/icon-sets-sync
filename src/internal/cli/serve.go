@@ -88,6 +88,7 @@ Runs from the UI are dry runs unless you turn that off and confirm twice.
 				ReadOnly:     readOnly,
 				Version:      version.Version(),
 				BindAddr:     ln.Addr().String(),
+				HistoryDir:   web.DefaultHistoryDir(os.LookupEnv),
 			})
 			if err != nil {
 				_ = ln.Close()

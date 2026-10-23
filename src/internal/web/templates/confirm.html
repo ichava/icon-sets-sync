@@ -1,0 +1,31 @@
+{{define "content"}}{{with .Data}}
+{{template "page_header" "Confirm a real sync"}}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card card-md border-warning">
+      <div class="card-body">
+        <h2 class="h3">{{icon "alert-triangle"}} This is not a dry run</h2>
+        <p>It will refresh the files, stamp the version, commit to a sync branch, push it and open a pull request for:</p>
+        <ul>{{range .Packs}}<li><code>{{.}}</code></li>{{end}}</ul>
+        <p>It uses whatever GitHub credentials this machine's <code>git</code> and <code>gh</code> already have.</p>
+        <form method="post" action="{{.Action}}" data-confirm="Start a real sync? This commits, pushes and opens pull requests.">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <input type="hidden" name="mode" value="real">
+          {{if .Form.Force}}<input type="hidden" name="force" value="1">{{end}}
+          {{if .Form.Version}}<input type="hidden" name="version" value="{{.Form.Version}}">{{end}}
+          {{if .Form.Concurrency}}<input type="hidden" name="concurrency" value="{{.Form.Concurrency}}">{{end}}
+          <div class="mb-3">
+            <label class="form-label" for="confirm">Type <code>{{.Phrase}}</code> to confirm</label>
+            <input class="form-control" id="confirm" name="confirm" required autocomplete="off" spellcheck="false" aria-describedby="confirm-help">
+            <div id="confirm-help" class="form-hint">{{if .Form.Confirm}}That did not match; nothing was started.{{else}}Nothing has been started yet.{{end}}</div>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-danger">{{icon "player-play"}}<span class="ms-1">Start the real sync</span></button>
+            <a class="btn btn-link" href="/">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}{{end}}
