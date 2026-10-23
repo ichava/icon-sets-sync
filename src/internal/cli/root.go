@@ -4,10 +4,13 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -88,8 +91,11 @@ func Execute() int {
 			version.LegacyName, version.Name)
 	}
 
+	ctx, stop := InterruptContext(context.Background())
+	defer stop()
+
 	root := NewRootCommand()
-	if err := root.Execute(); err != nil {
+	if err := root.ExecuteContext(ctx); err != nil {
 		var exit *ExitError
 		if ok := asExitError(err, &exit); ok {
 			if exit.Err != nil {
@@ -101,6 +107,20 @@ func Execute() int {
 		return ExitFailure
 	}
 	return ExitOK
+}
+
+// InterruptContext returns a context cancelled by the first SIGINT or
+// SIGTERM, so Ctrl-C stops a sync cleanly: the stage in flight sees the
+// cancel, its subprocess or download is stopped, and no later stage (the
+// commit, the push) runs. After the first signal the default handling is
+// restored, so a second Ctrl-C still kills the process outright.
+func InterruptContext(parent context.Context) (context.Context, context.CancelFunc) {
+	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
+	return ctx, stop
 }
 
 func asExitError(err error, target **ExitError) bool {
