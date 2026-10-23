@@ -9,6 +9,7 @@
 package pipeline
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -38,6 +39,21 @@ type Context struct {
 
 	// Metrics is per-stage counters. The reporter reads this.
 	Metrics map[string]any
+
+	// run is the context the pipeline was started with. Stages read it
+	// through Context(), and pass it to every subprocess and download, so
+	// cancelling a run stops the work in flight rather than only the next
+	// stage.
+	run context.Context
+}
+
+// Context returns the run's context.Context. A stage executed outside a
+// pipeline (a test building a Context by hand) gets context.Background().
+func (c *Context) Context() context.Context {
+	if c == nil || c.run == nil {
+		return context.Background()
+	}
+	return c.run
 }
 
 // Well-known Extras keys. These are the contract between stages; the accessors
@@ -300,11 +316,24 @@ func (p *Pipeline) setBuildErr(err error) {
 	}
 }
 
-// Run executes the stages in order and returns the result.
+// Run executes the stages in order with no cancellation. It is
+// RunContext(context.Background()), kept for every caller that has no context
+// to give.
+func (p *Pipeline) Run() (Result, error) { return p.RunContext(context.Background()) }
+
+// RunContext executes the stages in order and returns the result.
 //
 // A stage failure stops the run -- the remaining stages do not execute, which
 // is what keeps a sink from committing assets a transform failed to produce.
-func (p *Pipeline) Run() (Result, error) {
+//
+// Cancelling ctx stops the run too: it is checked before every stage, and
+// stages hand it to their subprocesses and downloads. A cancelled run is a
+// failed result whose Err is ctx.Err(), naming the stage it did not start, so
+// a caller can tell a cancel from a fault with errors.Is.
+func (p *Pipeline) RunContext(runCtx context.Context) (Result, error) {
+	if runCtx == nil {
+		runCtx = context.Background()
+	}
 	if p.buildErr != nil {
 		return Result{PipelineName: p.name}, p.buildErr
 	}
@@ -334,9 +363,21 @@ func (p *Pipeline) Run() (Result, error) {
 	}
 
 	ctx := newContext(p.name, workingDir, p.config)
+	ctx.run = runCtx
 	p.log.Info("pipeline starting", "pipeline", p.name, "working_dir", workingDir)
 
 	for _, stage := range p.Stages() {
+		if err := runCtx.Err(); err != nil {
+			p.log.Warn("pipeline cancelled", "pipeline", p.name, "before_stage", stage.Name())
+			return Result{
+				PipelineName: p.name,
+				Success:      false,
+				Metrics:      ctx.Metrics,
+				Extras:       ctx.Extras,
+				Err:          err,
+				FailedStage:  stage.Name(),
+			}, nil
+		}
 		p.log.Info("stage", "pipeline", p.name, "stage", stage.Name())
 		if err := stage.Execute(ctx); err != nil {
 			p.log.Error("pipeline failed", "pipeline", p.name, "stage", stage.Name(), "error", err)
