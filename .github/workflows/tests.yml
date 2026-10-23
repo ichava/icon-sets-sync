@@ -55,7 +55,7 @@ jobs:
         run: |
           n=$(go -C src list ./... | wc -l)
           echo "packages: $n"
-          [ "$n" -ge 18 ] || { echo "::error::only $n Go packages found under src/"; exit 1; }
+          [ "$n" -ge 23 ] || { echo "::error::only $n Go packages found under src/"; exit 1; }
 
   docker:
     name: Docker image
@@ -161,7 +161,7 @@ jobs:
           find . -maxdepth 1 -name '*_source.tar.gz' | grep -q . || { echo "::error::no source tarball"; exit 1; }
           grep -q 'icon-sets-sync_macos_universal$' checksums.txt
           tar tzf icon-sets-sync_linux_amd64.tar.gz | sort | tr '\n' ' ' \
-            | grep -qx 'CHANGELOG.md LICENSE README.md icon-sets-sync imt ' \
+            | grep -qx 'CHANGELOG.md LICENSE README.md THIRD_PARTY_NOTICES.md icon-sets-sync imt ' \
             || { echo "::error::linux_amd64 archive contents changed"; tar tzf icon-sets-sync_linux_amd64.tar.gz; exit 1; }
 
   changelog:
