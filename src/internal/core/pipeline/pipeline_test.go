@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -247,5 +248,91 @@ func TestContextConfigIsCopiedNotShared(t *testing.T) {
 	ctx.Config["pack"] = "mutated"
 	if shared["pack"] != "ichava/icon-sets-flag" {
 		t.Fatal("a run mutated the builder's config map")
+	}
+}
+
+type ctxKey struct{}
+
+// contextSource records the context.Context a stage receives, and can cancel
+// the run from inside it.
+type contextSource struct {
+	SourceKind
+	seen   *any
+	cancel context.CancelFunc
+}
+
+func (contextSource) Name() string { return "ContextSource" }
+func (s contextSource) Execute(ctx *Context) error {
+	*s.seen = ctx.Context().Value(ctxKey{})
+	if s.cancel != nil {
+		s.cancel()
+	}
+	return recordingSource{}.Execute(ctx)
+}
+
+func TestRunContextReachesEveryStage(t *testing.T) {
+	var seen any
+	fired := false
+	ctx := context.WithValue(context.Background(), ctxKey{}, "run-1")
+	result, err := Named("demo").
+		Source(contextSource{seen: &seen}).
+		Sink(copyingSink{fired: &fired, target: filepath.Join(t.TempDir(), "out.svg")}).
+		RunContext(ctx)
+	if err != nil || !result.Success {
+		t.Fatalf("result %+v, err %v", result, err)
+	}
+	if seen != "run-1" {
+		t.Errorf("the stage saw %v, not the run's context", seen)
+	}
+}
+
+func TestRunContextCancelledBeforeStartRunsNothing(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	fired := false
+	result, err := Named("demo").
+		Source(recordingSource{fired: &fired}).
+		Sink(copyingSink{fired: new(bool), target: filepath.Join(t.TempDir(), "out.svg")}).
+		RunContext(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fired || result.Success {
+		t.Fatalf("a cancelled run executed a stage: fired %v, result %+v", fired, result)
+	}
+	if !errors.Is(result.Err, context.Canceled) || result.FailedStage != "RecordingSource" {
+		t.Errorf("Err %v, FailedStage %q", result.Err, result.FailedStage)
+	}
+}
+
+// A cancel during one stage stops the run before the next: the sink, which is
+// where a commit and a push would happen, never executes.
+func TestRunContextCancelledMidRunSkipsTheSinks(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var seen any
+	sinkFired := false
+	result, err := Named("demo").
+		Source(contextSource{seen: &seen, cancel: cancel}).
+		Sink(copyingSink{fired: &sinkFired, target: filepath.Join(t.TempDir(), "out.svg")}).
+		RunContext(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sinkFired {
+		t.Fatal("the sink ran after the run was cancelled")
+	}
+	if !errors.Is(result.Err, context.Canceled) || result.FailedStage != "CopyingSink" {
+		t.Errorf("Err %v, FailedStage %q", result.Err, result.FailedStage)
+	}
+}
+
+func TestAContextBuiltByHandIsBackground(t *testing.T) {
+	var c *Context
+	if c.Context() != context.Background() {
+		t.Error("nil Context did not fall back to Background")
+	}
+	if (&Context{}).Context() != context.Background() {
+		t.Error("zero Context did not fall back to Background")
 	}
 }

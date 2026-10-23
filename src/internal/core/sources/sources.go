@@ -60,10 +60,13 @@ func (s NpmTarball) Execute(ctx *pipeline.Context) error {
 	spec := s.Package + "@" + s.Version
 	log.Info("npm pack", "spec", spec)
 
-	cmd := exec.Command("npm", "pack", spec, "--silent")
+	cmd := exec.CommandContext(ctx.Context(), "npm", "pack", spec, "--silent")
 	cmd.Dir = workDir
 	out, err := cmd.Output()
 	if err != nil {
+		if cerr := ctx.Context().Err(); cerr != nil {
+			return fmt.Errorf("npm pack %s: %w", spec, cerr)
+		}
 		if _, lookErr := exec.LookPath("npm"); lookErr != nil {
 			return fmt.Errorf("npm not on PATH; the icon-sets-sync image installs it -- mount issue?")
 		}
@@ -172,7 +175,7 @@ func (s GithubArchive) Execute(ctx *pipeline.Context) error {
 	archive := filepath.Join(workDir, "src.archive")
 
 	log.Info("downloading", "url", url)
-	if _, err := client.Download(context.Background(), url, archive, false); err != nil {
+	if _, err := client.Download(ctx.Context(), url, archive, false); err != nil {
 		return err
 	}
 
@@ -259,7 +262,7 @@ func (s UnicodeCldr) Execute(ctx *pipeline.Context) error {
 	dest := filepath.Join(ctx.WorkingDir, fmt.Sprintf("emoji-test-%s.txt", version))
 
 	log.Info("downloading emoji taxonomy", "url", url)
-	if _, err := client.Download(context.Background(), url, dest, false); err != nil {
+	if _, err := client.Download(ctx.Context(), url, dest, false); err != nil {
 		return err
 	}
 

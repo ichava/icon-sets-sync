@@ -8,7 +8,6 @@
 package sinks
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -304,7 +303,7 @@ func (s GitBranch) Execute(ctx *pipeline.Context) error {
 		return err
 	}
 
-	runCtx := context.Background()
+	runCtx := ctx.Context()
 
 	dirty, err := g.HasUncommittedChanges(runCtx, repo)
 	if err != nil {
