@@ -306,6 +306,31 @@ type Licence struct {
 	Text                         []byte
 }
 
+// Check compares what TABLER_VERSION pins with the newest releases on npm and
+// returns one line per package that is behind. It changes nothing: the weekly
+// CI run prints the lines as warnings rather than opening a pull request.
+func (v *Vendor) Check() ([]string, error) {
+	data, err := os.ReadFile(filepath.Join(v.AssetDir, VersionFile))
+	if err != nil {
+		return nil, err
+	}
+	vers, err := ParseVersions(data)
+	if err != nil {
+		return nil, err
+	}
+	var behind []string
+	for _, p := range []string{PkgCore, PkgIcons} {
+		latest, err := v.latest(p)
+		if err != nil {
+			return nil, err
+		}
+		if latest != vers[p] {
+			behind = append(behind, fmt.Sprintf("%s is pinned at %s; %s is out. Run make tabler-update.", p, vers[p], latest))
+		}
+	}
+	return behind, nil
+}
+
 // Run vendors everything. With latest, it first resolves the newest releases
 // and rewrites TABLER_VERSION.
 func (v *Vendor) Run(latest bool) error {
