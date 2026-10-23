@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 	"github.com/ichava/icon-sets-sync/src/internal/ui"
@@ -203,57 +204,54 @@ func resolveState(cmd *cobra.Command) error {
 		return usageErr("--dry-run and --commit contradict each other; pass one")
 	}
 
-	path := g.globalConfig
-	if path == "" {
-		found, err := settings.GlobalConfigPath(os.LookupEnv)
-		if err != nil {
-			return failure(err)
-		}
-		path = found
-	}
-	global, err := settings.LoadGlobal(path)
-	if err != nil {
-		return failure(err)
-	}
-
-	envValues, err := settings.FromEnv(os.LookupEnv)
-	if err != nil {
-		return usageErr("%s", err)
-	}
-
-	flagValues, err := settings.FromAssignments(g.sets)
-	if err != nil {
-		return usageErr("%s", err)
-	}
 	changed := func(name string) bool {
 		f := cmd.Flags().Lookup(name)
 		return f != nil && f.Changed
 	}
-	setFlag := func(name string, key string, value any) {
-		if changed(name) {
-			flagValues[key] = value
+	overlay := func(flagValues settings.Values) error {
+		setFlag := func(name string, key string, value any) {
+			if changed(name) {
+				flagValues[key] = value
+			}
 		}
-	}
-	setFlag("config-dir", "config_dir", g.configDir)
-	if g.verbose {
-		flagValues["log_level"] = "debug"
-	}
-	if g.quiet {
-		flagValues["log_level"] = "error"
-	}
-	setFlag("dry-run", "dry_run", g.dryRun)
-	if changed("commit") && g.commit {
-		flagValues["dry_run"] = false
-	}
-	setFlag("force", "force", g.force)
-	if changed("concurrency") {
-		if err := flagValues.Set("concurrency", g.concurrency); err != nil {
-			return usageErr("--concurrency: %s", err)
+		setFlag("config-dir", "config_dir", g.configDir)
+		if g.verbose {
+			flagValues["log_level"] = "debug"
 		}
+		if g.quiet {
+			flagValues["log_level"] = "error"
+		}
+		setFlag("dry-run", "dry_run", g.dryRun)
+		if changed("commit") && g.commit {
+			flagValues["dry_run"] = false
+		}
+		setFlag("force", "force", g.force)
+		if changed("concurrency") {
+			if err := flagValues.Set("concurrency", g.concurrency); err != nil {
+				return fmt.Errorf("--concurrency: %s", err)
+			}
+		}
+		return nil
+	}
+
+	// The layering itself lives in app.BuildStack, so the web UI resolves
+	// precedence through the same code. This function keeps the CLI-only
+	// parts: the contradiction checks and the mapping onto exit codes.
+	stack, path, err := app.BuildStack(app.StackInput{
+		GlobalPath:  g.globalConfig,
+		Lookup:      os.LookupEnv,
+		Assignments: g.sets,
+		Overlay:     overlay,
+	})
+	if err != nil {
+		if app.IsUsage(err) {
+			return usageErr("%s", err)
+		}
+		return failure(err)
 	}
 
 	state.globalPath = path
-	state.stack = settings.Stack{Global: global, Env: envValues, Flags: flagValues}
+	state.stack = stack
 	state.run = state.stack.Resolve(nil)
 	return nil
 }
