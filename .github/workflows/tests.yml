@@ -150,15 +150,15 @@ jobs:
           set -euo pipefail
           cd build/dist
           bins=$(grep -cvE '\.(tar\.gz|zip|deb|rpm|apk|json)$|_source\.tar\.gz$' checksums.txt)
-          archives=$(ls ./*.tar.gz ./*.zip | grep -cv '_source\.tar\.gz$')
-          pkgs=$(ls ./*.deb ./*.rpm ./*.apk | wc -l)
-          sboms=$(ls ./*.sbom.json | wc -l)
+          archives=$(find . -maxdepth 1 \( -name '*.tar.gz' -o -name '*.zip' \) ! -name '*_source.tar.gz' | wc -l)
+          pkgs=$(find . -maxdepth 1 \( -name '*.deb' -o -name '*.rpm' -o -name '*.apk' \) | wc -l)
+          sboms=$(find . -maxdepth 1 -name '*.sbom.json' | wc -l)
           echo "bare binaries=$bins archives=$archives packages=$pkgs sboms=$sboms"
           [ "$bins" -ge 38 ] || { echo "::error::expected at least 38 bare binaries"; exit 1; }
           [ "$archives" -ge 19 ] || { echo "::error::expected at least 19 archives"; exit 1; }
           [ "$pkgs" -ge 24 ] || { echo "::error::expected at least 24 Linux packages"; exit 1; }
           [ "$sboms" -eq "$archives" ] || { echo "::error::one SBOM per archive expected"; exit 1; }
-          ls ./*_source.tar.gz
+          find . -maxdepth 1 -name '*_source.tar.gz' | grep -q . || { echo "::error::no source tarball"; exit 1; }
           grep -q 'icon-sets-sync_macos_universal$' checksums.txt
           tar tzf icon-sets-sync_linux_amd64.tar.gz | sort | tr '\n' ' ' \
             | grep -qx 'CHANGELOG.md LICENSE README.md icon-sets-sync imt ' \
