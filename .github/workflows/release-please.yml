@@ -1,0 +1,160 @@
+# Release automation. release-please reads the Conventional Commit log since the last tag, works out
+# the next version, and keeps one release pull request open that bumps it. Merging that pull request
+# tags the release, and the tag starts release.yml as before.
+#
+# Versioning on 0.x: a breaking change (`feat!:`, `BREAKING CHANGE:`) bumps the minor, everything
+# else bumps the patch. icon-sets-sync is versioned independently of the coupled ichava packages.
+#
+# Release notes stay hand-written. release-please is configured with `skip-changelog`, so it never
+# writes CHANGELOG.md; the step below closes the hand-written `## [Unreleased]` section under the new
+# version on the release branch, and release.yml publishes that section as the release body.
+#
+# Triggers. This repository's rule is that the only `push` trigger is a tag, and release-please does
+# not need one:
+#   - workflow_dispatch opens or refreshes the release pull request when a release is wanted, and the
+#     weekly schedule keeps a pending one current. Releases are cut in batches, not per merge.
+#   - pull_request `closed` runs the job only when a release-please pull request merges, which is
+#     what creates the tag. Every other closed pull request skips the job.
+#
+# Token. A pull request or tag created with GITHUB_TOKEN starts no workflows, so the release pull
+# request would run no CI and the tag would never start release.yml. Both are made with a per-run
+# Refresh Bot token instead (organisation-level REFRESH_APP_CLIENT_ID / REFRESH_APP_PRIVATE_KEY).
+
+name: Release Please
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 11 * * 1'
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+permissions: {}
+
+concurrency:
+  group: release-please
+  # A run that is creating a tag must finish; the next one queues behind it.
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release pull request and tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.merged &&
+       startsWith(github.event.pull_request.head.ref, 'release-please--'))
+
+    steps:
+      - name: Mint the Refresh Bot token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.REFRESH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REFRESH_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app.outputs.token }}
+          target-branch: main
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Find the open release pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          set -euo pipefail
+          BRANCH="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open \
+            --label 'autorelease: pending' --json headRefName --jq '.[0].headRefName // ""')"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "open release branch: ${BRANCH:-none}"
+
+      - name: Check out the release branch
+        if: steps.pr.outputs.branch != ''
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.pr.outputs.branch }}
+          token: ${{ steps.app.outputs.token }}
+
+      # Idempotent: a branch already carrying the version's section is left alone. release-please
+      # rebuilds its branch from main whenever the release changes, which drops this commit, and the
+      # next run puts it back. An empty [Unreleased] fails here, because a release with no notes
+      # is a release nobody described.
+      - name: Close the changelog under the release version
+        id: close
+        if: steps.pr.outputs.branch != ''
+        run: |
+          set -euo pipefail
+          python3 - CHANGELOG.md .release-please-manifest.json <<'PYEOF'
+          import datetime, json, os, re, sys
+
+          changelog, manifest = sys.argv[1], sys.argv[2]
+          version = json.load(open(manifest, encoding='utf-8'))['.']
+          text = open(changelog, encoding='utf-8').read()
+          out = os.environ['GITHUB_OUTPUT']
+
+          def emit(changed):
+              with open(out, 'a', encoding='utf-8') as fh:
+                  fh.write(f'version={version}\nchanged={changed}\n')
+
+          if re.search(r'^## \[' + re.escape(version) + r'\]', text, re.M):
+              print(f'{changelog} already has a [{version}] section')
+              emit('false'); sys.exit(0)
+
+          heads = list(re.finditer(r'^## \[Unreleased\][^\n]*\n', text, re.M))
+          if len(heads) != 1:
+              print(f'::error::{changelog} has {len(heads)} [Unreleased] headings; expected exactly 1.')
+              sys.exit(1)
+
+          start = heads[0].end()
+          nxt = re.search(r'^## \[', text[start:], re.M)
+          body = text[start:start + nxt.start()] if nxt else text[start:]
+          if not body.strip():
+              print(f'::error::[Unreleased] in {changelog} is empty. Write the notes for {version} '
+                    'on main, then re-run this workflow.')
+              sys.exit(1)
+
+          today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+          closed = f'## [Unreleased]\n\n## [{version}] - {today}\n'
+          text = text[:heads[0].start()] + closed + text[start:]
+          open(changelog, 'w', encoding='utf-8').write(text)
+          print(f'closed [Unreleased] as [{version}] - {today}')
+          emit('true')
+          PYEOF
+
+      - name: Commit and push the closed changelog
+        if: steps.close.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+          BRANCH: ${{ steps.pr.outputs.branch }}
+          VERSION: ${{ steps.close.outputs.version }}
+        run: |
+          set -euo pipefail
+          BOT_ID="$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)"
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${BOT_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git commit -m "chore(release): close the changelog for ${VERSION}" -- CHANGELOG.md
+          git push origin "HEAD:refs/heads/${BRANCH}"
+
+      - name: Summary
+        env:
+          RELEASE_CREATED: ${{ steps.release.outputs.release_created }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+          BRANCH: ${{ steps.pr.outputs.branch }}
+        run: |
+          {
+            echo "### release-please"
+            if [ "${RELEASE_CREATED}" = 'true' ]; then
+              echo "Tagged **${TAG_NAME}**; release.yml publishes its notes."
+            fi
+            echo "Open release pull request branch: \`${BRANCH:-none}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
