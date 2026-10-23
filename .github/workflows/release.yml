@@ -126,6 +126,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Fail closed on an empty release body. v0.1.0 and v0.1.1 shipped with a
+      # blank body because `changelog.disable: true` made GoReleaser drop
+      # --release-notes; nothing in the run noticed. Read the published release
+      # back and require at least the changelog section we passed in.
+      - name: Verify the published release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          want=$(tr -d '[:space:]' < "$RUNNER_TEMP/section.md" | wc -c)
+          got=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq '.body' | tr -d '[:space:]' | wc -c)
+          echo "section=${want} body=${got} (non-space characters)"
+          if [ "$got" -lt "$want" ]; then
+            echo "::error::The ${GITHUB_REF_NAME} release body is shorter than its CHANGELOG section (${got} < ${want})."
+            exit 1
+          fi
+
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v4
         with:

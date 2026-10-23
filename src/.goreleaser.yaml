@@ -183,4 +183,7 @@ release:
 
 # The release body is the tagged CHANGELOG section, passed with --release-notes.
 changelog:
-  disable: true
+  # Not disabled: `disable: true` also drops --release-notes, which published
+  # v0.1.0 and v0.1.1 with an empty body. With --release-notes passed, that
+  # file is the body and nothing is generated from commits.
+  use: git

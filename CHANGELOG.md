@@ -4,6 +4,10 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ## [Unreleased]
 
+### Fixed
+
+- **Releases carry their CHANGELOG section again.** `src/.goreleaser.yaml` set `changelog.disable: true`, which also makes GoReleaser ignore `--release-notes`, so v0.1.0 and v0.1.1 were published with an empty body. The changelog pipe is enabled again (`--release-notes` is still the whole body, nothing is generated from commits), and `release.yml` now reads the published release back and fails if its body is shorter than the section it passed in. The two existing release bodies were restored by hand from their CHANGELOG sections.
+
 ## [0.1.1] - 2026-10-23
 
 ### Added
