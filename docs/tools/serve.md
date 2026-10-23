@@ -11,6 +11,7 @@
 | Run | `/jobs/<id>` | a run's per-pack status, its stages and its log, live while it runs, with Cancel |
 | Runs | `/jobs` | the run history, filtered by pack or outcome, each downloadable as JSON Lines |
 | Config | `/config` | the registry, the pack configs, the bundled set manifest and the global config, each in a validating editor |
+| Bundled audit | `/bundled/audit` | `bundled audit` in the browser: which upstream each set of `icon-sets-bundled` came from, with the result downloadable as a set manifest |
 | Settings | `/settings` | the effective settings and the layer each came from, the same as `config print --origins` |
 | Licences | `/about/licenses` | the notices of the embedded Tabler, Bootstrap and Popper |
 
@@ -70,6 +71,19 @@ Finished runs are kept as JSON Lines in `$XDG_STATE_HOME/icon-sets-sync/runs/` (
 saved from the editor goes to `$XDG_CONFIG_HOME/icon-sets-sync/config.json` (else `~/.config`) and
 applies to the next run without a restart.
 
+## Docker
+
+Loopback inside a container cannot be reached from the host, so in Docker the UI listens on every
+interface inside the container and is published on the host's loopback only:
+
+```bash
+make ui        # docker compose --profile ui up ui
+```
+
+The `ui` service runs `serve --addr 0.0.0.0 --port 7878 --allow-remote` and publishes
+`127.0.0.1:7878`; open the address it logs. The compose file mounts `config/` read-only, so the
+editor opens read-only and says why. Run history is kept in a named volume.
+
 ## Updating Tabler
 
 The Tabler version is pinned in `src/internal/web/assets/vendor/TABLER_VERSION`:
@@ -77,11 +91,13 @@ The Tabler version is pinned in `src/internal/web/assets/vendor/TABLER_VERSION`:
 ```bash
 make tabler-update   # move to the newest @tabler/core and @tabler/icons-sprite
 make tabler-vendor   # re-vendor exactly what is pinned
+make tabler-check    # only say whether a newer release is out
 ```
 
 Both check every download against the npm registry's integrity hash and rewrite the vendored
 files, the licence texts, `MANIFEST.sha256` and `THIRD_PARTY_NOTICES.md` together; the test suite
-fails if any of them disagree. To use another Tabler icon, add its name to
+fails if any of them disagree. The Tests workflow's weekly run warns when a newer release is out;
+it never opens a pull request. To use another Tabler icon, add its name to
 `src/internal/web/assets/vendor/icons.txt` and run `make tabler-vendor`.
 
 ---

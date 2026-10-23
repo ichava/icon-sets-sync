@@ -39,5 +39,35 @@ services:
     tty: true
     stdin_open: true
 
+  # The web UI: `docker compose --profile ui up ui`, then open the address it
+  # logs. Loopback inside a container is unreachable from the host, so it
+  # listens on every interface in here and is published on the host's loopback
+  # only; the sign-in token still applies. config/ stays read-only, and the
+  # editor says so.
+  ui:
+    profiles: [ui]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ichava/icon-sets-sync:latest
+    command: [serve, --addr, 0.0.0.0, --port, "7878", --allow-remote, --no-open]
+    ports:
+      - "127.0.0.1:7878:7878"
+    volumes:
+      - ../:/work:rw
+      - ichava_maintainer_toolkit_npm_cache:/root/.npm
+      - ./config:/app/config:ro
+      # Run history, kept across restarts.
+      - ichava_ui_state:/state
+    working_dir: /work
+    environment:
+      - XDG_STATE_HOME=/state
+      - GH_TOKEN
+      - ICHAVA_LOG_LEVEL
+      - ICHAVA_DRY_RUN
+      - ICHAVA_FORCE
+      - ICHAVA_CONCURRENCY
+
 volumes:
   ichava_maintainer_toolkit_npm_cache:
+  ichava_ui_state:
