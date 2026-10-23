@@ -1,0 +1,42 @@
+{{define "content"}}{{with .Data}}
+{{template "page_header" "Settings"}}
+<div class="row row-cards">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Effective settings</h2></div>
+      <div class="card-body pb-0">
+        <p class="text-secondary">Highest first: flags, then <code>ICHAVA_*</code> environment, then the global config, then a pack's own <code>settings</code>, then defaults. This is <code>config print --origins</code> for the run as a whole; a pack's page shows its own layer merged in.</p>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <caption class="visually-hidden">Every setting, its value and where it came from</caption>
+          <thead><tr><th scope="col">Setting</th><th scope="col">Value</th><th scope="col">From</th></tr></thead>
+          <tbody>
+            {{range .Rows}}
+            <tr>
+              <th scope="row"><code>{{.Name}}</code><div class="text-secondary small fw-normal">{{.Help}}</div></th>
+              <td><code class="text-break">{{orDash .Value}}</code></td>
+              <td><span class="badge {{if eq .Origin "default"}}bg-secondary-lt{{else}}bg-blue-lt{{end}}">{{.Origin}}</span></td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">This server</h2></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5">Version</dt><dd class="col-7">{{.Version}}</dd>
+          <dt class="col-5">Listening on</dt><dd class="col-7"><code>{{.BindAddr}}</code></dd>
+          <dt class="col-5">Config dir</dt><dd class="col-7"><code class="text-break">{{.ConfigDir}}</code></dd>
+          <dt class="col-5">Global config</dt><dd class="col-7">{{if .GlobalPath}}<code class="text-break">{{.GlobalPath}}</code>{{else}}none{{end}}</dd>
+          <dt class="col-5">Mode</dt><dd class="col-7">{{if .ReadOnly}}{{icon "lock"}} read-only{{else}}runs and edits allowed{{end}}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}{{end}}

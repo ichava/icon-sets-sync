@@ -1,0 +1,36 @@
+package web
+
+import "net/http"
+
+// routes registers every page and action. Under ReadOnly the routes that run
+// a sync or write a file are not registered at all, rather than registered
+// and refused: a route that does not exist cannot be reached by a bug in a
+// check.
+func (s *Server) routes() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /assets/{hash}/{path...}", s.serveAsset)
+	mux.HandleFunc("GET /{$}", s.handleDashboard)
+	mux.HandleFunc("POST /check", s.handleRefresh)
+	mux.HandleFunc("GET /settings", s.handleSettings)
+	mux.HandleFunc("GET /about/licenses", s.handleLicenses)
+	mux.HandleFunc("GET /schema/pack.schema.json", s.handleSchema)
+
+	if !s.opts.ReadOnly {
+		s.writeRoutes(mux)
+	}
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if s.opts.ReadOnly && r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			s.renderError(w, r, http.StatusMethodNotAllowed, "Read-only server",
+				"This server was started with --read-only, so it cannot run a sync or change a file.")
+			return
+		}
+		s.renderError(w, r, http.StatusNotFound, "Not found", "There is no page at this address.")
+	})
+	return mux
+}
+
+// writeRoutes registers the routes that change something. Later phases add
+// to it; it is empty while the UI is read-only by construction.
+func (s *Server) writeRoutes(_ *http.ServeMux) {}

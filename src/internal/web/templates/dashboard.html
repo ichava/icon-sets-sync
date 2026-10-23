@@ -1,0 +1,63 @@
+{{define "content"}}{{with .Data}}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col">
+      <h1 class="page-title">Packs</h1>
+      <div class="text-secondary mt-1" role="status" aria-live="polite">
+        {{if .Running}}{{icon "refresh"}} Checking upstream registries…
+        {{else if .CheckedAt.IsZero}}Upstream not checked yet.
+        {{else}}Upstream checked <time datetime="{{iso .CheckedAt}}">{{when .CheckedAt}}</time>.{{end}}
+      </div>
+    </div>
+    <div class="col-auto ms-auto">
+      <form method="post" action="/check" class="d-inline">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <button type="submit" class="btn btn-outline-primary"{{if .Running}} disabled{{end}}>{{icon "refresh"}}<span class="ms-1">Refresh check</span></button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{{if .Err}}<div class="alert alert-danger" role="alert">{{icon "alert-circle"}} {{.Err}}</div>{{end}}
+
+<div class="row row-cards mb-3">
+  <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="text-secondary">Packs</div><div class="h2 mb-0">{{.Totals.Packs}}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="text-secondary">Up to date</div><div class="h2 mb-0">{{.Totals.OK}}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="text-secondary">Behind upstream</div><div class="h2 mb-0">{{.Totals.Stale}}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="text-secondary">Vendored SVGs</div><div class="h2 mb-0">{{thousands .Totals.SVGs}}</div></div></div></div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <caption class="visually-hidden">Registered packs and their upstream status</caption>
+      <thead>
+        <tr>
+          <th scope="col">Pack</th>
+          <th scope="col">Status</th>
+          <th scope="col">Vendored</th>
+          <th scope="col">Upstream</th>
+          <th scope="col">SVGs</th>
+          <th scope="col">Pack repo</th>
+          <th scope="col">Recipe</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Rows}}
+        <tr>
+          <th scope="row"><div>{{.Slug}}</div><div class="text-secondary small fw-normal">{{.Pack}}</div></th>
+          <td>{{template "status_badge" .}}{{if and .Checked .Result.Reason}}<div class="text-secondary small">{{.Result.Reason}}</div>{{end}}</td>
+          <td><code>{{orDash .Current}}</code></td>
+          <td>{{if .Checked}}<code>{{orDash .Result.Latest}}</code>{{if .Result.ReleaseURL}} <a href="{{.Result.ReleaseURL}}" rel="noreferrer noopener" target="_blank">{{icon "external-link"}}<span class="visually-hidden">Release notes for {{.Slug}} (opens in a new tab)</span></a>{{end}}{{else}}–{{end}}</td>
+          <td>{{if .Checked}}{{thousands .Stats.SVGs}}{{else}}–{{end}}</td>
+          <td>{{if .Stats.Err}}<span class="text-danger small">{{.Stats.Err}}</span>{{else if .Stats.Branch}}{{icon "git-branch"}} <code>{{.Stats.Branch}}</code>{{if .Stats.Dirty}} <span class="badge bg-orange-lt">uncommitted changes</span>{{end}}{{else}}–{{end}}</td>
+          <td>{{orDash .Recipe}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="7" class="text-secondary">No packs are registered in this config directory.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}{{end}}
