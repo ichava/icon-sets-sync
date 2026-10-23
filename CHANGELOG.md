@@ -7,6 +7,29 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 ### Added
 
 - **Releases are prepared by release-please.** A *Release Please* workflow reads the Conventional Commit log, keeps one release pull request open that bumps `.release-please-manifest.json`, and tags the release when that pull request merges; the tag starts `release.yml` as before. On 0.x a breaking change bumps the minor and everything else bumps the patch. Release notes stay hand-written: release-please is set to `skip-changelog`, and the workflow closes this `[Unreleased]` section under the new version on the release branch, failing if it is empty. It runs on `workflow_dispatch`, a weekly schedule, and the merge of a release pull request, so the only `push` trigger is still the tag. The pull request and the tag are made with a per-run Refresh Bot token, because ones made with `GITHUB_TOKEN` start no workflows. GoReleaser now runs with `release.mode: replace`, because release-please creates the GitHub release first and the default mode would keep its generated body instead of this changelog.
+- **`icon-sets-sync serve` (alias `ui`): a localhost web UI.** Server-rendered pages over the same
+  `internal/app` functions the CLI calls, styled with Tabler and embedded in the binary, so the
+  page makes no request beyond the server. This first cut shows the packs dashboard (vendored vs
+  upstream version, status, SVG count, the pack repo's branch and uncommitted changes; the upstream
+  check is cached for ten minutes and refreshed on request), the effective settings with the
+  layer each came from, the pack schema and the third-party licences. It listens on
+  `127.0.0.1:7878`; when that port is taken it takes the next free one and prints the address it
+  bound, and `--port` (or a port in `--addr`) pins one and fails if it is taken. A non-loopback
+  `--addr` needs `--allow-remote`. The printed address carries a one-time token exchanged for an
+  `HttpOnly`, `SameSite=Strict` cookie; every response carries a strict Content-Security-Policy;
+  requests with an unknown `Host` are refused (DNS rebinding), and every state change needs a
+  same-origin `Origin` and a per-session CSRF token. `--read-only` serves no route that runs or
+  edits anything; `--token-file` writes the address to a `0600` file for scripts.
+- **`make tabler-update` and `make tabler-vendor`.** The Tabler version is pinned in one place,
+  `src/internal/web/assets/vendor/TABLER_VERSION`. `tabler-update` moves `@tabler/core` and
+  `@tabler/icons-sprite` to their newest releases; `tabler-vendor` re-vendors what is pinned. Both
+  verify every npm tarball against the registry's sha512 integrity, cut the icon subset the UI
+  uses, and rewrite the licence texts, `MANIFEST.sha256` and `THIRD_PARTY_NOTICES.md` together.
+  Vendored now: `@tabler/core` 1.7.1 (bundling Bootstrap 5.3.8 and Popper 2.11.8) and
+  `@tabler/icons-sprite` 3.49.0.
+- **`THIRD_PARTY_NOTICES.md` ships in every release archive and Linux package**, and the binary
+  serves the same notices at `/about/licenses`.
+- `gitx.CurrentBranch`.
 
 ### Changed
 

@@ -205,6 +205,7 @@ Run with no arguments in a terminal for the interactive menu.`,
 		newConfigCommand(),
 		newBundledCommand(),
 		newMenuCommand(),
+		newServeCommand(),
 		newVersionCommand(),
 	)
 	return root

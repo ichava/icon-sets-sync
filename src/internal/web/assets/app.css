@@ -1,0 +1,4 @@
+/* Overrides only; everything else is Tabler. */
+.skip-link:focus { position: absolute; z-index: 1080; top: .5rem; left: .5rem; padding: .5rem 1rem; background: var(--tblr-bg-surface); }
+.licence-text { white-space: pre-wrap; font-size: .8125rem; max-height: 24rem; overflow: auto; }
+main:focus { outline: none; }
