@@ -171,13 +171,13 @@ func assertLicenceWiring(t *testing.T, p *pipeline.Pipeline, set string) {
 	}
 }
 
-// TestEveryBundledSetShipsItsLicence builds the per-set recipe the way a
+// TestEveryManifestPackSetShipsItsLicence builds the per-set recipe the way a
 // private pack runs it: the pack config and its set manifest come from a
 // private config directory merged over the public one, since a private pack's
 // recipe may not ship in this repository. The fixture is synthetic. It asserts
 // how many sets it inspected: a manifest that stopped loading, or a recipe that
 // built nothing, must fail here rather than pass over zero pipelines.
-func TestEveryBundledSetShipsItsLicence(t *testing.T) {
+func TestEveryManifestPackSetShipsItsLicence(t *testing.T) {
 	publicDir := filepath.Join("..", "..", "..", "..", "config")
 	privateDir := filepath.Join("..", "config", "testdata", "private-config")
 	defer config.SetPrivateConfigDir(privateDir)()

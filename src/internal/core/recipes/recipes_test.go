@@ -140,17 +140,17 @@ func TestEmojiDryRunHasNoCommitPipeline(t *testing.T) {
 	}
 }
 
-// TestBundledNeedsAManifestAndSaysSo replaces the old recipe-pending test.
+// TestManifestPackNeedsAManifestAndSaysSo replaces the old recipe-pending test.
 // icon-sets-bundled now has a real recipe, so the failure mode changed from
 // "not written" to "not configured" -- and the error has to name the command
 // that builds the manifest, because that is the whole remaining task.
-func TestBundledNeedsAManifestAndSaysSo(t *testing.T) {
-	bundled := &config.PackConfig{
+func TestManifestPackNeedsAManifestAndSaysSo(t *testing.T) {
+	pack := &config.PackConfig{
 		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled",
 		Source: config.SourceConfig{Type: "url"},
 	}
 
-	_, err := Build(bundled, "2.2.0", Options{DryRun: false, ConfigDir: t.TempDir()})
+	_, err := Build(pack, "2.2.0", Options{DryRun: false, ConfigDir: t.TempDir()})
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -162,11 +162,11 @@ func TestBundledNeedsAManifestAndSaysSo(t *testing.T) {
 	}
 }
 
-// TestBundledBuildsOnePipelinePerSet covers the shape, and the rule that
+// TestManifestPackBuildsOnePipelinePerSet covers the shape, and the rule that
 // matters most: a set absent from the manifest is not touched at all. The
 // filesystem sink wipes its destination, so a guessed entry would replace a
 // set's icons with another project's -- absent is safe, wrong is not.
-func TestBundledBuildsOnePipelinePerSet(t *testing.T) {
+func TestManifestPackBuildsOnePipelinePerSet(t *testing.T) {
 	dir := t.TempDir()
 	m := &manifestpack.Manifest{
 		Pack: "ichava/icon-sets-bundled",
@@ -216,11 +216,11 @@ func TestBundledBuildsOnePipelinePerSet(t *testing.T) {
 	}
 }
 
-// TestBundledDoesNotEnforceThePolicy is a deliberate difference from every
+// TestManifestPackDoesNotEnforceThePolicy is a deliberate difference from every
 // other pack. This one has never been sanitised: its icons keep comments the
 // policy strips, and enforcing during a refresh would rewrite tens of
 // thousands of files and drop fontawesome's licence attribution.
-func TestBundledDoesNotEnforceThePolicy(t *testing.T) {
+func TestManifestPackDoesNotEnforceThePolicy(t *testing.T) {
 	dir := t.TempDir()
 	m := &manifestpack.Manifest{Sets: map[string]manifestpack.SetSource{
 		"x": {Package: "x", Path: "package"},
@@ -242,7 +242,7 @@ func TestBundledDoesNotEnforceThePolicy(t *testing.T) {
 	for _, stage := range built[0].Stages() {
 		if s, ok := stage.(transforms.Sanitise); ok {
 			if !s.ReportOnly {
-				t.Error("the bundled refresh must report policy violations, not rewrite the files")
+				t.Error("the manifest-pack refresh must report policy violations, not rewrite the files")
 			}
 			return
 		}
@@ -250,9 +250,9 @@ func TestBundledDoesNotEnforceThePolicy(t *testing.T) {
 	t.Error("no Sanitise stage: the policy should still be evaluated, just not enforced")
 }
 
-// TestBundledRefusesAManifestForAnotherPack guards against a copied file
+// TestManifestPackRefusesAManifestForAnotherPack guards against a copied file
 // pointing a wiping refresh at the wrong tree.
-func TestBundledRefusesAManifestForAnotherPack(t *testing.T) {
+func TestManifestPackRefusesAManifestForAnotherPack(t *testing.T) {
 	dir := t.TempDir()
 	m := &manifestpack.Manifest{Pack: "ichava/icon-sets-tabler", Sets: map[string]manifestpack.SetSource{
 		"x": {Package: "x", Path: "package"},
@@ -320,12 +320,12 @@ func indexOf(items []string, want string) int {
 }
 
 // buildFor keeps the tests readable now that Build takes a config directory;
-// only the bundled recipe uses it.
+// only the manifest-pack recipe uses it.
 func buildFor(pack *config.PackConfig, version string, dryRun bool) ([]*pipeline.Pipeline, error) {
 	return Build(pack, version, Options{DryRun: dryRun})
 }
 
-// TestBundledRetentionFloorMatchesTheAuditFloor pins the two together.
+// TestManifestPackRetentionFloorMatchesTheAuditFloor pins the two together.
 //
 // A set enters the manifest at 90% name coverage and the refresh refuses to
 // replace a directory below 90% retention. Those are the same number on
@@ -333,7 +333,7 @@ func buildFor(pack *config.PackConfig, version string, dryRun bool) ([]*pipeline
 // surfaces as a Monday cron refusing sets the audit approved on Friday --
 // with an error about upstream reorganising, which would be the wrong
 // explanation entirely.
-func TestBundledRetentionFloorMatchesTheAuditFloor(t *testing.T) {
+func TestManifestPackRetentionFloorMatchesTheAuditFloor(t *testing.T) {
 	dir := t.TempDir()
 	m := &manifestpack.Manifest{Sets: map[string]manifestpack.SetSource{
 		"x": {Package: "x", Path: "package"},
@@ -367,14 +367,14 @@ func TestBundledRetentionFloorMatchesTheAuditFloor(t *testing.T) {
 	t.Error("no Filesystem sink in the set pipeline")
 }
 
-// TestBundledFlattensAVariantSet checks the recipe reaches for the right
+// TestManifestPackFlattensAVariantSet checks the recipe reaches for the right
 // transform, because the wrong one is destructive rather than merely wrong.
 //
 // SubsetTo would narrow the tree to a single variant and the Filesystem sink
 // wipes the destination first, so heroicons would refresh 324 icons and delete
 // the other 964. The retention guard would stop that particular case at 25%,
 // but a two-variant set landing at 50% is the same defect passing the guard.
-func TestBundledFlattensAVariantSet(t *testing.T) {
+func TestManifestPackFlattensAVariantSet(t *testing.T) {
 	dir := t.TempDir()
 	m := &manifestpack.Manifest{Sets: map[string]manifestpack.SetSource{
 		"heroicons": {Package: "heroicons", Variants: []manifestpack.Variant{

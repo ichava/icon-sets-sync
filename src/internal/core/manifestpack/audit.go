@@ -1,4 +1,4 @@
-// Package bundled identifies, and verifies, where each set in an aggregator
+// Package manifestpack identifies, and verifies, where each set in an aggregator
 // pack actually came from.
 //
 // Such a pack vendors many sets, and nothing records which upstream any of

@@ -43,7 +43,7 @@ func (f copyFetcher) Fetch(_ context.Context, pkg, dest string) (string, error) 
 	return "1.2.3", nil
 }
 
-func bundledFixture(t *testing.T) (configDir, upstream string) {
+func manifestPackFixture(t *testing.T) (configDir, upstream string) {
 	t.Helper()
 	root := t.TempDir()
 	packRoot := filepath.Join(root, "icon-sets-bundled")
@@ -75,8 +75,8 @@ func bundledFixture(t *testing.T) (configDir, upstream string) {
 	return configDir, upstream
 }
 
-func TestAuditBundledScoresAgainstTheCommittedBytes(t *testing.T) {
-	configDir, upstream := bundledFixture(t)
+func TestAuditManifestPackScoresAgainstTheCommittedBytes(t *testing.T) {
+	configDir, upstream := manifestPackFixture(t)
 	var started int
 	var done []string
 	results, err := AuditBundled(context.Background(), AuditOptions{
@@ -100,8 +100,8 @@ func TestAuditBundledScoresAgainstTheCommittedBytes(t *testing.T) {
 	}
 }
 
-func TestAuditBundledPackageNeedsASet(t *testing.T) {
-	configDir, _ := bundledFixture(t)
+func TestAuditManifestPackPackageNeedsASet(t *testing.T) {
+	configDir, _ := manifestPackFixture(t)
 	_, err := AuditBundled(context.Background(), AuditOptions{ConfigDir: configDir, Package: "x", Fetcher: copyFetcher{}})
 	if !IsUsage(err) {
 		t.Fatalf("want a usage error, got %v", err)

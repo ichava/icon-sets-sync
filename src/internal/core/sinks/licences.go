@@ -46,7 +46,7 @@ type LicenceTexts struct {
 	Set  string
 
 	// MissingReason lets a set whose upstream ships no licence file refresh
-	// anyway, with the reason recorded where it is configured (a bundled set's
+	// anyway, with the reason recorded where it is configured (a manifest-pack set's
 	// licence_missing). The set's licence directory is then removed rather than
 	// left holding a text that no longer matches, and the gap is logged and
 	// reported as a metric on every run, unless the directory is hand-supplied

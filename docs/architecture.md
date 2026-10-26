@@ -60,7 +60,7 @@ src/
         ├── svg/          the shared SVG policy and the parser that applies it
         ├── sinks/        Filesystem, LicenceTexts, VersionStamp, GitBranch, Discard
         ├── recipes/      config -> pipelines: generic, emoji-sets, manifest-pack
-        └── bundled/      the aggregator pack's set manifest and audit
+        └── manifestpack/ the aggregator pack's set manifest and audit
 ```
 
 The CLI and the TUI are two front-ends over `internal/app`, so they cannot sync differently: a sync
