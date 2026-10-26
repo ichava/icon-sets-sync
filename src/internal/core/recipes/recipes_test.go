@@ -180,7 +180,7 @@ func TestBundledBuildsOnePipelinePerSet(t *testing.T) {
 	}
 
 	pack := &config.PackConfig{
-		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled", PackRoot: "/work/icon-sets-bundled",
+		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled", PackRoot: "/work/b",
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}

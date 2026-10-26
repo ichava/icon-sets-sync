@@ -301,8 +301,8 @@ func TestLoadsEveryShippedConfig(t *testing.T) {
 	}
 	// Pin the count: a registry that silently lost entries would otherwise
 	// pass this test by checking fewer files.
-	if len(packs) < 4 {
-		t.Fatalf("loaded %d shipped pack configs, want at least 4", len(packs))
+	if len(packs) < 3 {
+		t.Fatalf("loaded %d shipped pack configs, want at least 3", len(packs))
 	}
 	t.Logf("loaded %d shipped pack configs", len(packs))
 }

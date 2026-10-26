@@ -97,7 +97,7 @@ func AuditBundled(ctx context.Context, opts AuditOptions) ([]bundled.Resolution,
 // ResolveSets audits sets concurrently.
 //
 // Each set is independent and dominated by a network fetch, so this is
-// worthwhile -- 72 sets fetched one at a time is minutes of waiting. Results
+// worthwhile -- dozens of sets fetched one at a time is minutes of waiting. Results
 // are written into a fixed slot per set rather than appended, so the output
 // order stays deterministic regardless of which finishes first.
 func ResolveSets(ctx context.Context, sets []string, filesRoot, workDir string, parallel int, pkg string, fetcher bundled.Fetcher) []bundled.Resolution {

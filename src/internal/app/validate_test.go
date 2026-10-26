@@ -21,12 +21,12 @@ func TestValidateConfigsTheShippedConfigs(t *testing.T) {
 	for _, f := range findings {
 		text += f.Text + "\n"
 	}
-	for _, slug := range []string{"icon-sets-tabler", "icon-sets-flag", "icon-sets-bundled", "icon-sets-emoji"} {
+	for _, slug := range []string{"icon-sets-tabler", "icon-sets-flag", "icon-sets-emoji"} {
 		if !strings.Contains(text, slug) {
 			t.Errorf("no finding names %s:\n%s", slug, text)
 		}
 	}
-	if len(findings) < 5 {
+	if len(findings) < 4 {
 		t.Errorf("only %d findings", len(findings))
 	}
 }

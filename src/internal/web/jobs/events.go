@@ -56,8 +56,8 @@ type Event struct {
 	Data json.RawMessage `json:"data,omitempty"`
 }
 
-// DefaultCapacity is how many events a job keeps in memory: enough for the
-// bundled pack's 72 sets, a ceiling against a runaway logger.
+// DefaultCapacity is how many events a job keeps in memory: enough for an
+// aggregator pack's dozens of sets, a ceiling against a runaway logger.
 const DefaultCapacity = 10000
 
 // ring is a bounded, append-only event log with change notification.

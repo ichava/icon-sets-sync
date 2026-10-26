@@ -6,11 +6,18 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ### Added
 
-- **A sync ships each upstream's own licence texts beside its icons.** No pack carried the text MIT, ISC, BSD, Apache-2.0 and OFL require to accompany every copy: the licence sits at the upstream root and every recipe narrowed the tree to the icon subdirectory before writing. Every asset pipeline now runs a `FindLicences` transform straight after its source, recording the root's `LICENSE*`, `LICENCE*`, `COPYING*`, `NOTICE*` and `OFL*` files, and a `LicenceTexts` sink straight after `Filesystem`, copying them verbatim to `resources/assets/svg/licenses/<set>` (`tabler-icons`, `flag-icons`, `twemoji`, `openmoji-color`, `openmoji-black`, and one per bundled set). `resources/` ships in every pack's dist archive. An upstream with no licence file at its root fails its pipeline, naming the set, instead of syncing icons whose licence cannot be found. A bundled set may instead record the evidence in a new `licence_missing` manifest field; it then refreshes, with its licence directory removed and the gap logged. Three sets carry it, measured 2026-10-26 against each package's `latest` tarball, where 32 of the 35 bundled sets' packages, and tabler, flag-icons, Twemoji and OpenMoji, do ship a root licence: `academicons`, `pepicons` and `zondicons`; a test caps that at three. Packs gain the files through their next sync pull request. Tests cover the filename rules, a verbatim byte-for-byte copy (CRLF and non-ASCII kept), a `NOTICE` copied when present and removed when upstream drops it, a missing licence failing, an end-to-end run over zip and tar.gz fixture archives, and every set in the real bundled manifest (35, with a floor of 10) being wired; that guard failed with 35 errors when `FindLicences` was taken out of the bundled recipe.
+- **Private packs load their recipes at run time.** `--private-config-dir` (setting `private_config_dir`, `ICHAVA_PRIVATE_CONFIG_DIR`) names a directory laid out like `config/` -- an optional `packs.json`, `<slug>.json` pack configs and any `<slug>.sets.json` set manifest -- and merges it over the public one: its packs follow the public registry, a file in both is read from the private directory, and a private directory that is set but missing is a usage error rather than an empty overlay. A private pack therefore runs through the same data-driven recipes, the per-set `bundled` one included, without its configuration being committed here. Tests cover the merged registry, the private copy winning, a missing directory failing, a pack and its set manifest loading through the flag and through the environment, and the recipe building one pipeline per set from a synthetic private fixture. Shown end to end with a dry-run sync of the aggregator pack from a private directory in a temporary folder.
+- **A test fails on any tracked file that names a private pack's paths.** `TestPublicTreeNamesNoPrivatePack` reads every file `git ls-files` lists (with a floor on the count) and fails on a path inside, or a config file of, a private pack; a bare pack name and ordinary uses of the word "bundled" stay allowed. One exemption, with a ceiling of 3 lines: the vendored copy of core's SVG policy, which can only change after the canonical copy does. A second test pins that `config/`, which the image ships, carries no private pack. Both were seen failing with the old config restored.
+
+- **A sync ships each upstream's own licence texts beside its icons.** No pack carried the text MIT, ISC, BSD, Apache-2.0 and OFL require to accompany every copy: the licence sits at the upstream root and every recipe narrowed the tree to the icon subdirectory before writing. Every asset pipeline now runs a `FindLicences` transform straight after its source, recording the root's `LICENSE*`, `LICENCE*`, `COPYING*`, `NOTICE*` and `OFL*` files, and a `LicenceTexts` sink straight after `Filesystem`, copying them verbatim to `resources/assets/svg/licenses/<set>` (`tabler-icons`, `flag-icons`, `twemoji`, `openmoji-color`, `openmoji-black`, and one per set of a multi-set pack). `resources/` ships in every pack's dist archive. An upstream with no licence file at its root fails its pipeline, naming the set, instead of syncing icons whose licence cannot be found. A bundled set may instead record the evidence in a new `licence_missing` manifest field; it then refreshes, with its licence directory removed and the gap logged. Tabler, flag-icons, Twemoji and OpenMoji all ship a root licence, measured 2026-10-26 against each package's `latest` tarball. Packs gain the files through their next sync pull request. Tests cover the filename rules, a verbatim byte-for-byte copy (CRLF and non-ASCII kept), a `NOTICE` copied when present and removed when upstream drops it, a missing licence failing, an end-to-end run over zip and tar.gz fixture archives, and every set in a set manifest being wired; that guard failed for every set when `FindLicences` was taken out of the bundled recipe.
+
+### Removed
+
+- **The aggregator pack's config, its set manifest and the migration census files.** `config/` no longer registers or ships the aggregator pack, and `.scripts/migration/` no longer carries the three dated census measurements, which listed private packs' file paths. They moved to that pack's own repository, which passes them back in through `--private-config-dir`. The frozen lxml oracle drops its 36 records from a private pack (1,238 remain), and its test now fails on a record from any pack that is not public. Comments, docs and earlier changelog entries that described private packs' contents were generalised.
 
 ### Fixed
 
-- **A sync no longer deletes hand-supplied licence texts.** Since the licence-text sink landed, a set flagged `licence_missing` had its `resources/assets/svg/licenses/<set>/` directory removed on every run, which destroyed the texts maintainers add by hand for exactly those sets (icon-sets-bundled's `academicons` OFL and `zondicons` MIT). A licence directory holding a `SOURCE.md` is now hand-maintained: `LicenceTexts` never deletes or overwrites it, reports the set as `hand-supplied` instead of missing in its log line and its `licence_texts` metric (which now carries a `status` of `copied`, `missing` or `hand-supplied`), and stops the `licence_missing` warning the folder satisfies. Without `licence_missing` the run still fails, but leaves the folder in place. If upstream later ships its own licence for such a set, the folder is kept and the run warns, with `reconcile: true` in the metric, so a person compares the texts. An un-annotated directory is replaced or removed exactly as before. Tests cover a hand-supplied folder surviving byte for byte with no warning, the upstream-now-ships warning, the failure without `licence_missing`, an un-annotated stale folder still removed and still replaced, and a `SOURCE.md` directory not counting as the marker; with the marker check disabled, the three hand-supplied cases fail.
+- **A sync no longer deletes hand-supplied licence texts.** Since the licence-text sink landed, a set flagged `licence_missing` had its `resources/assets/svg/licenses/<set>/` directory removed on every run, which destroyed the texts maintainers add by hand for exactly those sets. A licence directory holding a `SOURCE.md` is now hand-maintained: `LicenceTexts` never deletes or overwrites it, reports the set as `hand-supplied` instead of missing in its log line and its `licence_texts` metric (which now carries a `status` of `copied`, `missing` or `hand-supplied`), and stops the `licence_missing` warning the folder satisfies. Without `licence_missing` the run still fails, but leaves the folder in place. If upstream later ships its own licence for such a set, the folder is kept and the run warns, with `reconcile: true` in the metric, so a person compares the texts. An un-annotated directory is replaced or removed exactly as before. Tests cover a hand-supplied folder surviving byte for byte with no warning, the upstream-now-ships warning, the failure without `licence_missing`, an un-annotated stale folder still removed and still replaced, and a `SOURCE.md` directory not counting as the marker; with the marker check disabled, the three hand-supplied cases fail.
 - **Releases carry their CHANGELOG section again.** `src/.goreleaser.yaml` set `changelog.disable: true`, which also makes GoReleaser ignore `--release-notes`, so v0.1.0 and v0.1.1 were published with an empty body. The changelog pipe is enabled again (`--release-notes` is still the whole body, nothing is generated from commits), and `release.yml` now reads the published release back and fails if its body is shorter than the section it passed in. The two existing release bodies were restored by hand from their CHANGELOG sections.
 - **GoReleaser ignores the `src/vX.Y.Z` module alias tag.** Since v0.1.1 both tags sit on one commit, and GoReleaser took `src/v0.1.1` as the current tag, so the pull-request snapshot build failed writing `icon-sets-sync_src/v0.1.1-SNAPSHOT…_source.tar.gz`. `git.ignore_tags: ["src/*"]` in `src/.goreleaser.yaml`; a local snapshot now builds as `0.1.1-SNAPSHOT`.
 
@@ -142,9 +149,9 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
   resolved, where the Python printed a warning, skipped the pack and exited 0, so a dead registry
   read exactly like an up-to-date pack. A pack with no sinks is an error unless it is a dry run.
   The other packs in the run still go first.
-- **icon-sets-bundled is now refreshed for real.** Its per-set recipe existed only in Go, which the
-  image did not run; from this release a `sync --pack=icon-sets-bundled` refreshes every set in
-  `config/icon-sets-bundled.sets.json` instead of failing with "recipe pending". The wrapper in
+- **The aggregator pack is now refreshed for real.** Its per-set recipe existed only in Go, which the
+  image did not run; from this release a sync of that pack refreshes every set in its set manifest
+  instead of failing with "recipe pending". The wrapper in
   that pack's `sync-upstream.yml` that turned "recipe pending" into a green no-op can no longer
   match, and should be removed there.
 - **The emoji and bundled configs declare their git-branch sink.** Both recipes used to commit with
@@ -305,8 +312,8 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
   approved on Friday, with an error about upstream reorganising that would be the wrong
   explanation entirely.
 
-- **`config/icon-sets-bundled.sets.json` carries 35 sets** covering 59,769 of the pack's 121,314
-  icons -- 49%, against the 21 sets and 38% the first audit established. Two are settled by inspection rather than by
+- **The aggregator pack's set manifest carries 35 sets** covering 49% of the pack's icons, against
+  the 21 sets and 38% the first audit established. Two are settled by inspection rather than by
   the scorer and say so in their notes, with the evidence: `cryptocurrency-icons` to `svg/black`
   and `ionicons` to `dist/svg`, whose sibling expresses the same drawings as
   `class="ionicon-fill-none ionicon-stroke-width"` and renders as nothing without ionicons' own
@@ -316,7 +323,7 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
 
 - **The per-set native refresh for `icon-sets-bundled`.** One pipeline per set, each from that
   set's own upstream, so every set keeps the SVG dialect it actually ships in rather than being
-  rewritten into a uniform one. Driven by `config/icon-sets-bundled.sets.json`, seeded from the
+  rewritten into a uniform one. Driven by the pack's `<pack>.sets.json` set manifest, seeded from the
   audit with the 21 sets it established.
 
   The manifest is a separate file rather than a key in the pack config, deliberately and
@@ -416,7 +423,7 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
 
 ### Fixed
 
-- **`config/icon-sets-bundled.json` describes a pack that does not exist.** Its `_status` points
+- **The aggregator pack's config describes a pack that does not exist.** Its `_status` points
   at a recipe path that was never written, and the pack's own `update_command._note` claims the
   sets listed under `metadata.data.categories.*.sets` "define what's vendored". They do not: 42
   sets are declared and 72 are vendored, 13 declared sets have no directory at all -- including
@@ -469,7 +476,7 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
   That gate earned itself immediately. A fixture suite would have passed while two real defects
   sat in the port:
 
-  - **261 metronic flags declare `encoding="iso-8859-1"`.** Go's decoder refuses any encoding it
+  - **261 flag icons in one pack declare `encoding="iso-8859-1"`.** Go's decoder refuses any encoding it
     has no table for; lxml has them all. There is now a charset reader for Latin-1 -- the only
     non-UTF-8 encoding the corpus contains, measured -- and an explicit error for anything else,
     because silently decoding an unknown encoding as Latin-1 mangles multi-byte characters into
@@ -477,7 +484,7 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
   - **`styleAttribute` in the policy is an object, not a boolean.** Python reads it with a
     truthiness test. Typing it as a Go `bool` made the whole policy fail to load -- and had that
     failure been swallowed, `style` would have dropped off the merged allow-list, removing the
-    sole paint source from 261 of metronic's 501 icons. That is the exact trap the policy file's
+    sole paint source from over half of one pack's icons. That is the exact trap the policy file's
     own comments warn about.
 
   One Go-specific hazard has no Python counterpart and is pinned by its own test: lxml keeps
@@ -679,7 +686,6 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
   |---|---|
   | `config/tabler-icons.json` | `config/icon-sets-tabler.json` |
   | `config/flag-icons.json` | `config/icon-sets-flag.json` |
-  | `config/bundled-icons.json` | `config/icon-sets-bundled.json` |
   | `config/emoji-sets.json` | `config/icon-sets-emoji.json` |
 
   **The upstream fields are deliberately unchanged**, and this is the trap the rename exists

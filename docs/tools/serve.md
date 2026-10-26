@@ -11,7 +11,7 @@
 | Run | `/jobs/<id>` | a run's per-pack status, its stages and its log, live while it runs, with Cancel |
 | Runs | `/jobs` | the run history, filtered by pack or outcome, each downloadable as JSON Lines |
 | Config | `/config` | the registry, the pack configs, the bundled set manifest and the global config, each in a validating editor |
-| Bundled audit | `/bundled/audit` | `bundled audit` in the browser: which upstream each set of `icon-sets-bundled` came from, with the result downloadable as a set manifest |
+| Bundled audit | `/bundled/audit` | `bundled audit` in the browser: which upstream each set of the aggregator pack came from, with the result downloadable as a set manifest |
 | Settings | `/settings` | the effective settings and the layer each came from, the same as `config print --origins` |
 | Licences | `/about/licenses` | the notices of the embedded Tabler, Bootstrap and Popper |
 

@@ -28,7 +28,7 @@ func TestVendoredPolicyHasNotDrifted(t *testing.T) {
 // TestMergesTheValueRestrictedNamesIntoTheAllowList is the trap the policy's
 // own comments warn about: `style` is not in allowedAttributes, it lives under
 // styleAttribute, and a reader that takes only allowedAttributes strips it --
-// removing the sole paint source from 261 of metronic's 501 icons.
+// removing the sole paint source from over half of one pack's icons.
 func TestMergesTheValueRestrictedNamesIntoTheAllowList(t *testing.T) {
 	p := MustLoad()
 
@@ -232,7 +232,7 @@ func TestAttributeOrderingIsTheDesign(t *testing.T) {
 	}
 }
 
-// TestLatin1IsDecodedNotRefused covers the 261 metronic flags that declare
+// TestLatin1IsDecodedNotRefused covers the 261 flag icons that declare
 // iso-8859-1. Go's decoder refuses an encoding it has no table for; lxml has
 // them all, so this divergence existed until the corpus test found it.
 func TestLatin1IsDecodedNotRefused(t *testing.T) {

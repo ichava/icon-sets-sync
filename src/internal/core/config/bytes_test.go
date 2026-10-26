@@ -16,7 +16,7 @@ func TestParsePackBytesAgreesWithLoadPackFileOnTheShippedConfigs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(registry.Packs) < 4 {
+	if len(registry.Packs) < 3 {
 		t.Fatalf("only %d packs registered", len(registry.Packs))
 	}
 	for _, slug := range registry.Packs {

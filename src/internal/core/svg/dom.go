@@ -148,8 +148,8 @@ func Parse(raw []byte, stripComments bool) (*Node, error) {
 //
 // Go's decoder refuses any declared encoding it cannot handle, and has no
 // built-in table; lxml has them all. Measured across the four vendored packs,
-// exactly one non-UTF-8 encoding appears -- `iso-8859-1`, on 261 files, all of
-// them metronic flags -- so that is what this supports.
+// exactly one non-UTF-8 encoding appears -- `iso-8859-1`, on 261 flag icons
+// in a single pack -- so that is what this supports.
 //
 // Anything else is an error rather than a guess. Silently treating an unknown
 // encoding as Latin-1 would mangle multi-byte characters into pairs of

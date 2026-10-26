@@ -59,7 +59,7 @@ func (f NpmFetcher) Fetch(ctx context.Context, pkg, dest string) (string, error)
 // replaced by a dash, so bootstrap-icons-1.11.3.tgz and
 // vscode-codicons-0.0.36.tgz. Taking it from the filename avoids a second
 // registry round trip per candidate, and there are several candidates per set
-// across 72 sets.
+// across dozens of sets.
 func versionFromTarball(tarball, pkg string) string {
 	base := strings.TrimSuffix(tarball, ".tgz")
 

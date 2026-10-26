@@ -1,14 +1,11 @@
-// Package bundled identifies, and verifies, where each set in the
-// icon-sets-bundled aggregator pack actually came from.
+// Package bundled identifies, and verifies, where each set in an aggregator
+// pack actually came from.
 //
-// The pack vendors 121,314 icons across 72 sets, and nothing records which
-// upstream any of them came from. The pack config declares
-// `update_command.type: "iconify"`, but the committed files are not
-// Iconify-rendered: measured across the pack there are 26 distinct <svg>
-// attribute signatures -- bootstrap-icons keeps `class="bi bi-alarm"`,
-// heroicons keeps `data-slot`, fontawesome keeps its licence comment -- where
-// anything rendered from @iconify-json/* would have exactly one. Each set is
-// its own upstream's native distribution.
+// Such a pack vendors many sets, and nothing records which upstream any of
+// them came from. The committed files are not Iconify-rendered: each set keeps
+// its own upstream's <svg> dialect (a class attribute here, a data attribute
+// or a licence comment there), where anything rendered from @iconify-json/*
+// would have exactly one. Each set is its own upstream's native distribution.
 //
 // So a refresh has to go back to each set's own upstream, and that needs a
 // manifest that does not exist. This package builds it, and does so by
@@ -440,7 +437,7 @@ type Resolution struct {
 // matching bytes is rejected however plausible it looked.
 //
 // Measured against the pack: the bare directory name resolves as an npm
-// package for 46 of the 72 sets, which is why it is tried first.
+// package for most sets, which is why it is tried first.
 func CandidatePackages(set string) []string {
 	seen := map[string]bool{}
 	var out []string

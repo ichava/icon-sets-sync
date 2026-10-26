@@ -16,11 +16,11 @@ import (
 // each from that set's own upstream, plus a trailing commit pipeline.
 //
 // This is a *native* refresh, not the `iconify` one the pack config asks for.
-// The committed icons are each upstream's own SVG distribution -- measured,
-// 26 distinct <svg> attribute signatures across the pack -- where anything
+// The committed icons are each upstream's own SVG distribution -- many
+// distinct <svg> attribute signatures across the pack -- where anything
 // rendered from @iconify-json/* would have exactly one. Refreshing through
-// Iconify would rewrite all 121,314 files into a uniform dialect and discard,
-// among much else, fontawesome's embedded licence attribution.
+// Iconify would rewrite every file into a uniform dialect and discard, among
+// much else, embedded licence attributions.
 //
 // Two properties follow from that and are the whole design:
 //
@@ -103,8 +103,8 @@ func buildBundled(pack *config.PackConfig, opts Options) ([]*pipeline.Pipeline, 
 	}
 
 	if !dryRun {
-		// One commit for the whole refresh rather than one per set: 72 sets
-		// would otherwise open 72 pull requests against the same pack.
+		// One commit for the whole refresh rather than one per set: dozens of
+		// sets would otherwise open dozens of pull requests against one pack.
 		//
 		// The stamped version is the pack's own upstream marker. Unlike the
 		// single-upstream packs there is no one version to record here -- each

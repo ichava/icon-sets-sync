@@ -51,9 +51,24 @@ func TestOracleIsIntact(t *testing.T) {
 	if len(doc.Records) < 1000 {
 		t.Fatalf("oracle holds %d records, want at least 1000", len(doc.Records))
 	}
+	// The oracle is committed to a public repository, so it may only sample
+	// the public packs. Records from a private pack were dropped on
+	// 2026-10-26, leaving 1,238 of the 1,274 recorded.
+	public := map[string]int{"icon-sets-emoji": 0, "icon-sets-flag": 0, "icon-sets-tabler": 0}
 	for i, r := range doc.Records {
 		if len(r.SHA256) != 64 || (r.Error == "" && len(r.InventorySHA256) != 64) {
 			t.Fatalf("record %d (%s) is malformed", i, r.Path)
+		}
+		pack, _, _ := strings.Cut(r.Path, "/")
+		if _, ok := public[pack]; !ok {
+			t.Errorf("record %d (%s) samples %s, which is not a public pack", i, r.Path, pack)
+			continue
+		}
+		public[pack]++
+	}
+	for pack, n := range public {
+		if n == 0 {
+			t.Errorf("the oracle holds no record from %s", pack)
 		}
 	}
 }
