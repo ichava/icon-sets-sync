@@ -41,6 +41,7 @@ func buildBundled(pack *config.PackConfig, opts Options) ([]*pipeline.Pipeline, 
 	}
 
 	filesRoot := filepath.Join(pack.PackRoot, "resources", "assets", "svg", "files")
+	licencesRoot := filepath.Join(pack.PackRoot, "resources", "assets", "svg", "licenses")
 	cfg := packConfig(pack)
 
 	var pipelines []*pipeline.Pipeline
@@ -54,7 +55,10 @@ func buildBundled(pack *config.PackConfig, opts Options) ([]*pipeline.Pipeline, 
 
 		p := pipeline.Named(fmt.Sprintf("%s:%s@%s", pack.Name, name, version)).
 			Config(cfg).
-			Source(sources.NpmTarball{Package: src.Package, Version: version})
+			Source(sources.NpmTarball{Package: src.Package, Version: version}).
+			// At the package root, before a variant flatten or a subset
+			// narrows the tree past the licence.
+			Transform(transforms.FindLicences{})
 
 		switch {
 		case len(src.Variants) > 0:
@@ -91,6 +95,9 @@ func buildBundled(pack *config.PackConfig, opts Options) ([]*pipeline.Pipeline, 
 			Root:         filepath.Join(filesRoot, name),
 			MinRetention: bundled.PackageCoverageFloor,
 		})
+		// The set's own licence text, beside its icons and under the same
+		// name, so files/<set> and licenses/<set> always pair up.
+		p.Sink(sinks.LicenceTexts{Root: filepath.Join(licencesRoot, name), Set: name, MissingReason: src.LicenceMissing})
 
 		pipelines = append(pipelines, p)
 	}

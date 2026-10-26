@@ -75,6 +75,14 @@ type SetSource struct {
 
 	// Note carries anything a human needs to know before trusting it.
 	Note string `json:"note,omitempty"`
+
+	// LicenceMissing records, with the evidence, that this set's npm package
+	// ships no licence file at its root. A refresh fails on such a set unless
+	// this says why, because icons whose licence text cannot be found are the
+	// defect the licence-text sink exists to end. Recording it here keeps the
+	// gap visible in the manifest instead of hidden in a skipped stage, and
+	// lets the other sets refresh while it is resolved by hand.
+	LicenceMissing string `json:"licence_missing,omitempty"`
 }
 
 // ManifestPath is the conventional location beside a pack config.

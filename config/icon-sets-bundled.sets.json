@@ -5,7 +5,8 @@
       "package": "academicons",
       "path": "svg",
       "confidence": "package",
-      "note": "upstream identified (151 of 151 icons present by name) but no byte matches -- the pack vendored an older release; pin the version"
+      "note": "upstream identified (151 of 151 icons present by name) but no byte matches -- the pack vendored an older release; pin the version",
+      "licence_missing": "npm academicons (latest, measured 2026-10-26) has no LICENSE, LICENCE, COPYING, NOTICE or OFL file at its root. The set is OFL-1.1 (James Walsh, per the pack ATTRIBUTION.md); its OFL text has to be added to the pack by hand until upstream ships one."
     },
     "bootstrap-icons": {
       "package": "bootstrap-icons",
@@ -184,7 +185,8 @@
       "package": "pepicons",
       "path": "svg/pop",
       "confidence": "package",
-      "note": "upstream identified (1250 of 1250 icons present by name) but no byte matches -- the pack vendored an older release; pin the version"
+      "note": "upstream identified (1250 of 1250 icons present by name) but no byte matches -- the pack vendored an older release; pin the version",
+      "licence_missing": "npm pepicons (latest, measured 2026-10-26) has no licence file at its root. The set is CC-BY-4.0 (CyCraft, per the pack ATTRIBUTION.md); the pack ATTRIBUTION.md carries the credit and the licence link, which is what CC-BY asks."
     },
     "phosphor-icons": {
       "package": "@phosphor-icons/core",
@@ -250,7 +252,8 @@
       "package": "zondicons",
       "path": ".",
       "confidence": "package",
-      "note": "upstream identified (293 of 297 icons present by name) but no byte matches -- the pack vendored an older release; pin the version"
+      "note": "upstream identified (293 of 297 icons present by name) but no byte matches -- the pack vendored an older release; pin the version",
+      "licence_missing": "npm zondicons (latest, measured 2026-10-26) has no licence file at its root. The set is MIT (Steve Schoger, per the pack ATTRIBUTION.md); its copyright and permission notice has to be added to the pack by hand until upstream ships one."
     }
   }
 }

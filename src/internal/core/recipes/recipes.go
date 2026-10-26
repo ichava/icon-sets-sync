@@ -205,6 +205,7 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 	openmojiVersion := r.String("emoji.openmoji_version")
 
 	filesRoot := pack.PackRoot + "/resources/assets/svg/files"
+	licencesRoot := pack.PackRoot + "/resources/assets/svg/licenses"
 	cfg := packConfig(pack)
 	cldr := sources.UnicodeCldr{UnicodeVersion: unicodeVersion}
 
@@ -214,12 +215,14 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 			First:  cldr,
 			Second: sources.NpmTarball{Package: "@twemoji/svg", Version: twemojiVersion},
 		}).
+		Transform(transforms.FindLicences{}).
 		// Twemoji ships a class on every path; it is the one upstream where
 		// stripping it is wanted, so the pack's own styling applies.
 		Transform(transforms.Sanitise{AlsoStripClass: true}).
 		Transform(transforms.Categorise{By: "cldr"}).
 		Transform(transforms.Indexer{Targets: []string{"codepoints", "names"}}).
-		Sink(sinks.Filesystem{Root: filesRoot + "/twemoji"})
+		Sink(sinks.Filesystem{Root: filesRoot + "/twemoji"}).
+		Sink(sinks.LicenceTexts{Root: licencesRoot + "/twemoji", Set: "twemoji"})
 
 	openmoji := func(name, subdir string) *pipeline.Pipeline {
 		return pipeline.Named(fmt.Sprintf("emoji-sets:%s@%s", name, openmojiVersion)).
@@ -234,10 +237,12 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 					Version: openmojiVersion,
 				},
 			}).
+			Transform(transforms.FindLicences{}).
 			Transform(transforms.SubsetTo{Subdir: subdir}).
 			Transform(transforms.Sanitise{}).
 			Transform(transforms.Categorise{By: "cldr"}).
-			Sink(sinks.Filesystem{Root: filesRoot + "/" + name})
+			Sink(sinks.Filesystem{Root: filesRoot + "/" + name}).
+			Sink(sinks.LicenceTexts{Root: licencesRoot + "/" + name, Set: name})
 	}
 
 	pipelines := []*pipeline.Pipeline{

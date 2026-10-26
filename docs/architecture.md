@@ -9,11 +9,12 @@ Every refresh is the same shape: fetch, narrow, clean, write, commit.
 
 ```text
 Source        ->  Transforms         ->  Sinks
-NpmTarball        SubsetTo               Filesystem
-GithubArchive     Sanitise               VersionStamp
-UnicodeCldr       Categorise / Indexer   GitBranch
-Compound          Slugify                Discard (dry run only)
-Static            FlattenVariants
+NpmTarball        FindLicences           Filesystem
+GithubArchive     SubsetTo               LicenceTexts
+UnicodeCldr       Sanitise               VersionStamp
+Compound          Categorise / Indexer   GitBranch
+Static            Slugify                Discard (dry run only)
+                  FlattenVariants
 ```
 
 `internal/core/pipeline` runs the stages in order and threads a `Context` between them. A stage that
@@ -23,9 +24,11 @@ committing assets a transform failed to produce. In Go:
 ```go
 p := pipeline.Named("icon-sets-tabler@3.49.0").
 	Source(sources.NpmTarball{Package: "@tabler/icons", Version: "3.49.0"}).
+	Transform(transforms.FindLicences{}).
 	Transform(transforms.SubsetTo{Subdir: "icons"}).
 	Transform(transforms.Sanitise{}).
 	Sink(sinks.Filesystem{Root: "/work/icon-sets-tabler/resources/assets/svg/files"}).
+	Sink(sinks.LicenceTexts{Root: "/work/icon-sets-tabler/resources/assets/svg/licenses/tabler-icons", Set: "tabler-icons"}).
 	Sink(sinks.VersionStamp{Pack: pack}).
 	Sink(sinks.GitBranch{RepoRoot: "/work/icon-sets-tabler", OpenPR: true})
 result, err := p.Run()
@@ -53,9 +56,9 @@ src/
         ├── gitx/         git and gh as subprocesses
         ├── pipeline/     Pipeline, Stage, Context
         ├── sources/      NpmTarball, GithubArchive, UnicodeCldr, Compound, Static
-        ├── transforms/   SubsetTo, Sanitise, Slugify, Categorise, Indexer, FlattenVariants
+        ├── transforms/   FindLicences, SubsetTo, Sanitise, Slugify, Categorise, Indexer, FlattenVariants
         ├── svg/          the shared SVG policy and the parser that applies it
-        ├── sinks/        Filesystem, VersionStamp, GitBranch, Discard
+        ├── sinks/        Filesystem, LicenceTexts, VersionStamp, GitBranch, Discard
         ├── recipes/      config -> pipelines: generic, emoji-sets, bundled
         └── bundled/      the aggregator pack's set manifest and audit
 ```
@@ -70,6 +73,35 @@ exists once. **Transforms** are per-pack policy: which subdirectory to take, how
 category. **Sinks** are where the result goes, and their order is load-bearing: `Filesystem` writes
 the assets, `VersionStamp` records the version, `GitBranch` commits everything uncommitted in the
 pack repo. Stamping after the commit would record a version that never shipped.
+
+## Upstream licence texts travel with the icons
+
+MIT, ISC, BSD, Apache-2.0 and OFL each require their licence text, and Apache any upstream `NOTICE`,
+to accompany every copy. The text sits at the upstream root, beside a subdirectory of icons that
+`SubsetTo` or `FlattenVariants` then makes the whole tree, so a refresh used to drop it. Every asset
+pipeline in every recipe now runs `FindLicences` straight after its source, which records the root's
+`LICENSE*`, `LICENCE*`, `COPYING*`, `NOTICE*` and `OFL*` files, and `LicenceTexts` straight after
+`Filesystem`, which copies them byte for byte under their upstream names to:
+
+| Recipe | Destination |
+|---|---|
+| `generic` | `resources/assets/svg/licenses/<upstream>`, the npm package with its scope folded in (`tabler-icons`, `flag-icons`) or the GitHub repository |
+| `emoji-sets` | `resources/assets/svg/licenses/{twemoji,openmoji-color,openmoji-black}` |
+| `bundled` | `resources/assets/svg/licenses/<set>`, pairing with `files/<set>` |
+
+`resources/` is not export-ignored in any pack, so the texts ship in the dist archive. Each
+destination is replaced on every run, so a `NOTICE` upstream drops goes too.
+
+**An upstream with no licence file at its root fails that pipeline**, naming the set and the source.
+Shipping icons whose licence text cannot be found is the defect this exists to end, so a scheduled
+run stops rather than warns. The one way past it is a bundled set's `licence_missing` field in
+`config/icon-sets-bundled.sets.json`, which records the evidence that the npm package ships no
+licence file; that set then refreshes, its licence directory is removed rather than left stale, and
+the gap is logged on every run. Three sets carry it, measured 2026-10-26 against each package's
+`latest` tarball: `academicons` (OFL-1.1), `pepicons` (CC-BY-4.0) and `zondicons` (MIT). A test caps
+the count at three, so a fourth has to be added on purpose. CC-BY and CC-BY-SA upstreams get the same copy; their licences also
+require visible credit wherever the icons are shown, which no sync can provide and which each pack's
+`ATTRIBUTION.md` and the site's licences page carry.
 
 ## Recipes
 

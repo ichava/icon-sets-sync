@@ -84,6 +84,11 @@ const (
 	KeyGitBranch      = "git_branch"
 	KeyGitSHA         = "git_sha"
 	KeyPRURL          = "pr_url"
+
+	// KeyLicenceFiles is the newline-separated list of upstream licence files
+	// FindLicences found at the root of the fetched tree, as absolute paths.
+	// Present and empty means it looked and found none.
+	KeyLicenceFiles = "licence_files"
 )
 
 // Well-known Config keys, supplied by the recipes.

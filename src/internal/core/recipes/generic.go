@@ -3,6 +3,7 @@ package recipes
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
@@ -63,6 +64,8 @@ func buildGeneric(pack *config.PackConfig, version string, opts Options) (*pipel
 		Config(packConfig(pack)).
 		Source(src)
 
+	// Before anything narrows the tree: the licence sits at the upstream root.
+	p.Transform(transforms.FindLicences{})
 	if pack.Source.SourcePath != "" {
 		p.Transform(transforms.SubsetTo{Subdir: pack.Source.SourcePath})
 	}
@@ -83,7 +86,9 @@ func buildGeneric(pack *config.PackConfig, version string, opts Options) (*pipel
 				Incremental:  sink.Incremental,
 				MinRetention: sink.MinRetention,
 			})
-			added++
+			set := licenceSet(pack.Source)
+			p.Sink(sinks.LicenceTexts{Root: LicencesRoot + "/" + set, Set: set})
+			added += 2
 
 		case "git-branch":
 			if opts.DryRun {
@@ -108,6 +113,24 @@ func buildGeneric(pack *config.PackConfig, version string, opts Options) (*pipel
 		p.Sink(sinks.Discard{})
 	}
 	return p, nil
+}
+
+// LicencesRoot is where a pack keeps its upstreams' licence texts, one
+// directory per upstream set. It sits beside resources/assets/svg/files, so
+// it is not export-ignored and ships with the icons.
+const LicencesRoot = "{pack_root}/resources/assets/svg/licenses"
+
+// licenceSet names a single-upstream pack's licence directory after the
+// upstream it came from: the npm package with its scope folded in
+// (@tabler/icons -> tabler-icons), or the GitHub repository.
+func licenceSet(src config.SourceConfig) string {
+	if src.Type == "npm" && src.Package != "" {
+		return strings.ReplaceAll(strings.TrimPrefix(src.Package, "@"), "/", "-")
+	}
+	if src.Repo != "" {
+		return src.Repo
+	}
+	return "upstream"
 }
 
 // assetSource builds the fetch stage for a source config.
