@@ -69,7 +69,7 @@ func bundledFixture(t *testing.T) (configDir, upstream string) {
 	pack := `{"name": "icon-sets-bundled", "pack": "ichava/icon-sets-bundled", "pack_root": "` + packRoot + `",
   "current_version": "1.0.0", "version_check_url": "https://example.invalid/latest",
   "source": {"type": "npm", "package": "demo"}, "sinks": []}`
-	if err := os.WriteFile(filepath.Join(configDir, "icon-sets-bundled.json"), []byte(pack), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(configDir, BundledPack+".json"), []byte(pack), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return configDir, upstream

@@ -50,8 +50,8 @@ type Policy struct {
 	//
 	// Typing this as `bool` is a live trap, not a tidy-up: the unmarshal fails,
 	// the whole policy fails to load, and if that failure were swallowed the
-	// merge below would drop `style` -- the sole paint source for 261 of
-	// metronic's 501 icons. Kept raw, and truthiness asked explicitly.
+	// merge below would drop `style` -- the sole paint source for over half
+	// of one pack's icons. Kept raw, and truthiness asked explicitly.
 	StyleAttribute json.RawMessage `json:"styleAttribute"`
 
 	// AllowedValues is a list of illustrative value shapes, not a map and not
@@ -166,7 +166,7 @@ func toSet(items []string, lower bool) map[string]bool {
 // The policy keeps value-restricted attributes in their own blocks -- `style`
 // under styleAttribute, `href` and `xlink:href` under fragmentOnlyRefs -- so a
 // reader that takes only allowedAttributes strips `style`, the sole paint
-// source for 261 of metronic's 501 icons. The PHP reader and both TypeScript
+// source for over half of one pack's icons. The PHP reader and both TypeScript
 // ones make the same merge; keeping all four identical is the point of having
 // one policy.
 //

@@ -220,7 +220,7 @@ func (f *fakeEngine) Recipe(_ context.Context, p *config.PackConfig, version str
 
 func (f *fakeEngine) AuditBundled(_ context.Context, req AuditRequest, h AuditHooks) ([]bundled.Resolution, error) {
 	f.record(runCall{Kind: "audit", Packs: []string{req.Set, req.Package}})
-	h.Starting(2, "/work/icon-sets-bundled/resources/assets/svg/files")
+	h.Starting(2, "/work/aggregate/resources/assets/svg/files")
 	rs := []bundled.Resolution{
 		{Set: "tabler-outline", Icons: 4900, Package: "@tabler/icons", Version: "3.49.0", Path: "icons/outline", Matched: 4900, Identical: 4900, Confidence: bundled.ConfidenceExact},
 		{Set: "mystery-icons", Icons: 120, Confidence: bundled.ConfidenceNone, Note: "no candidate reproduced any icon"},

@@ -171,30 +171,33 @@ func assertLicenceWiring(t *testing.T, p *pipeline.Pipeline, set string) {
 	}
 }
 
-// TestEveryBundledSetShipsItsLicence reads the real set manifest, so a set
-// added to it is covered without anyone remembering this test. It asserts how
-// many sets it inspected: a manifest that stopped loading, or a recipe that
+// TestEveryBundledSetShipsItsLicence builds the per-set recipe the way a
+// private pack runs it: the pack config and its set manifest come from a
+// private config directory merged over the public one, since a private pack's
+// recipe may not ship in this repository. The fixture is synthetic. It asserts
+// how many sets it inspected: a manifest that stopped loading, or a recipe that
 // built nothing, must fail here rather than pass over zero pipelines.
 func TestEveryBundledSetShipsItsLicence(t *testing.T) {
-	configDir := filepath.Join("..", "..", "..", "..", "config")
-	manifest, err := bundled.LoadManifest(configDir, "icon-sets-bundled")
+	publicDir := filepath.Join("..", "..", "..", "..", "config")
+	privateDir := filepath.Join("..", "config", "testdata", "private-config")
+	defer config.SetPrivateConfigDir(privateDir)()
+
+	pack, err := config.LoadPack("icon-sets-example", publicDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	pack := &config.PackConfig{
-		Name: "icon-sets-bundled", Pack: manifest.Pack, PackRoot: "/work/icon-sets-bundled",
-		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
-		Source: config.SourceConfig{Type: "url"},
+	manifest, err := bundled.LoadManifest(publicDir, pack.Name)
+	if err != nil {
+		t.Fatal(err)
 	}
-	built, err := Build(pack, "2.2.0", Options{DryRun: true, ConfigDir: configDir})
+	built, err := Build(pack, "1.0.0", Options{DryRun: true, ConfigDir: publicDir})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	sets := manifest.SetNames()
-	const floor = 10
-	if len(sets) < floor {
-		t.Fatalf("the manifest lists %d sets; below %d means it did not load what the pack ships", len(sets), floor)
+	if len(sets) != 2 {
+		t.Fatalf("the fixture manifest lists %d sets, want 2", len(sets))
 	}
 	if len(built) != len(sets) {
 		t.Fatalf("built %d pipelines for %d sets", len(built), len(sets))
@@ -210,14 +213,10 @@ func TestEveryBundledSetShipsItsLicence(t *testing.T) {
 			missing++
 		}
 	}
-	// A ceiling, not a licence: each exemption names its evidence in the
-	// manifest, and a new one has to raise this number on purpose. Measured
-	// 2026-10-26: academicons, pepicons and zondicons ship no licence file.
-	const missingCeiling = 3
-	if missing > missingCeiling {
-		t.Errorf("%d sets are recorded as shipping no licence file, above the ceiling of %d", missing, missingCeiling)
+	if missing != 1 {
+		t.Errorf("%d sets carry a licence_missing reason, want the fixture's 1", missing)
 	}
-	t.Logf("inspected %d bundled sets", len(sets))
+	t.Logf("inspected %d sets", len(sets))
 }
 
 func TestEmojiAndSingleUpstreamPacksShipTheirLicences(t *testing.T) {

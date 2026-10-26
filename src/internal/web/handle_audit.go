@@ -129,7 +129,7 @@ func (s *Server) handleAuditManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", `attachment; filename="icon-sets-bundled.sets.json"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+app.BundledPack+`.sets.json"`)
 	w.Header().Set("Cache-Control", "no-store")
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

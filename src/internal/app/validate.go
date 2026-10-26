@@ -46,7 +46,11 @@ func ValidateConfigs(dir string, stack settings.Stack) []Finding {
 	if err != nil {
 		return []Finding{{LevelError, err.Error()}}
 	}
-	out := []Finding{{LevelOK, fmt.Sprintf("registry: %d packs in %s", len(registry.Packs), dir)}}
+	where := dir
+	if private := config.PrivateConfigDir(); private != "" {
+		where += " and the private config dir " + private
+	}
+	out := []Finding{{LevelOK, fmt.Sprintf("registry: %d packs in %s", len(registry.Packs), where)}}
 	for _, slug := range registry.Packs {
 		out = append(out, ValidatePack(dir, slug, stack)...)
 	}

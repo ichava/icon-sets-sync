@@ -68,7 +68,11 @@ Exits 1 if anything is invalid.`,
 				bad("%s", err)
 				return validationResult(problems)
 			}
-			ok("registry: %d packs in %s", len(registry.Packs), dir)
+			if private := config.PrivateConfigDir(); private != "" {
+				ok("registry: %d packs in %s and the private config dir %s", len(registry.Packs), dir, private)
+			} else {
+				ok("registry: %d packs in %s", len(registry.Packs), dir)
+			}
 
 			for _, slug := range registry.Packs {
 				validatePack(dir, slug, ok, bad)

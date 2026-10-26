@@ -10,15 +10,14 @@ import (
 
 // newBundledCommand groups the aggregator pack's own tooling.
 //
-// icon-sets-bundled is not like the other packs. It vendors 121,314 icons
-// across 72 sets, each from a different upstream in that upstream's own SVG
-// dialect -- 26 distinct <svg> attribute signatures across the pack -- and
-// nothing records where any of them came from. Refreshing it therefore needs a
+// An aggregator pack is not like the other packs. It vendors many sets, each
+// from a different upstream in that upstream's own SVG dialect, and nothing
+// records where any of them came from. Refreshing it therefore needs a
 // per-set manifest that does not exist, and `audit` is what builds one.
 func newBundledCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bundled",
-		Short: "Tooling for the icon-sets-bundled aggregator pack",
+		Short: "Tooling for the aggregator pack",
 	}
 	cmd.AddCommand(newBundledAuditCommand())
 	return cmd

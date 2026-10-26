@@ -6,12 +6,37 @@ settings that resolve across five layers.
 ## The registry
 
 ```json
-{ "packs": ["icon-sets-tabler", "icon-sets-flag", "icon-sets-bundled", "icon-sets-emoji"] }
+{ "packs": ["icon-sets-tabler", "icon-sets-flag", "icon-sets-emoji"] }
 ```
 
 `config/packs.json` (or `packs.yaml`). Each slug maps to `config/<slug>.json`, `.yaml` or `.yml`.
 Two of those for one slug is an error rather than a preference: it means a file was converted and
 the original left behind. A slug listed twice is an error too.
+
+## Private packs
+
+A pack whose configuration may not be published -- a private or client pack -- keeps its configs in
+its own repository and hands them to the toolkit at run time:
+
+```bash
+icon-sets-sync --private-config-dir /path/to/private sync --pack=<slug>
+ICHAVA_PRIVATE_CONFIG_DIR=/path/to/private icon-sets-sync sync --pack=<slug>
+```
+
+The private directory has the same layout as `config/`: an optional `packs.json`, one `<slug>.json`
+per pack, and any file a recipe reads beside its pack config, such as a `<slug>.sets.json` set
+manifest. It is merged with `config/` rather than replacing it:
+
+- the registry is the public one followed by every private slug it does not already list;
+- a file present in both is read from the private directory, so a pack can be overridden without
+  forking the toolkit;
+- a private directory that is set but missing fails the run, so a mount that did not happen never
+  reads as "no private packs".
+
+Recipes stay data-driven, so a private pack needs no Go code here: it names an existing recipe in its
+config (`"recipe": "bundled"` for one pipeline per set in its set manifest) and supplies the data.
+Nothing describing a private pack is committed to this repository; a test fails on any tracked file
+that names a private pack's paths or config files.
 
 ## A pack config
 
@@ -130,7 +155,7 @@ A recipe turns a pack config into pipelines. `auto` picks by pack name, then by 
 | Recipe | Picked for | Builds |
 |---|---|---|
 | `emoji-sets` | `icon-sets-emoji` | Twemoji (npm) + OpenMoji colour and black (GitHub archive), categorised by the Unicode taxonomy, then one commit |
-| `bundled` | `icon-sets-bundled` | one pipeline per set in `config/icon-sets-bundled.sets.json`, each from its own upstream, then one commit |
+| `bundled` | the aggregator pack, or `"recipe": "bundled"` | one pipeline per set in the pack's `<slug>.sets.json` set manifest, each from its own upstream, then one commit |
 | `generic` | any `npm` or `github-*` source | the config's own source, transforms and sinks |
 
 ## Settings
@@ -148,6 +173,7 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | Setting | Default | Environment | Per pack | Meaning |
 |---|---|---|---|---|
 | `config_dir` | `config/` beside the binary, else `./config` | `ICHAVA_CONFIG_DIR` (older: `ICHAVA_DEV_CONFIG_DIR`) | no | where the registry and pack configs live |
+| `private_config_dir` | none | `ICHAVA_PRIVATE_CONFIG_DIR` | no | private pack configs merged over `config_dir` at run time; see [Private packs](#private-packs) |
 | `log_level` | `info` | `ICHAVA_LOG_LEVEL` (older: `ICHAVA_DEV_LOG_LEVEL`) | no | `debug`, `info`, `warn`, `error` |
 | `concurrency` | `1` | `ICHAVA_CONCURRENCY` | no | packs synced at once by `sync-all` |
 | `workspace` | none | `ICHAVA_WORKSPACE` | no | directory a relative `pack_root` resolves against |

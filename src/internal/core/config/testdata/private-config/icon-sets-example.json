@@ -1,0 +1,20 @@
+{
+  "_note": "Synthetic private pack for tests. It stands in for a pack whose config may not ship in this repository: it is loaded only through a private config directory.",
+  "name": "icon-sets-example",
+  "pack": "ichava/icon-sets-example",
+  "pack_root": "/work/icon-sets-example",
+  "current_version": "1.0.0",
+  "recipe": "bundled",
+  "version_check_url": "https://registry.npmjs.org/example-aggregate/latest",
+  "source": {
+    "type": "url",
+    "version_field": "version"
+  },
+  "sinks": [
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

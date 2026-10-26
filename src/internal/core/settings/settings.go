@@ -107,6 +107,8 @@ const (
 var Keys = []Key{
 	{Name: "config_dir", Kind: String, Default: "", Env: "ICHAVA_CONFIG_DIR", LegacyEnv: []string{"ICHAVA_DEV_CONFIG_DIR"},
 		Help: "directory holding packs.json and the pack configs (default: config/ beside the binary, else ./config)"},
+	{Name: "private_config_dir", Kind: String, Default: "", Env: "ICHAVA_PRIVATE_CONFIG_DIR",
+		Help: "directory of private pack configs merged over config_dir at run time (packs.json optional; none by default)"},
 	{Name: "log_level", Kind: String, Default: "info", Env: "ICHAVA_LOG_LEVEL", LegacyEnv: []string{"ICHAVA_DEV_LOG_LEVEL"},
 		Enum: []string{"debug", "info", "warn", "error"}, Help: "log verbosity; -v is debug, -q is error"},
 	{Name: "concurrency", Kind: Int, Default: 1, Env: "ICHAVA_CONCURRENCY", Min: 1,
@@ -466,14 +468,15 @@ func (r Resolved) Origins() map[string]string {
 
 // Settings is the typed view of a resolution.
 type Settings struct {
-	ConfigDir   string
-	LogLevel    string
-	Concurrency int
-	Workspace   string
-	DryRun      bool
-	Force       bool
-	Git         Git
-	Emoji       Emoji
+	ConfigDir        string
+	PrivateConfigDir string
+	LogLevel         string
+	Concurrency      int
+	Workspace        string
+	DryRun           bool
+	Force            bool
+	Git              Git
+	Emoji            Emoji
 }
 
 // Git is the git and pull-request settings.
@@ -495,12 +498,13 @@ type Emoji struct {
 // Settings returns the typed view.
 func (r Resolved) Settings() Settings {
 	return Settings{
-		ConfigDir:   r.String("config_dir"),
-		LogLevel:    r.String("log_level"),
-		Concurrency: r.Int("concurrency"),
-		Workspace:   r.String("workspace"),
-		DryRun:      r.Bool("dry_run"),
-		Force:       r.Bool("force"),
+		ConfigDir:        r.String("config_dir"),
+		PrivateConfigDir: r.String("private_config_dir"),
+		LogLevel:         r.String("log_level"),
+		Concurrency:      r.Int("concurrency"),
+		Workspace:        r.String("workspace"),
+		DryRun:           r.Bool("dry_run"),
+		Force:            r.Bool("force"),
 		Git: Git{
 			Author:        r.String("git.author"),
 			Base:          r.String("git.base"),

@@ -12,7 +12,7 @@ icon-sets-sync config validate
 ```
 
 Checks the registry, every pack config against `config/schema/pack.schema.json`, each pack's
-`settings` block, that a recipe can run each pack, the bundled set manifest, and the global config
+`settings` block, that a recipe can run each pack, any set manifest a recipe reads, and the global config
 if there is one. Exits 1 on any problem, naming the file and the JSON pointer of the bad value.
 
 ## See what it knows about

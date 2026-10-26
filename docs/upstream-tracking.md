@@ -81,8 +81,17 @@ ichava::ichava-core.check-updates` wraps the service for humans + CI.
 A pack with no `upstream` block in its `config.json` is reported as
 `no-upstream` by the tracker and is otherwise ignored. This is the right
 choice for vendored snapshots of commercial / closed-source assets where
-no public registry exists to poll. `ichava/icon-sets-metronic` (commercial
-KeenThemes assets, no public release feed) is the reference example.
+no public registry exists to poll.
+
+### Private packs
+
+A private pack that does track an upstream keeps its sync configuration out
+of this repository. Its pack config, and any set manifest its recipe reads,
+live in the pack's own repository and are passed to the sync at run time
+with `--private-config-dir` or `ICHAVA_PRIVATE_CONFIG_DIR`, merged over the
+public `config/`. The pack's `sync-upstream.yml` mounts that directory into
+the container and sets the variable; see
+[configuration](configuration.md#private-packs).
 
 ## Notification hook
 
