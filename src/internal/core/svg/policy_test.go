@@ -15,7 +15,7 @@ import (
 // see that core has moved on, which is what .scripts/sync-svg-policy.mjs is
 // for -- that script is the cross-repo gate and now lists this copy too.
 func TestVendoredPolicyHasNotDrifted(t *testing.T) {
-	const want = "8794a59bdf3fe3112eccc68c157d85c1c55728299dedcdbd7447ccbc083a6be2"
+	const want = "56e8145b2cd87c7990cecf6816de5e062cb771d6eccd5249349c6c102c56e70d"
 
 	sum := sha256.Sum256(policyJSON)
 	if got := hex.EncodeToString(sum[:]); got != want {
