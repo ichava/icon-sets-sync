@@ -70,12 +70,8 @@ var privatePathExemptions = map[string]struct {
 	ceiling int
 	reason  string
 }{
-	// Measured 2026-10-26: 3 lines, all `_comment` prose. The file is a
-	// byte-identical copy of core/resources/security/svg-policy.json, pinned
-	// by digest in svg/policy_test.go and kept in step by
-	// .scripts/sync-svg-policy.mjs, so it can only change after the canonical
-	// copy in ichava/core does. Lower this to 0 in the change that syncs it.
-	"src/internal/core/svg/svg-policy.json": {3, "vendored copy of core's canonical SVG policy"},
+	// None. The vendored SVG policy held 3 matching `_comment` lines until
+	// ichava/core reworded them; its copy here now has 0 and needs no entry.
 }
 
 // repoRoot is the repository root, four levels above this package.

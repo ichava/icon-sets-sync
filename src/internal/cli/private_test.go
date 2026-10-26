@@ -28,7 +28,8 @@ func TestPrivateConfigDirFlagLoadsAPrivatePack(t *testing.T) {
 		t.Fatalf("exit %d:\n%s", code, out)
 	}
 	for _, want := range []string{"and the private config dir " + privateConfig, "icon-sets-tabler", "icon-sets-flag", "icon-sets-emoji",
-		filepath.Join(privateConfig, "icon-sets-example.json") + " (recipe bundled)"} {
+		filepath.Join(privateConfig, "icon-sets-example.json") + " (recipe manifest-pack)",
+		`"recipe": "bundled" is deprecated and will be removed in 0.2.0`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("validate did not report %s:\n%s", want, out)
 		}

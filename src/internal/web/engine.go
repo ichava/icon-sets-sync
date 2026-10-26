@@ -66,9 +66,9 @@ type Engine interface {
 	// WriteConfig validates and saves, refusing a stale base revision.
 	WriteConfig(name string, data []byte, base string) error
 
-	// AuditBundled surveys where each of the bundled pack's sets came from,
-	// as `bundled audit` does.
-	AuditBundled(ctx context.Context, req AuditRequest, hooks AuditHooks) ([]bundled.Resolution, error)
+	// AuditManifestPack surveys where each of the manifest pack's sets came
+	// from, as `manifest-pack audit` does.
+	AuditManifestPack(ctx context.Context, req AuditRequest, hooks AuditHooks) ([]bundled.Resolution, error)
 }
 
 // AuditRequest is the audit form: one set, optionally verified against one
@@ -169,12 +169,20 @@ func (e *AppEngine) Settings() SettingsView {
 	return BuildSettingsView(stack.Resolve(nil), e.ConfigDir, global)
 }
 
-// AuditBundled implements Engine.
-func (e *AppEngine) AuditBundled(ctx context.Context, req AuditRequest, h AuditHooks) ([]bundled.Resolution, error) {
-	return app.AuditBundled(ctx, app.AuditOptions{
+// AuditManifestPack implements Engine.
+func (e *AppEngine) AuditManifestPack(ctx context.Context, req AuditRequest, h AuditHooks) ([]bundled.Resolution, error) {
+	return app.AuditManifestPack(ctx, app.AuditOptions{
 		ConfigDir: e.configDir(), Workspace: e.Workspace, Set: req.Set, Package: req.Package,
 		Starting: h.Starting, SetDone: h.SetDone, Logger: h.Logger,
 	})
+}
+
+// AuditBundled is AuditManifestPack's former name, and forwards to it. The
+// Engine interface names only AuditManifestPack.
+//
+// Deprecated: use AuditManifestPack. Earliest removal: 0.2.0.
+func (e *AppEngine) AuditBundled(ctx context.Context, req AuditRequest, h AuditHooks) ([]bundled.Resolution, error) {
+	return e.AuditManifestPack(ctx, req, h)
 }
 
 // Pack implements Engine.

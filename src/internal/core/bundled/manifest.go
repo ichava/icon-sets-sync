@@ -99,7 +99,7 @@ func LoadManifest(configDir, packName string) (*Manifest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("missing set manifest: %s -- run `imt bundled audit --json` to build one", path)
+			return nil, fmt.Errorf("missing set manifest: %s -- run `imt manifest-pack audit --json` to build one", path)
 		}
 		return nil, err
 	}

@@ -23,8 +23,28 @@ const (
 	RecipeAuto      = "auto"
 	RecipeGeneric   = "generic"
 	RecipeEmojiSets = "emoji-sets"
-	RecipeBundled   = "bundled"
+
+	// RecipeManifestPack refreshes a pack set by set, each set from the
+	// upstream its set manifest names, then commits once.
+	RecipeManifestPack = "manifest-pack"
+
+	// RecipeBundled is RecipeManifestPack's former name. A pack config that
+	// still carries it is dispatched exactly as RecipeManifestPack, and the
+	// run logs a deprecation notice.
+	//
+	// Deprecated: write "manifest-pack". Earliest removal: 0.2.0.
+	RecipeBundled = "bundled"
 )
+
+// legacyManifestPackName is the one pack that reached RecipeManifestPack by
+// its name before the recipe could be named in config. A config with no
+// `recipe` still dispatches this way until 0.2.0, with a deprecation notice;
+// from then on the config has to say "recipe": "manifest-pack".
+const legacyManifestPackName = "icon-sets-bundled"
+
+// RemovalRelease is the earliest release that may drop the deprecated
+// recipe name, name-based dispatch, CLI command and route.
+const RemovalRelease = "0.2.0"
 
 // Options carries what a recipe needs beyond the pack config.
 type Options struct {
@@ -33,7 +53,7 @@ type Options struct {
 	// pack's working tree.
 	DryRun bool
 
-	// ConfigDir is where the bundled pack's set manifest lives.
+	// ConfigDir is where a manifest-pack's set manifest lives.
 	ConfigDir string
 
 	// Settings is this pack's resolved settings. Nil means the defaults.
@@ -73,6 +93,13 @@ func Build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.P
 	for _, p := range built {
 		p.Logger(opts.Logger).Observer(opts.Observer)
 	}
+	if notice := Deprecation(pack); notice != "" {
+		logger := opts.Logger
+		if logger == nil {
+			logger = slog.Default()
+		}
+		logger.Warn(notice, "pack", pack.Name, "removal", RemovalRelease)
+	}
 	return built, nil
 }
 
@@ -81,11 +108,11 @@ func build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.P
 	case RecipeEmojiSets:
 		return buildEmojiSets(pack, version, opts)
 
-	case RecipeBundled:
+	case RecipeManifestPack:
 		// A native per-set refresh, not the `iconify` one the pack config
-		// asks for -- see buildBundled for why that would have been a rewrite
-		// rather than a refresh.
-		return buildBundled(pack, opts)
+		// asks for -- see buildManifestPack for why that would have been a
+		// rewrite rather than a refresh.
+		return buildManifestPack(pack, opts)
 
 	case RecipeGeneric:
 		p, err := buildGeneric(pack, version, opts)
@@ -99,19 +126,38 @@ func build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.P
 		pack.Pack, pack.Source.Type)
 }
 
-// Select names the recipe a pack runs, or "" when none applies.
+// Select names the recipe a pack runs, or "" when none applies. The
+// deprecated name RecipeBundled selects RecipeManifestPack.
 func Select(pack *config.PackConfig) string {
 	switch pack.Recipe {
-	case RecipeGeneric, RecipeEmojiSets, RecipeBundled:
+	case RecipeGeneric, RecipeEmojiSets, RecipeManifestPack:
 		return pack.Recipe
+	case RecipeBundled:
+		return RecipeManifestPack
 	}
 	switch {
 	case pack.Name == "icon-sets-emoji":
 		return RecipeEmojiSets
-	case pack.Name == "icon-sets-bundled":
-		return RecipeBundled
+	case pack.Name == legacyManifestPackName:
+		return RecipeManifestPack
 	case fetchable(pack.Source.Type):
 		return RecipeGeneric
+	}
+	return ""
+}
+
+// Deprecation returns a notice when pack reaches its recipe through a
+// deprecated path, or "" when it does not: the RecipeBundled name, or the
+// name-based dispatch that a config with no `recipe` still gets. Dispatch is
+// the same either way; only the notice differs.
+func Deprecation(pack *config.PackConfig) string {
+	switch {
+	case pack.Recipe == RecipeBundled:
+		return fmt.Sprintf(`%s: "recipe": %q is deprecated and will be removed in %s; write "recipe": %q`,
+			pack.Name, RecipeBundled, RemovalRelease, RecipeManifestPack)
+	case (pack.Recipe == "" || pack.Recipe == RecipeAuto) && pack.Name == legacyManifestPackName:
+		return fmt.Sprintf(`%s: choosing the %s recipe by pack name is deprecated and will be removed in %s; set "recipe": %q in its config`,
+			pack.Name, RecipeManifestPack, RemovalRelease, RecipeManifestPack)
 	}
 	return ""
 }

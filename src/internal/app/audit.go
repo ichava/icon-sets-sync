@@ -12,10 +12,16 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 )
 
-// BundledPack is the registry slug of the aggregator pack the audit surveys.
-const BundledPack = "icon-sets-bundled"
+// ManifestPack is the registry slug of the aggregator pack the manifest-pack
+// audit surveys.
+const ManifestPack = "icon-sets-bundled"
 
-// AuditOptions configures AuditBundled.
+// BundledPack is ManifestPack's former name, and the same value.
+//
+// Deprecated: use ManifestPack. Earliest removal: 0.2.0.
+const BundledPack = ManifestPack
+
+// AuditOptions configures AuditManifestPack.
 type AuditOptions struct {
 	ConfigDir string
 	Workspace string
@@ -46,11 +52,11 @@ type AuditOptions struct {
 	Logger *slog.Logger
 }
 
-// AuditBundled identifies, by measurement, which upstream each vendored set of
-// the bundled pack came from. It is the body of `bundled audit`, so the CLI
-// and the web UI cannot survey differently. Results are sorted.
-func AuditBundled(ctx context.Context, opts AuditOptions) ([]bundled.Resolution, error) {
-	pack, err := config.LoadPack(BundledPack, opts.ConfigDir)
+// AuditManifestPack identifies, by measurement, which upstream each vendored
+// set of the manifest pack came from. It is the body of `manifest-pack audit`,
+// so the CLI and the web UI cannot survey differently. Results are sorted.
+func AuditManifestPack(ctx context.Context, opts AuditOptions) ([]bundled.Resolution, error) {
+	pack, err := config.LoadPack(ManifestPack, opts.ConfigDir)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +76,7 @@ func AuditBundled(ctx context.Context, opts AuditOptions) ([]bundled.Resolution,
 
 	workDir := opts.WorkDir
 	if workDir == "" {
-		workDir, err = os.MkdirTemp("", "imt-bundled-audit-")
+		workDir, err = os.MkdirTemp("", "imt-manifest-pack-audit-")
 		if err != nil {
 			return nil, err
 		}
@@ -92,6 +98,13 @@ func AuditBundled(ctx context.Context, opts AuditOptions) ([]bundled.Resolution,
 	results := resolveSets(ctx, sets, filesRoot, workDir, parallel, opts.Package, fetcher, opts.Logger, opts.SetDone)
 	bundled.SortResolutions(results)
 	return results, nil
+}
+
+// AuditBundled is AuditManifestPack's former name, and forwards to it.
+//
+// Deprecated: use AuditManifestPack. Earliest removal: 0.2.0.
+func AuditBundled(ctx context.Context, opts AuditOptions) ([]bundled.Resolution, error) {
+	return AuditManifestPack(ctx, opts)
 }
 
 // ResolveSets audits sets concurrently.

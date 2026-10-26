@@ -59,7 +59,7 @@ func ValidateConfigs(dir string, stack settings.Stack) []Finding {
 
 // ValidatePack checks one registered pack: that it loads against the schema,
 // that its name matches its slug, that its settings block resolves, that a
-// recipe can run it and, for the bundled pack, that its set manifest loads.
+// recipe can run it and, for a manifest-pack, that its set manifest loads.
 // A pack with no sinks is a warning, not an error.
 func ValidatePack(dir, slug string, stack settings.Stack) []Finding {
 	path, err := config.PackFile(slug, dir)
@@ -99,12 +99,15 @@ func checkPack(dir, slug, path string, pack *config.PackConfig, stack settings.S
 	if recipe == "" {
 		return bad("%s: no recipe can run source.type=%q; set `recipe`", path, pack.Source.Type)
 	}
-	if recipe == recipes.RecipeBundled {
+	if recipe == recipes.RecipeManifestPack {
 		if _, err := bundled.LoadManifest(dir, pack.Name); err != nil {
 			return bad("%s: %s", path, err)
 		}
 	}
 	var out []Finding
+	if notice := recipes.Deprecation(pack); notice != "" {
+		out = append(out, Finding{LevelWarn, fmt.Sprintf("%s: %s", path, notice)})
+	}
 	if len(pack.Sinks) == 0 {
 		out = append(out, Finding{LevelWarn, fmt.Sprintf("%s: declares no sinks; sync will refuse it outside --dry-run", path)})
 	}
