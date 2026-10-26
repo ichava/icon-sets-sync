@@ -8,8 +8,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 )
 
 // ManifestPack is the registry slug of the aggregator pack the manifest-pack
@@ -39,14 +39,14 @@ type AuditOptions struct {
 	Parallel int
 
 	// Fetcher fetches candidate packages. Nil means npm.
-	Fetcher bundled.Fetcher
+	Fetcher manifestpack.Fetcher
 
 	// Starting is called once the sets are known, before any fetch. May be nil.
 	Starting func(sets int, filesRoot string)
 
 	// SetDone is called as each set is resolved, in completion order, one
 	// call at a time. May be nil.
-	SetDone func(bundled.Resolution)
+	SetDone func(manifestpack.Resolution)
 
 	// Logger receives the resolver's lines. Nil means slog.Default().
 	Logger *slog.Logger
@@ -55,7 +55,7 @@ type AuditOptions struct {
 // AuditManifestPack identifies, by measurement, which upstream each vendored
 // set of the manifest pack came from. It is the body of `manifest-pack audit`,
 // so the CLI and the web UI cannot survey differently. Results are sorted.
-func AuditManifestPack(ctx context.Context, opts AuditOptions) ([]bundled.Resolution, error) {
+func AuditManifestPack(ctx context.Context, opts AuditOptions) ([]manifestpack.Resolution, error) {
 	pack, err := config.LoadPack(ManifestPack, opts.ConfigDir)
 	if err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func AuditManifestPack(ctx context.Context, opts AuditOptions) ([]bundled.Resolu
 	ApplyWorkspace(pack, opts.Workspace)
 
 	filesRoot := filepath.Join(pack.PackRoot, "resources", "assets", "svg", "files")
-	sets, err := bundled.ListSets(filesRoot)
+	sets, err := manifestpack.ListSets(filesRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -93,17 +93,17 @@ func AuditManifestPack(ctx context.Context, opts AuditOptions) ([]bundled.Resolu
 	}
 	fetcher := opts.Fetcher
 	if fetcher == nil {
-		fetcher = bundled.NpmFetcher{Log: opts.Logger}
+		fetcher = manifestpack.NpmFetcher{Log: opts.Logger}
 	}
 	results := resolveSets(ctx, sets, filesRoot, workDir, parallel, opts.Package, fetcher, opts.Logger, opts.SetDone)
-	bundled.SortResolutions(results)
+	manifestpack.SortResolutions(results)
 	return results, nil
 }
 
 // AuditBundled is AuditManifestPack's former name, and forwards to it.
 //
 // Deprecated: use AuditManifestPack. Earliest removal: 0.2.0.
-func AuditBundled(ctx context.Context, opts AuditOptions) ([]bundled.Resolution, error) {
+func AuditBundled(ctx context.Context, opts AuditOptions) ([]manifestpack.Resolution, error) {
 	return AuditManifestPack(ctx, opts)
 }
 
@@ -113,12 +113,12 @@ func AuditBundled(ctx context.Context, opts AuditOptions) ([]bundled.Resolution,
 // worthwhile -- dozens of sets fetched one at a time is minutes of waiting. Results
 // are written into a fixed slot per set rather than appended, so the output
 // order stays deterministic regardless of which finishes first.
-func ResolveSets(ctx context.Context, sets []string, filesRoot, workDir string, parallel int, pkg string, fetcher bundled.Fetcher) []bundled.Resolution {
+func ResolveSets(ctx context.Context, sets []string, filesRoot, workDir string, parallel int, pkg string, fetcher manifestpack.Fetcher) []manifestpack.Resolution {
 	return resolveSets(ctx, sets, filesRoot, workDir, parallel, pkg, fetcher, nil, nil)
 }
 
 func resolveSets(ctx context.Context, sets []string, filesRoot, workDir string, parallel int, pkg string,
-	fetcher bundled.Fetcher, log *slog.Logger, done func(bundled.Resolution)) []bundled.Resolution {
+	fetcher manifestpack.Fetcher, log *slog.Logger, done func(manifestpack.Resolution)) []manifestpack.Resolution {
 	var explicit []string
 	if pkg != "" {
 		explicit = []string{pkg}
@@ -126,7 +126,7 @@ func resolveSets(ctx context.Context, sets []string, filesRoot, workDir string, 
 	if parallel < 1 {
 		parallel = 1
 	}
-	results := make([]bundled.Resolution, len(sets))
+	results := make([]manifestpack.Resolution, len(sets))
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -139,7 +139,7 @@ func resolveSets(ctx context.Context, sets []string, filesRoot, workDir string, 
 			slots <- struct{}{}
 			defer func() { <-slots }()
 
-			results[i] = bundled.ResolveSet(
+			results[i] = manifestpack.ResolveSet(
 				ctx, filepath.Join(filesRoot, set), fetcher, workDir, log, explicit...)
 			if done != nil {
 				mu.Lock()

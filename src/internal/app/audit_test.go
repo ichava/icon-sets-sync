@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 )
 
 func sprintf(format string, a ...any) string { return fmt.Sprintf(format, a...) }
@@ -80,7 +80,7 @@ func TestAuditBundledScoresAgainstTheCommittedBytes(t *testing.T) {
 	var started int
 	var done []string
 	results, err := AuditBundled(context.Background(), AuditOptions{
-		SetDone:   func(r bundled.Resolution) { done = append(done, r.Set) },
+		SetDone:   func(r manifestpack.Resolution) { done = append(done, r.Set) },
 		ConfigDir: configDir,
 		Set:       "demo-icons",
 		Package:   "demo-pkg",
@@ -95,7 +95,7 @@ func TestAuditBundledScoresAgainstTheCommittedBytes(t *testing.T) {
 		t.Fatalf("started %d, results %+v", started, results)
 	}
 	r := results[0]
-	if r.Confidence != bundled.ConfidenceExact || r.Identical != 3 || r.Package != "demo-pkg" {
+	if r.Confidence != manifestpack.ConfidenceExact || r.Identical != 3 || r.Package != "demo-pkg" {
 		t.Fatalf("resolution %+v", r)
 	}
 }

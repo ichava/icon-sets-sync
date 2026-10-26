@@ -1,4 +1,4 @@
-package bundled
+package manifestpack
 
 import (
 	"context"

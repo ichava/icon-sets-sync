@@ -11,11 +11,11 @@ import (
 	"sync"
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
@@ -68,7 +68,7 @@ type Engine interface {
 
 	// AuditManifestPack surveys where each of the manifest pack's sets came
 	// from, as `manifest-pack audit` does.
-	AuditManifestPack(ctx context.Context, req AuditRequest, hooks AuditHooks) ([]bundled.Resolution, error)
+	AuditManifestPack(ctx context.Context, req AuditRequest, hooks AuditHooks) ([]manifestpack.Resolution, error)
 }
 
 // AuditRequest is the audit form: one set, optionally verified against one
@@ -79,7 +79,7 @@ type AuditRequest struct{ Set, Package string }
 type AuditHooks struct {
 	Logger   *slog.Logger
 	Starting func(sets int, filesRoot string)
-	SetDone  func(bundled.Resolution)
+	SetDone  func(manifestpack.Resolution)
 }
 
 // RunRequest is what a run form may set. It enters the settings as the flag
@@ -170,7 +170,7 @@ func (e *AppEngine) Settings() SettingsView {
 }
 
 // AuditManifestPack implements Engine.
-func (e *AppEngine) AuditManifestPack(ctx context.Context, req AuditRequest, h AuditHooks) ([]bundled.Resolution, error) {
+func (e *AppEngine) AuditManifestPack(ctx context.Context, req AuditRequest, h AuditHooks) ([]manifestpack.Resolution, error) {
 	return app.AuditManifestPack(ctx, app.AuditOptions{
 		ConfigDir: e.configDir(), Workspace: e.Workspace, Set: req.Set, Package: req.Package,
 		Starting: h.Starting, SetDone: h.SetDone, Logger: h.Logger,
@@ -181,7 +181,7 @@ func (e *AppEngine) AuditManifestPack(ctx context.Context, req AuditRequest, h A
 // Engine interface names only AuditManifestPack.
 //
 // Deprecated: use AuditManifestPack. Earliest removal: 0.2.0.
-func (e *AppEngine) AuditBundled(ctx context.Context, req AuditRequest, h AuditHooks) ([]bundled.Resolution, error) {
+func (e *AppEngine) AuditBundled(ctx context.Context, req AuditRequest, h AuditHooks) ([]manifestpack.Resolution, error) {
 	return e.AuditManifestPack(ctx, req, h)
 }
 

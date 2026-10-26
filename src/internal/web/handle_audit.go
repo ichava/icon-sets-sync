@@ -10,16 +10,16 @@ import (
 	"strings"
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 	"github.com/ichava/icon-sets-sync/src/internal/web/jobs"
 )
 
 type auditData struct {
 	Job      *jobs.Info
 	Live     bool
-	Results  []bundled.Resolution
-	Summary  map[bundled.Confidence]int
-	Order    []bundled.Confidence
+	Results  []manifestpack.Resolution
+	Summary  map[manifestpack.Confidence]int
+	Order    []manifestpack.Confidence
 	Set, Pkg string
 }
 
@@ -36,10 +36,10 @@ func (s *Server) latestAudit() (jobs.Info, []jobs.Event, bool) {
 	return jobs.Info{}, nil, false
 }
 
-func auditResults(events []jobs.Event) []bundled.Resolution {
+func auditResults(events []jobs.Event) []manifestpack.Resolution {
 	for i := len(events) - 1; i >= 0; i-- {
 		if events[i].Type == jobs.EventResult {
-			var rs []bundled.Resolution
+			var rs []manifestpack.Resolution
 			if json.Unmarshal(events[i].Data, &rs) == nil {
 				return rs
 			}
@@ -50,13 +50,13 @@ func auditResults(events []jobs.Event) []bundled.Resolution {
 
 func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 	d := auditData{
-		Order: []bundled.Confidence{bundled.ConfidenceExact, bundled.ConfidenceStrong, bundled.ConfidencePackage,
-			bundled.ConfidenceAmbiguous, bundled.ConfidencePartial, bundled.ConfidenceNone},
+		Order: []manifestpack.Confidence{manifestpack.ConfidenceExact, manifestpack.ConfidenceStrong, manifestpack.ConfidencePackage,
+			manifestpack.ConfidenceAmbiguous, manifestpack.ConfidencePartial, manifestpack.ConfidenceNone},
 	}
 	if info, events, ok := s.latestAudit(); ok {
 		d.Job, d.Live = &info, info.Status == jobs.StatusRunning
 		d.Results = auditResults(events)
-		d.Summary = bundled.Summary(d.Results)
+		d.Summary = manifestpack.Summary(d.Results)
 	}
 	v := s.newView(r, "audit", "Manifest pack audit", d)
 	v.Reload = d.Live
@@ -97,7 +97,7 @@ func (s *Server) handleAuditStart(w http.ResponseWriter, r *http.Request) {
 				Starting: func(n int, root string) {
 					j.Logf("info", "auditing %d set(s) from %s", n, root)
 				},
-				SetDone: func(res bundled.Resolution) {
+				SetDone: func(res manifestpack.Resolution) {
 					done++
 					j.PackDone(res.Set, string(res.Confidence), "", fmt.Sprintf("%d/%d identical", res.Identical, res.Icons))
 				},
@@ -108,10 +108,10 @@ func (s *Server) handleAuditStart(w http.ResponseWriter, r *http.Request) {
 			if err := j.Record(results); err != nil {
 				return jobs.StatusFailed, err
 			}
-			sum := bundled.Summary(results)
+			sum := manifestpack.Summary(results)
 			j.Logf("info", "%d exact, %d strong, %d upstream-identified, %d partial, %d unresolved",
-				sum[bundled.ConfidenceExact], sum[bundled.ConfidenceStrong], sum[bundled.ConfidencePackage],
-				sum[bundled.ConfidencePartial], sum[bundled.ConfidenceNone])
+				sum[manifestpack.ConfidenceExact], sum[manifestpack.ConfidenceStrong], sum[manifestpack.ConfidencePackage],
+				sum[manifestpack.ConfidencePartial], sum[manifestpack.ConfidenceNone])
 			// A survey, not a gate: unresolved sets are work for a person, not a
 			// failed audit -- the same reason `manifest-pack audit` exits 0.
 			return jobs.StatusSucceeded, nil
@@ -133,5 +133,5 @@ func (s *Server) handleAuditManifest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	_ = enc.Encode(bundled.ManifestFromResolutions("ichava/"+app.ManifestPack, results))
+	_ = enc.Encode(manifestpack.ManifestFromResolutions("ichava/"+app.ManifestPack, results))
 }

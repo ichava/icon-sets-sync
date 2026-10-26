@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
 	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
@@ -186,7 +186,7 @@ func TestEveryBundledSetShipsItsLicence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := bundled.LoadManifest(publicDir, pack.Name)
+	manifest, err := manifestpack.LoadManifest(publicDir, pack.Name)
 	if err != nil {
 		t.Fatal(err)
 	}

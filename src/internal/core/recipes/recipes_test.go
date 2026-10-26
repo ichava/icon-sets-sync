@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
 	"github.com/ichava/icon-sets-sync/src/internal/core/transforms"
@@ -168,14 +168,14 @@ func TestBundledNeedsAManifestAndSaysSo(t *testing.T) {
 // set's icons with another project's -- absent is safe, wrong is not.
 func TestBundledBuildsOnePipelinePerSet(t *testing.T) {
 	dir := t.TempDir()
-	m := &bundled.Manifest{
+	m := &manifestpack.Manifest{
 		Pack: "ichava/icon-sets-bundled",
-		Sets: map[string]bundled.SetSource{
-			"bootstrap-icons": {Package: "bootstrap-icons", Path: "package/icons", Confidence: bundled.ConfidenceExact},
+		Sets: map[string]manifestpack.SetSource{
+			"bootstrap-icons": {Package: "bootstrap-icons", Path: "package/icons", Confidence: manifestpack.ConfidenceExact},
 			"feather-icons":   {Package: "feather-icons", Path: "package/dist/icons", Version: "4.29.2"},
 		},
 	}
-	if err := m.Save(bundled.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -222,10 +222,10 @@ func TestBundledBuildsOnePipelinePerSet(t *testing.T) {
 // thousands of files and drop fontawesome's licence attribution.
 func TestBundledDoesNotEnforceThePolicy(t *testing.T) {
 	dir := t.TempDir()
-	m := &bundled.Manifest{Sets: map[string]bundled.SetSource{
+	m := &manifestpack.Manifest{Sets: map[string]manifestpack.SetSource{
 		"x": {Package: "x", Path: "package"},
 	}}
-	if err := m.Save(bundled.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
@@ -254,10 +254,10 @@ func TestBundledDoesNotEnforceThePolicy(t *testing.T) {
 // pointing a wiping refresh at the wrong tree.
 func TestBundledRefusesAManifestForAnotherPack(t *testing.T) {
 	dir := t.TempDir()
-	m := &bundled.Manifest{Pack: "ichava/icon-sets-tabler", Sets: map[string]bundled.SetSource{
+	m := &manifestpack.Manifest{Pack: "ichava/icon-sets-tabler", Sets: map[string]manifestpack.SetSource{
 		"x": {Package: "x", Path: "package"},
 	}}
-	if err := m.Save(bundled.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
@@ -335,10 +335,10 @@ func buildFor(pack *config.PackConfig, version string, dryRun bool) ([]*pipeline
 // explanation entirely.
 func TestBundledRetentionFloorMatchesTheAuditFloor(t *testing.T) {
 	dir := t.TempDir()
-	m := &bundled.Manifest{Sets: map[string]bundled.SetSource{
+	m := &manifestpack.Manifest{Sets: map[string]manifestpack.SetSource{
 		"x": {Package: "x", Path: "package"},
 	}}
-	if err := m.Save(bundled.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
@@ -354,9 +354,9 @@ func TestBundledRetentionFloorMatchesTheAuditFloor(t *testing.T) {
 
 	for _, stage := range built[0].Stages() {
 		if s, ok := stage.(sinks.Filesystem); ok {
-			if s.MinRetention != bundled.PackageCoverageFloor {
+			if s.MinRetention != manifestpack.PackageCoverageFloor {
 				t.Errorf("refresh floor %.2f, audit floor %.2f: these must be one constant",
-					s.MinRetention, bundled.PackageCoverageFloor)
+					s.MinRetention, manifestpack.PackageCoverageFloor)
 			}
 			if s.Incremental {
 				t.Error("the per-set sink must wipe, or an icon deleted upstream stays forever")
@@ -376,13 +376,13 @@ func TestBundledRetentionFloorMatchesTheAuditFloor(t *testing.T) {
 // but a two-variant set landing at 50% is the same defect passing the guard.
 func TestBundledFlattensAVariantSet(t *testing.T) {
 	dir := t.TempDir()
-	m := &bundled.Manifest{Sets: map[string]bundled.SetSource{
-		"heroicons": {Package: "heroicons", Variants: []bundled.Variant{
+	m := &manifestpack.Manifest{Sets: map[string]manifestpack.SetSource{
+		"heroicons": {Package: "heroicons", Variants: []manifestpack.Variant{
 			{Path: "24/outline", Prefix: "o-"},
 			{Path: "16/solid", Prefix: "c-"},
 		}},
 	}}
-	if err := m.Save(bundled.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{

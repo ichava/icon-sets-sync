@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 )
 
@@ -77,7 +77,7 @@ func (e *AppEngine) ConfigFiles() ([]ConfigFile, error) {
 				out = append(out, ConfigFile{Name: filepath.Base(path), Path: path, Kind: KindPack, Slug: slug})
 			}
 			if slug == app.ManifestPack {
-				m := bundled.ManifestPath(dir, slug)
+				m := manifestpack.ManifestPath(dir, slug)
 				if _, err := os.Stat(m); err == nil {
 					out = append(out, ConfigFile{Name: filepath.Base(m), Path: m, Kind: KindManifest, Slug: slug})
 				}
@@ -189,7 +189,7 @@ func validateDoc(f ConfigFile, data []byte, dir string, stack settings.Stack) []
 		}
 		return ok(fmt.Sprintf("registry: %d packs, each with a config", len(reg.Packs)))
 	case KindManifest:
-		m, err := bundled.ParseManifestBytes(f.Path, data)
+		m, err := manifestpack.ParseManifestBytes(f.Path, data)
 		if err != nil {
 			return bad(err)
 		}

@@ -3,8 +3,8 @@ package app
 import (
 	"fmt"
 
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 )
@@ -100,7 +100,7 @@ func checkPack(dir, slug, path string, pack *config.PackConfig, stack settings.S
 		return bad("%s: no recipe can run source.type=%q; set `recipe`", path, pack.Source.Type)
 	}
 	if recipe == recipes.RecipeManifestPack {
-		if _, err := bundled.LoadManifest(dir, pack.Name); err != nil {
+		if _, err := manifestpack.LoadManifest(dir, pack.Name); err != nil {
 			return bad("%s: %s", path, err)
 		}
 	}

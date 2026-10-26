@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 )
 
 func TestAuditRunsAndRendersItsResults(t *testing.T) {
@@ -31,7 +31,7 @@ func TestAuditRunsAndRendersItsResults(t *testing.T) {
 	}
 	id := strings.TrimPrefix(path, "/jobs/")
 	rec := c.get("/manifest-pack/audit/" + id + "/manifest.json")
-	var m bundled.Manifest
+	var m manifestpack.Manifest
 	if err := json.Unmarshal(rec.Body.Bytes(), &m); err != nil {
 		t.Fatalf("manifest: %d %v", rec.Code, err)
 	}
