@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
@@ -114,8 +115,16 @@ func findDoc(configDir, base string) (string, error) {
 // ResolveFile returns where a file a recipe reads beside its pack config is:
 // the private directory's copy when there is one, else the public path --
 // returned even when it does not exist, so the caller's error names it.
+//
+// name is a bare file name. One that could leave the directory -- a separator
+// or a `..` -- is never looked up in the private directory, only joined onto
+// the public one as before, so a slug from a request cannot probe the
+// filesystem through the overlay.
 func ResolveFile(configDir, name string) string {
 	dirs := searchDirs(configDir)
+	if strings.Contains(name, "..") || strings.ContainsAny(name, `/\`) {
+		return filepath.Join(dirs[len(dirs)-1], name)
+	}
 	for _, dir := range dirs {
 		path := filepath.Join(dir, name)
 		if _, err := os.Stat(path); err == nil {

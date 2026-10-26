@@ -105,6 +105,11 @@ func TestResolveFilePrefersThePrivateCopy(t *testing.T) {
 		t.Errorf("no private dir: %s, want %s", got, public)
 	}
 	SetPrivateConfigDir(privateFixture)
+	// A name that could leave the directory is never looked up in it.
+	escaping := filepath.Join("..", "private-config", "icon-sets-example.sets.json")
+	if got := ResolveFile(filepath.Join(privateFixture, "nested"), escaping); strings.HasPrefix(got, privateFixture+string(filepath.Separator)+"icon-sets") {
+		t.Errorf("an escaping name resolved into the private dir: %s", got)
+	}
 	want := filepath.Join(privateFixture, "icon-sets-example.sets.json")
 	if got := ResolveFile(publicConfigDir, "icon-sets-example.sets.json"); got != want {
 		t.Errorf("private dir: %s, want %s", got, want)
