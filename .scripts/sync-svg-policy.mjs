@@ -2,12 +2,19 @@
 /**
  * Sync the canonical SVG policy into every runtime that has to enforce it.
  *
- * Four runtimes sanitise SVG in this ecosystem and none of them can reach the
- * others at build time: `browser` resolves `ichava/core` from a published tag
- * rather than the sibling tree, and `react-browser` and `icon-sets-sync`
- * have no Composer dependency on core at all. So each vendors a byte-identical
- * copy, and this script is what makes those copies trustworthy rather than
- * merely present.
+ * Several runtimes sanitise SVG in this ecosystem and none of them can reach
+ * the others at build time: `react-icon-browser` and `icon-sets-sync` have no
+ * Composer dependency on core at all. So each vendors a byte-identical copy,
+ * and this script is what makes those copies trustworthy rather than merely
+ * present.
+ *
+ * `icon-browser` is not listed. Its own `resources/js/core/svg-policy.json`
+ * went when it took the react-icon-browser UI, and its copy of the policy is
+ * now compiled into the vendored react-icon-browser build
+ * (`resources/vendor/react-icon-browser`, pinned by VENDORED.json). It follows
+ * core through react-icon-browser: sync that copy here, then re-vendor the
+ * build into icon-browser. Listing the old path made the check report it
+ * MISSING on every run, and made --write recreate a file nothing reads.
  *
  *   node .scripts/sync-svg-policy.mjs           # check, exit 1 on drift
  *   node .scripts/sync-svg-policy.mjs --write   # copy canonical over the rest
@@ -32,7 +39,6 @@ const CANONICAL = join(ROOT, 'core/resources/security/svg-policy.json');
 const TOOLKIT = existsSync(join(ROOT, 'icon-sets-sync')) ? 'icon-sets-sync' : 'maintainer-toolkit';
 
 const CONSUMERS = [
-  'icon-browser/resources/js/core/svg-policy.json',
   'react-icon-browser/src/core/svg-policy.json',
   // //go:embed cannot reach outside the package directory, so the Go module
   // carries its own copy.
