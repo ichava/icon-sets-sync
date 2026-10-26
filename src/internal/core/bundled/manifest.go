@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 )
 
 // Manifest records where each vendored set comes from.
@@ -85,9 +86,10 @@ type SetSource struct {
 	LicenceMissing string `json:"licence_missing,omitempty"`
 }
 
-// ManifestPath is the conventional location beside a pack config.
+// ManifestPath is the conventional location beside a pack config: the
+// private config directory's copy when it has one, else configDir's.
 func ManifestPath(configDir, packName string) string {
-	return filepath.Join(configDir, packName+".sets.json")
+	return config.ResolveFile(configDir, packName+".sets.json")
 }
 
 // LoadManifest reads the manifest for a pack.

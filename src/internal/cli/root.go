@@ -55,6 +55,7 @@ func failure(err error) error { return &ExitError{Code: ExitFailure, Err: err} }
 // globals holds the flags every command shares.
 type globals struct {
 	configDir    string
+	privateDir   string
 	globalConfig string
 	sets         []string
 	verbose      bool
@@ -166,6 +167,7 @@ Run with no arguments in a terminal for the interactive menu.`,
 
 	pf := root.PersistentFlags()
 	pf.StringVar(&g.configDir, "config-dir", "", "where pack configs live (setting config_dir; default: config/ beside the binary, else ./config)")
+	pf.StringVar(&g.privateDir, "private-config-dir", "", "directory of private pack configs merged over --config-dir (setting private_config_dir; default: none)")
 	pf.StringVar(&g.globalConfig, "global-config", "", "global config file (default: $XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml})")
 	pf.StringArrayVar(&g.sets, "set", nil, "set any setting, as key=value (repeatable; see `config print`)")
 	pf.BoolVarP(&g.verbose, "verbose", "v", false, "debug logging (log_level=debug)")
@@ -236,6 +238,7 @@ func resolveState(cmd *cobra.Command) error {
 			}
 		}
 		setFlag("config-dir", "config_dir", g.configDir)
+		setFlag("private-config-dir", "private_config_dir", g.privateDir)
 		if g.verbose {
 			flagValues["log_level"] = "debug"
 		}
@@ -274,6 +277,13 @@ func resolveState(cmd *cobra.Command) error {
 	state.globalPath = path
 	state.stack = stack
 	state.run = state.stack.Resolve(nil)
+	// Every config loader reads the private overlay from here, so the CLI,
+	// the TUI and the web UI all see the same packs. Set on every run, unset
+	// included, so one invocation never inherits another's.
+	config.SetPrivateConfigDir(state.run.String("private_config_dir"))
+	if err := config.CheckPrivateConfigDir(); err != nil {
+		return usageErr("%s", err)
+	}
 	return nil
 }
 

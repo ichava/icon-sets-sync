@@ -260,13 +260,19 @@ func stripCommentKeys(data []byte) ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// PackFile returns the path of a pack's config: <slug>.json, .yaml or .yml.
+// PackFile returns the path of a pack's config: <slug>.json, .yaml or .yml,
+// from the private config directory when it has one (see private.go), else
+// from configDir.
 func PackFile(slug, configDir string) (string, error) {
 	if configDir == "" {
 		configDir = DefaultConfigDir()
 	}
-	path, err := docfile.Find(configDir, slug)
+	path, err := findDoc(configDir, slug)
 	if errors.Is(err, os.ErrNotExist) {
+		if private := PrivateConfigDir(); private != "" {
+			return "", fmt.Errorf("missing pack config: %s (nor in the private config dir %s)",
+				filepath.Join(configDir, slug+".json"), private)
+		}
 		return "", fmt.Errorf("missing pack config: %s", filepath.Join(configDir, slug+".json"))
 	}
 	return path, err
@@ -351,7 +357,8 @@ func WritePackFileAtomic(path string, data []byte) error {
 	return docfile.WriteAtomic(path, data)
 }
 
-// LoadRegistry reads and validates config/packs.json (or packs.yaml).
+// LoadRegistry reads and validates config/packs.json (or packs.yaml), merged
+// with the private config directory's registry when one is set.
 func LoadRegistry(configDir string) (*PacksRegistry, error) {
 	if configDir == "" {
 		configDir = DefaultConfigDir()
@@ -368,7 +375,15 @@ func LoadRegistry(configDir string) (*PacksRegistry, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ParseRegistryBytes(registryFile, data)
+	registry, err := ParseRegistryBytes(registryFile, data)
+	if err != nil {
+		return nil, err
+	}
+	// The private directory's packs follow the public ones; see private.go.
+	if err := mergePrivateRegistry(registry); err != nil {
+		return nil, err
+	}
+	return registry, nil
 }
 
 // ParseRegistryBytes validates and decodes a registry document as if read
