@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="csrf-token" content="CSRF">
-<title>Bundled audit · icon-sets-sync</title>
+<title>Manifest pack audit · icon-sets-sync</title>
 <script src="/assets/HASH/vendor/tabler/tabler-theme.min.js"></script>
 <link rel="stylesheet" href="/assets/HASH/vendor/tabler/tabler.min.css">
 <link rel="stylesheet" href="/assets/HASH/app.css">
@@ -28,7 +28,7 @@
   <a class="nav-link" href="/jobs"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-history"></use></svg><span class="ms-1">Runs</span></a>
 </li>
           <li class="nav-item active">
-  <a class="nav-link" href="/bundled/audit" aria-current="page"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-search"></use></svg><span class="ms-1">Bundled audit</span></a>
+  <a class="nav-link" href="/manifest-pack/audit" aria-current="page"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-search"></use></svg><span class="ms-1">Manifest pack audit</span></a>
 </li>
           <li class="nav-item">
   <a class="nav-link" href="/config"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-file-code"></use></svg><span class="ms-1">Config</span></a>
@@ -53,7 +53,7 @@
 <div class="page-header d-print-none mb-3">
   <div class="row align-items-center">
     <div class="col">
-      <h1 class="page-title">Bundled audit</h1>
+      <h1 class="page-title">Manifest pack audit</h1>
     </div>
   </div>
 </div>
@@ -62,7 +62,7 @@
 
 <div class="card mb-3">
   <div class="card-body">
-    <form method="post" action="/bundled/audit" class="row g-2 align-items-end">
+    <form method="post" action="/manifest-pack/audit" class="row g-2 align-items-end">
       <input type="hidden" name="csrf" value="CSRF">
       <div class="col-sm-4">
         <label class="form-label" for="audit-set">Set <span class="text-secondary">(optional)</span></label>
@@ -85,7 +85,7 @@
   <span class="badge badge-ok">succeeded</span>
   <span>Latest audit: every set, started <time datetime="2026-10-23T12:00:00Z">2026-10-23 12:00:00 UTC</time>.</span>
   <a href="/jobs/JOBID">Watch the run</a>
-  <a class="ms-auto btn btn-outline-secondary btn-sm" href="/bundled/audit/JOBID/manifest.json"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-download"></use></svg><span class="ms-1">Download as a set manifest</span></a>
+  <a class="ms-auto btn btn-outline-secondary btn-sm" href="/manifest-pack/audit/JOBID/manifest.json"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-download"></use></svg><span class="ms-1">Download as a set manifest</span></a>
 </div>
 
 <div class="row row-cards mb-3">

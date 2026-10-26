@@ -218,7 +218,7 @@ func (f *fakeEngine) Recipe(_ context.Context, p *config.PackConfig, version str
 	return pipeline.Result{Success: true}, nil
 }
 
-func (f *fakeEngine) AuditBundled(_ context.Context, req AuditRequest, h AuditHooks) ([]bundled.Resolution, error) {
+func (f *fakeEngine) AuditManifestPack(_ context.Context, req AuditRequest, h AuditHooks) ([]bundled.Resolution, error) {
 	f.record(runCall{Kind: "audit", Packs: []string{req.Set, req.Package}})
 	h.Starting(2, "/work/aggregate/resources/assets/svg/files")
 	rs := []bundled.Resolution{

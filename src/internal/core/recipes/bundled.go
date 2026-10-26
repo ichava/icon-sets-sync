@@ -12,7 +12,7 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/core/transforms"
 )
 
-// buildBundled composes the aggregator pack's refresh: one pipeline per set,
+// buildManifestPack composes the aggregator pack's refresh: one pipeline per set,
 // each from that set's own upstream, plus a trailing commit pipeline.
 //
 // This is a *native* refresh, not the `iconify` one the pack config asks for.
@@ -30,7 +30,7 @@ import (
 //     wiped, not touched. An aggregator pack that quietly stopped refreshing a
 //     third of itself would be bad; one that quietly *emptied* a third of
 //     itself would be unrecoverable from a scheduled job.
-func buildBundled(pack *config.PackConfig, opts Options) ([]*pipeline.Pipeline, error) {
+func buildManifestPack(pack *config.PackConfig, opts Options) ([]*pipeline.Pipeline, error) {
 	configDir, dryRun := opts.ConfigDir, opts.DryRun
 	manifest, err := bundled.LoadManifest(configDir, pack.Name)
 	if err != nil {

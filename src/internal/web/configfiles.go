@@ -76,7 +76,7 @@ func (e *AppEngine) ConfigFiles() ([]ConfigFile, error) {
 			if path, err := config.PackFile(slug, dir); err == nil {
 				out = append(out, ConfigFile{Name: filepath.Base(path), Path: path, Kind: KindPack, Slug: slug})
 			}
-			if slug == app.BundledPack {
+			if slug == app.ManifestPack {
 				m := bundled.ManifestPath(dir, slug)
 				if _, err := os.Stat(m); err == nil {
 					out = append(out, ConfigFile{Name: filepath.Base(m), Path: m, Kind: KindManifest, Slug: slug})

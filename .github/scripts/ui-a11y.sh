@@ -59,7 +59,7 @@ for _ in $(seq 1 50); do
   sleep 0.2
 done
 
-pages=(/ /packs/icon-sets-a11y /jobs "$job" /config /config/icon-sets-a11y.json /bundled/audit /settings /about/licenses)
+pages=(/ /packs/icon-sets-a11y /jobs "$job" /config /config/icon-sets-a11y.json /manifest-pack/audit /settings /about/licenses)
 echo "pages: ${#pages[@]}"
 
 status=0

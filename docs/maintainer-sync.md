@@ -35,7 +35,7 @@ flowchart LR
     upstream --> idem{Newer<br/>version?}
     idem -- no --> done["Exit 0,<br/>nothing to do"]
     idem -- yes --> fetch["Fetch + extract<br/>per strategy"]
-    fetch --> recipe["Recipe<br/>(generic / emoji-sets / bundled)"]
+    fetch --> recipe["Recipe<br/>(generic / emoji-sets / manifest-pack)"]
     recipe --> bump["Bump current_version<br/>+ CHANGELOG"]
     bump --> pr["Open PR<br/>chore(upstream): bump <pack> to vX.Y.Z"]
     pr --> human["Human reviews diff<br/>+ merges"]

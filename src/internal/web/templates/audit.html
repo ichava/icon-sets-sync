@@ -1,11 +1,11 @@
 {{define "content"}}{{with .Data}}
-{{template "page_header" "Bundled audit"}}
+{{template "page_header" "Manifest pack audit"}}
 <p class="text-secondary">For every set in the aggregator pack, fetches candidate npm packages and scores them against the committed icons. Nothing is accepted on a name: a candidate is believed only when the bytes it ships match the bytes already committed. A survey, not a gate: unresolved sets are work for a person. It reads the pack tree and writes only temporary downloads.</p>
 
 {{if not $.ReadOnly}}
 <div class="card mb-3">
   <div class="card-body">
-    <form method="post" action="/bundled/audit" class="row g-2 align-items-end">
+    <form method="post" action="/manifest-pack/audit" class="row g-2 align-items-end">
       <input type="hidden" name="csrf" value="{{$.CSRF}}">
       <div class="col-sm-4">
         <label class="form-label" for="audit-set">Set <span class="text-secondary">(optional)</span></label>
@@ -28,7 +28,7 @@
   <span class="badge {{runClass .Job.Status}}">{{.Job.Status}}</span>
   <span>Latest audit: {{.Job.Label}}, started <time datetime="{{iso .Job.Started}}">{{when .Job.Started}}</time>.</span>
   <a href="/jobs/{{.Job.ID}}">Watch the run</a>
-  {{if .Results}}<a class="ms-auto btn btn-outline-secondary btn-sm" href="/bundled/audit/{{.Job.ID}}/manifest.json">{{icon "download"}}<span class="ms-1">Download as a set manifest</span></a>{{end}}
+  {{if .Results}}<a class="ms-auto btn btn-outline-secondary btn-sm" href="/manifest-pack/audit/{{.Job.ID}}/manifest.json">{{icon "download"}}<span class="ms-1">Download as a set manifest</span></a>{{end}}
 </div>
 {{if .Results}}
 <div class="row row-cards mb-3">

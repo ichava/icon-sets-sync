@@ -34,7 +34,7 @@ manifest. It is merged with `config/` rather than replacing it:
   reads as "no private packs".
 
 Recipes stay data-driven, so a private pack needs no Go code here: it names an existing recipe in its
-config (`"recipe": "bundled"` for one pipeline per set in its set manifest) and supplies the data.
+config (`"recipe": "manifest-pack"` for one pipeline per set in its set manifest) and supplies the data.
 Nothing describing a private pack is committed to this repository; a test fails on any tracked file
 that names a private pack's paths or config files.
 
@@ -80,7 +80,7 @@ turning it into `"16"`.
 | `source` | where the assets come from; see [Sources](#sources) |
 | `sinks` | where they land, in order; see [Sinks](#sinks) |
 | `transforms` | what happens in between; see [Transforms](#transforms) |
-| `recipe` | `auto` (default), `generic`, `emoji-sets` or `bundled`; see [Recipes](#recipes) |
+| `recipe` | `auto` (default), `generic`, `emoji-sets` or `manifest-pack` (`bundled` is its deprecated former name); see [Recipes](#recipes) |
 | `settings` | this pack's layer of the [settings](#settings) |
 | `version_file` | pack-repo-relative file recording the vendored version; default `resources/assets/svg/config.json` |
 | `version_keys` | dot-paths inside that file; default `upstream.current_version`, `package.upstream_version` |
@@ -155,8 +155,13 @@ A recipe turns a pack config into pipelines. `auto` picks by pack name, then by 
 | Recipe | Picked for | Builds |
 |---|---|---|
 | `emoji-sets` | `icon-sets-emoji` | Twemoji (npm) + OpenMoji colour and black (GitHub archive), categorised by the Unicode taxonomy, then one commit |
-| `bundled` | the aggregator pack, or `"recipe": "bundled"` | one pipeline per set in the pack's `<slug>.sets.json` set manifest, each from its own upstream, then one commit |
+| `manifest-pack` | `"recipe": "manifest-pack"` | one pipeline per set in the pack's `<slug>.sets.json` set manifest, each from its own upstream, then one commit |
 | `generic` | any `npm` or `github-*` source | the config's own source, transforms and sinks |
+
+> **Deprecated until 0.2.0.** `"recipe": "bundled"` still runs exactly as `manifest-pack`, and the one
+> aggregator pack that predates the field is still picked by its name when its config has no `recipe`.
+> Both log a deprecation notice on every run and a warning in `config validate`. From 0.2.0 a pack
+> config has to say `"recipe": "manifest-pack"`.
 
 ## Settings
 

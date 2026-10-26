@@ -51,8 +51,8 @@
     },
     "recipe": {
       "type": "string",
-      "enum": ["auto", "generic", "emoji-sets", "bundled"],
-      "description": "Which recipe builds the pipelines. `auto` (the default) picks by pack name, then by source type."
+      "enum": ["auto", "generic", "emoji-sets", "manifest-pack", "bundled"],
+      "description": "Which recipe builds the pipelines. `auto` (the default) picks by pack name, then by source type. `manifest-pack` refreshes one pipeline per set in the pack's set manifest. `bundled` is its deprecated former name, run exactly as `manifest-pack` until it is removed in 0.2.0."
     },
     "source": { "$ref": "#/$defs/source" },
     "sinks": {

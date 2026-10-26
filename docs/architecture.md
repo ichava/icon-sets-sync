@@ -42,7 +42,7 @@ src/
 ├── cmd/imt/              the same program under its short name
 └── internal/
     ├── cli/              the cobra tree: list-packs, check, sync, sync-all, recipe,
-    │                     config validate|print, bundled audit, menu, version
+    │                     config validate|print, manifest-pack audit, menu, version
     ├── tui/              the Bubble Tea menu
     ├── app/              orchestration both front-ends share: loading, checking, syncing
     ├── ui/               TTY detection, colour, status lines, the check table
@@ -59,7 +59,7 @@ src/
         ├── transforms/   FindLicences, SubsetTo, Sanitise, Slugify, Categorise, Indexer, FlattenVariants
         ├── svg/          the shared SVG policy and the parser that applies it
         ├── sinks/        Filesystem, LicenceTexts, VersionStamp, GitBranch, Discard
-        ├── recipes/      config -> pipelines: generic, emoji-sets, bundled
+        ├── recipes/      config -> pipelines: generic, emoji-sets, manifest-pack
         └── bundled/      the aggregator pack's set manifest and audit
 ```
 
@@ -87,7 +87,7 @@ pipeline in every recipe now runs `FindLicences` straight after its source, whic
 |---|---|
 | `generic` | `resources/assets/svg/licenses/<upstream>`, the npm package with its scope folded in (`tabler-icons`, `flag-icons`) or the GitHub repository |
 | `emoji-sets` | `resources/assets/svg/licenses/{twemoji,openmoji-color,openmoji-black}` |
-| `bundled` | `resources/assets/svg/licenses/<set>`, pairing with `files/<set>` |
+| `manifest-pack` | `resources/assets/svg/licenses/<set>`, pairing with `files/<set>` |
 
 `resources/` is not export-ignored in any pack, so the texts ship in the dist archive. Each
 destination is replaced on every run, so a `NOTICE` upstream drops goes too.
@@ -127,7 +127,7 @@ or delete its `SOURCE.md` (and the set's `licence_missing`), so the next sync co
 A recipe assembles the pipelines for one pack. `generic` builds them from the config alone, which
 covers the common case and is what icon-sets-tabler and icon-sets-flag run. `emoji-sets` is three
 upstreams feeding three filesystem sinks, then one trailing pipeline that only stamps and commits.
-`bundled` is one pipeline per set in the manifest, each from its own upstream, so each set keeps its
+`manifest-pack` is one pipeline per set in the manifest, each from its own upstream, so each set keeps its
 own SVG dialect, and a set absent from the manifest is never touched.
 
 Recipes are code; what they run over is data. A pack that is private keeps that data -- its pack
@@ -176,8 +176,8 @@ the workflow, not a formality around it.
 ## Why Go, and what happened to the Python
 
 The first implementation was a Python package (`src/ichava_maintainer_toolkit/`, Typer, Pydantic,
-lxml). The Go port reached parity, then went further: it is the only implementation of the bundled
-pack's refresh, it fixed the emoji recipe's version stamp (the Python's commit pipeline had no
+lxml). The Go port reached parity, then went further: it is the only implementation of the
+manifest-pack refresh, it fixed the emoji recipe's version stamp (the Python's commit pipeline had no
 version to stamp, so that pack never converged), it filters `gh pr list` to open pull requests, and
 it ships as one static binary in a smaller image.
 

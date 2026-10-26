@@ -58,7 +58,7 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 		d.Results = auditResults(events)
 		d.Summary = bundled.Summary(d.Results)
 	}
-	v := s.newView(r, "audit", "Bundled audit", d)
+	v := s.newView(r, "audit", "Manifest pack audit", d)
 	v.Reload = d.Live
 	s.render(w, http.StatusOK, "audit", v)
 }
@@ -87,12 +87,12 @@ func (s *Server) handleAuditStart(w http.ResponseWriter, r *http.Request) {
 			label += " against " + req.Package
 		}
 	}
-	// The audit reads the bundled pack's tree; holding its lock keeps a sync
+	// The audit reads the manifest pack's tree; holding its lock keeps a sync
 	// from rewriting that tree mid-survey.
-	j, err := s.jobs.Start(jobs.Spec{Kind: jobs.KindAudit, Packs: []string{app.BundledPack}, DryRun: true, Label: label},
+	j, err := s.jobs.Start(jobs.Spec{Kind: jobs.KindAudit, Packs: []string{app.ManifestPack}, DryRun: true, Label: label},
 		func(ctx context.Context, j *jobs.Job) (jobs.Status, error) {
 			done := 0
-			results, err := s.opts.Engine.AuditBundled(ctx, req, AuditHooks{
+			results, err := s.opts.Engine.AuditManifestPack(ctx, req, AuditHooks{
 				Logger: slog.New(jobs.Handler(j, slog.LevelInfo)),
 				Starting: func(n int, root string) {
 					j.Logf("info", "auditing %d set(s) from %s", n, root)
@@ -113,14 +113,14 @@ func (s *Server) handleAuditStart(w http.ResponseWriter, r *http.Request) {
 				sum[bundled.ConfidenceExact], sum[bundled.ConfidenceStrong], sum[bundled.ConfidencePackage],
 				sum[bundled.ConfidencePartial], sum[bundled.ConfidenceNone])
 			// A survey, not a gate: unresolved sets are work for a person, not a
-			// failed audit -- the same reason `bundled audit` exits 0.
+			// failed audit -- the same reason `manifest-pack audit` exits 0.
 			return jobs.StatusSucceeded, nil
 		})
 	s.started(w, r, j, err)
 }
 
 // handleAuditManifest downloads an audit's resolutions as a set manifest,
-// the input a per-set refresh needs, like `bundled audit --json`.
+// the input a per-set refresh needs, like `manifest-pack audit --json`.
 func (s *Server) handleAuditManifest(w http.ResponseWriter, r *http.Request) {
 	_, events, _, err := s.lookupJob(r.PathValue("id"))
 	results := auditResults(events)
@@ -129,9 +129,9 @@ func (s *Server) handleAuditManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+app.BundledPack+`.sets.json"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+app.ManifestPack+`.sets.json"`)
 	w.Header().Set("Cache-Control", "no-store")
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	_ = enc.Encode(bundled.ManifestFromResolutions("ichava/"+app.BundledPack, results))
+	_ = enc.Encode(bundled.ManifestFromResolutions("ichava/"+app.ManifestPack, results))
 }

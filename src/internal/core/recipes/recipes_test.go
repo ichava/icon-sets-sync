@@ -157,7 +157,7 @@ func TestBundledNeedsAManifestAndSaysSo(t *testing.T) {
 	if !strings.Contains(err.Error(), "missing set manifest") {
 		t.Errorf("err = %q, want it to name the missing manifest", err)
 	}
-	if !strings.Contains(err.Error(), "bundled audit") {
+	if !strings.Contains(err.Error(), "manifest-pack audit") {
 		t.Errorf("err = %q, want it to name the command that builds one", err)
 	}
 }

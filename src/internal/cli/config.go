@@ -33,7 +33,7 @@ func newConfigValidateCommand() *cobra.Command {
 		Long: `Validate pack configs against config/schema/pack.schema.json.
 
 With no arguments, validates the registry, every pack it lists (schema, pack
-settings, whether a recipe can run it, the bundled set manifest), and the
+settings, whether a recipe can run it, a manifest-pack's set manifest), and the
 global config. With file arguments, validates just those pack configs.
 
 Exits 1 if anything is invalid.`,
