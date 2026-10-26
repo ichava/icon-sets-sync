@@ -27,7 +27,7 @@ func TestPrivateConfigDirFlagLoadsAPrivatePack(t *testing.T) {
 	if code != ExitOK {
 		t.Fatalf("exit %d:\n%s", code, out)
 	}
-	for _, want := range []string{"icon-sets-tabler", "icon-sets-flag", "icon-sets-emoji",
+	for _, want := range []string{"and the private config dir " + privateConfig, "icon-sets-tabler", "icon-sets-flag", "icon-sets-emoji",
 		filepath.Join(privateConfig, "icon-sets-example.json") + " (recipe bundled)"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("validate did not report %s:\n%s", want, out)
