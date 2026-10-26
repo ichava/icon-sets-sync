@@ -43,7 +43,7 @@ func TestSimpleNPMComposesTheExpectedStages(t *testing.T) {
 	}
 
 	got := strings.Join(stageNames(built[0]), ",")
-	want := "NpmTarball,SubsetTo,Sanitise,Filesystem,VersionStamp,GitBranch"
+	want := "NpmTarball,FindLicences,SubsetTo,Sanitise,Filesystem,LicenceTexts,VersionStamp,GitBranch"
 	if got != want {
 		t.Errorf("stages = %s\nwant    %s", got, want)
 	}
@@ -210,7 +210,7 @@ func TestBundledBuildsOnePipelinePerSet(t *testing.T) {
 	}
 
 	names := stageNames(built[0])
-	want := "NpmTarball,SubsetTo,Sanitise,Filesystem"
+	want := "NpmTarball,FindLicences,SubsetTo,Sanitise,Filesystem,LicenceTexts"
 	if strings.Join(names, ",") != want {
 		t.Errorf("stages = %v, want %s", names, want)
 	}
