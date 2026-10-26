@@ -4,6 +4,8 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-26
+
 ### Added
 
 - **Private packs load their recipes at run time.** `--private-config-dir` (setting `private_config_dir`, `ICHAVA_PRIVATE_CONFIG_DIR`) names a directory laid out like `config/` -- an optional `packs.json`, `<slug>.json` pack configs and any `<slug>.sets.json` set manifest -- and merges it over the public one: its packs follow the public registry, a file in both is read from the private directory, and a private directory that is set but missing is a usage error rather than an empty overlay. A private pack therefore runs through the same data-driven recipes, the per-set `bundled` one included, without its configuration being committed here. Tests cover the merged registry, the private copy winning, a missing directory failing, a pack and its set manifest loading through the flag and through the environment, and the recipe building one pipeline per set from a synthetic private fixture. Shown end to end with a dry-run sync of the aggregator pack from a private directory in a temporary folder.
