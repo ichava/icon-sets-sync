@@ -97,11 +97,33 @@ Shipping icons whose licence text cannot be found is the defect this exists to e
 run stops rather than warns. The one way past it is a bundled set's `licence_missing` field in
 `config/icon-sets-bundled.sets.json`, which records the evidence that the npm package ships no
 licence file; that set then refreshes, its licence directory is removed rather than left stale, and
-the gap is logged on every run. Three sets carry it, measured 2026-10-26 against each package's
+the gap is logged on every run, unless the directory is hand-supplied (below). Three sets carry it, measured 2026-10-26 against each package's
 `latest` tarball: `academicons` (OFL-1.1), `pepicons` (CC-BY-4.0) and `zondicons` (MIT). A test caps
 the count at three, so a fourth has to be added on purpose. CC-BY and CC-BY-SA upstreams get the same copy; their licences also
 require visible credit wherever the icons are shown, which no sync can provide and which each pack's
 `ATTRIBUTION.md` and the site's licences page carry.
+
+**A licence directory holding a `SOURCE.md` is hand-maintained, and no sync deletes or overwrites
+it.** That is how a `licence_missing` set gets its text: a maintainer adds it by hand to
+`resources/assets/svg/licenses/<set>`, beside a `SOURCE.md` saying where it came from (icon-sets-bundled
+does this for `academicons` and `zondicons`). The sink then reports the set as `hand-supplied`
+instead of missing, in its log line and its `licence_texts` metric (`status`), and the
+`licence_missing` warning stops, because the exception is satisfied. Without a `SOURCE.md` the
+directory is treated as before: replaced from upstream, or removed when upstream ships none.
+
+| Upstream ships a licence | `SOURCE.md` | `licence_missing` | Result |
+|---|---|---|---|
+| no | yes | set | folder kept, `hand-supplied`, no warning |
+| no | yes | unset | run fails, folder kept; record the evidence in `licence_missing` |
+| no | no | set | folder removed, `missing`, warning |
+| yes | yes | either | folder kept, `hand-supplied`, warning to reconcile (`reconcile: true`) |
+| yes | no | either | folder replaced with upstream's texts, `copied` |
+
+When an upstream starts shipping a licence for a hand-supplied set, the sink keeps the folder and
+warns rather than switching or failing. The hand-supplied text may be the better one, a fuller
+copyright line for instance, and only a person can tell; a scheduled run should not stop over a
+pack that is still correctly licensed. To reconcile, compare the texts, then either keep the folder
+or delete its `SOURCE.md` (and the set's `licence_missing`), so the next sync copies upstream's.
 
 ## Recipes
 
