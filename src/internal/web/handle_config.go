@@ -11,7 +11,7 @@ import (
 )
 
 // maxConfigBytes bounds an editor submission. The largest shipped document,
-// the bundled set manifest, is well under this.
+// a manifest-pack's set manifest, is well under this.
 const maxConfigBytes = 1 << 20
 
 type configListData struct {

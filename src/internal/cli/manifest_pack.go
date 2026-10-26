@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
 	"github.com/ichava/icon-sets-sync/src/internal/ui"
 )
@@ -112,11 +112,11 @@ the tool answer whether its bytes are the ones already committed:
 			}
 
 			ui.Printf("%s", renderAudit(results))
-			summary := bundled.Summary(results)
+			summary := manifestpack.Summary(results)
 			ui.Info("%d exact, %d strong, %d upstream-identified, %d partial, %d unresolved",
-				summary[bundled.ConfidenceExact], summary[bundled.ConfidenceStrong],
-				summary[bundled.ConfidencePackage], summary[bundled.ConfidencePartial],
-				summary[bundled.ConfidenceNone])
+				summary[manifestpack.ConfidenceExact], summary[manifestpack.ConfidenceStrong],
+				summary[manifestpack.ConfidencePackage], summary[manifestpack.ConfidencePartial],
+				summary[manifestpack.ConfidenceNone])
 
 			// Deliberately exits 0 even with unresolved sets. This is a survey,
 			// not a gate: the unresolved ones are work for a person, and a
@@ -139,22 +139,22 @@ the tool answer whether its bytes are the ones already committed:
 // app.ResolveSets for any caller still holding it. Earliest removal: 0.3.0.
 //
 //nolint:unused // kept working on purpose; see the deprecation note above.
-func resolveAll(cmd *cobra.Command, sets []string, filesRoot, workDir string, parallel int, pkg string) []bundled.Resolution {
-	return app.ResolveSets(cmd.Context(), sets, filesRoot, workDir, parallel, pkg, bundled.NpmFetcher{})
+func resolveAll(cmd *cobra.Command, sets []string, filesRoot, workDir string, parallel int, pkg string) []manifestpack.Resolution {
+	return app.ResolveSets(cmd.Context(), sets, filesRoot, workDir, parallel, pkg, manifestpack.NpmFetcher{})
 }
 
-func renderAudit(results []bundled.Resolution) string {
+func renderAudit(results []manifestpack.Resolution) string {
 	rows := make([][]string, 0, len(results))
 	for _, r := range results {
 		var badge string
 		switch r.Confidence {
-		case bundled.ConfidenceExact:
+		case manifestpack.ConfidenceExact:
 			badge = ui.OK(ui.Sym.Check + " exact")
-		case bundled.ConfidenceStrong:
+		case manifestpack.ConfidenceStrong:
 			badge = ui.OK(ui.Sym.Check + " strong")
-		case bundled.ConfidencePackage:
+		case manifestpack.ConfidencePackage:
 			badge = ui.Warn(ui.Sym.Info + " package")
-		case bundled.ConfidencePartial:
+		case manifestpack.ConfidencePartial:
 			badge = ui.Warn(ui.Sym.Warn + " partial")
 		default:
 			badge = ui.Err(ui.Sym.Cross + " none")

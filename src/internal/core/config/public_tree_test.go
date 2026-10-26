@@ -19,7 +19,7 @@ import (
 // Why these and not a plain word match:
 //
 //   - The private aggregator pack's slug is also an ordinary English word plus
-//     a prefix, and "bundled" is the name of a generic recipe and Go package
+//     a prefix, and "bundled" is the deprecated name of a generic recipe
 //     here, and plain prose ("bootstrap is bundled inside tabler.min.js"). A
 //     word match would forbid the language, not the leak. So the slug is only
 //     a finding where it is a path -- followed by a separator or a config

@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 )
@@ -218,12 +218,12 @@ func (f *fakeEngine) Recipe(_ context.Context, p *config.PackConfig, version str
 	return pipeline.Result{Success: true}, nil
 }
 
-func (f *fakeEngine) AuditManifestPack(_ context.Context, req AuditRequest, h AuditHooks) ([]bundled.Resolution, error) {
+func (f *fakeEngine) AuditManifestPack(_ context.Context, req AuditRequest, h AuditHooks) ([]manifestpack.Resolution, error) {
 	f.record(runCall{Kind: "audit", Packs: []string{req.Set, req.Package}})
 	h.Starting(2, "/work/aggregate/resources/assets/svg/files")
-	rs := []bundled.Resolution{
-		{Set: "tabler-outline", Icons: 4900, Package: "@tabler/icons", Version: "3.49.0", Path: "icons/outline", Matched: 4900, Identical: 4900, Confidence: bundled.ConfidenceExact},
-		{Set: "mystery-icons", Icons: 120, Confidence: bundled.ConfidenceNone, Note: "no candidate reproduced any icon"},
+	rs := []manifestpack.Resolution{
+		{Set: "tabler-outline", Icons: 4900, Package: "@tabler/icons", Version: "3.49.0", Path: "icons/outline", Matched: 4900, Identical: 4900, Confidence: manifestpack.ConfidenceExact},
+		{Set: "mystery-icons", Icons: 120, Confidence: manifestpack.ConfidenceNone, Note: "no candidate reproduced any icon"},
 	}
 	for _, r := range rs {
 		h.SetDone(r)

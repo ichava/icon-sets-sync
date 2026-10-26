@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
 	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
@@ -32,7 +32,7 @@ import (
 //     itself would be unrecoverable from a scheduled job.
 func buildManifestPack(pack *config.PackConfig, opts Options) ([]*pipeline.Pipeline, error) {
 	configDir, dryRun := opts.ConfigDir, opts.DryRun
-	manifest, err := bundled.LoadManifest(configDir, pack.Name)
+	manifest, err := manifestpack.LoadManifest(configDir, pack.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func buildManifestPack(pack *config.PackConfig, opts Options) ([]*pipeline.Pipel
 		// 1,383 under exactly that reshuffle.
 		p.Sink(sinks.Filesystem{
 			Root:         filepath.Join(filesRoot, name),
-			MinRetention: bundled.PackageCoverageFloor,
+			MinRetention: manifestpack.PackageCoverageFloor,
 		})
 		// The set's own licence text, beside its icons and under the same
 		// name, so files/<set> and licenses/<set> always pair up.
@@ -126,7 +126,7 @@ func buildManifestPack(pack *config.PackConfig, opts Options) ([]*pipeline.Pipel
 //
 // The two types are deliberately separate: transforms is a generic layer and
 // has no business importing this pack's manifest schema.
-func flattenVariants(in []bundled.Variant) []transforms.Variant {
+func flattenVariants(in []manifestpack.Variant) []transforms.Variant {
 	out := make([]transforms.Variant, len(in))
 	for i, v := range in {
 		out[i] = transforms.Variant{Subdir: v.Path, Prefix: v.Prefix, Suffix: v.Suffix}

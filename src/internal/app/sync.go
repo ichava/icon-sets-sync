@@ -91,7 +91,7 @@ type SyncOptions struct {
 	// Stack is the run-wide settings; each pack's own layer is merged in.
 	Stack settings.Stack
 
-	// ConfigDir is handed to the recipes (the bundled manifest lives there).
+	// ConfigDir is handed to the recipes (a manifest-pack's set manifest lives there).
 	ConfigDir string
 
 	// Concurrency bounds how many packs run at once. Below 1 means 1.

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 )
 
 // The manifest-pack recipe is reached three ways until 0.2.0: by naming it in
@@ -32,14 +32,14 @@ func TestManifestPackDispatchIsTheSameWithOrWithoutTheField(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.label, func(t *testing.T) {
 			dir := t.TempDir()
-			m := &bundled.Manifest{
+			m := &manifestpack.Manifest{
 				Pack: "ichava/" + tt.name,
-				Sets: map[string]bundled.SetSource{
+				Sets: map[string]manifestpack.SetSource{
 					"bootstrap-icons": {Package: "bootstrap-icons", Path: "package/icons"},
 					"feather-icons":   {Package: "feather-icons", Path: "package/dist/icons", Version: "4.29.2"},
 				},
 			}
-			if err := m.Save(bundled.ManifestPath(dir, tt.name)); err != nil {
+			if err := m.Save(manifestpack.ManifestPath(dir, tt.name)); err != nil {
 				t.Fatal(err)
 			}
 			pack := &config.PackConfig{

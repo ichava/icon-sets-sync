@@ -1,4 +1,4 @@
-// Package bundled identifies, and verifies, where each set in an aggregator
+// Package manifestpack identifies, and verifies, where each set in an aggregator
 // pack actually came from.
 //
 // Such a pack vendors many sets, and nothing records which upstream any of
@@ -11,7 +11,7 @@
 // manifest that does not exist. This package builds it, and does so by
 // measurement rather than by guessing: a candidate upstream is accepted only
 // when the files it ships reproduce what is already committed.
-package bundled
+package manifestpack
 
 import (
 	"crypto/sha256"

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ichava/icon-sets-sync/src/internal/core/bundled"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 )
 
 func sprintf(format string, a ...any) string { return fmt.Sprintf(format, a...) }
@@ -43,7 +43,7 @@ func (f copyFetcher) Fetch(_ context.Context, pkg, dest string) (string, error) 
 	return "1.2.3", nil
 }
 
-func bundledFixture(t *testing.T) (configDir, upstream string) {
+func manifestPackFixture(t *testing.T) (configDir, upstream string) {
 	t.Helper()
 	root := t.TempDir()
 	packRoot := filepath.Join(root, "icon-sets-bundled")
@@ -75,12 +75,12 @@ func bundledFixture(t *testing.T) (configDir, upstream string) {
 	return configDir, upstream
 }
 
-func TestAuditBundledScoresAgainstTheCommittedBytes(t *testing.T) {
-	configDir, upstream := bundledFixture(t)
+func TestAuditManifestPackScoresAgainstTheCommittedBytes(t *testing.T) {
+	configDir, upstream := manifestPackFixture(t)
 	var started int
 	var done []string
 	results, err := AuditBundled(context.Background(), AuditOptions{
-		SetDone:   func(r bundled.Resolution) { done = append(done, r.Set) },
+		SetDone:   func(r manifestpack.Resolution) { done = append(done, r.Set) },
 		ConfigDir: configDir,
 		Set:       "demo-icons",
 		Package:   "demo-pkg",
@@ -95,13 +95,13 @@ func TestAuditBundledScoresAgainstTheCommittedBytes(t *testing.T) {
 		t.Fatalf("started %d, results %+v", started, results)
 	}
 	r := results[0]
-	if r.Confidence != bundled.ConfidenceExact || r.Identical != 3 || r.Package != "demo-pkg" {
+	if r.Confidence != manifestpack.ConfidenceExact || r.Identical != 3 || r.Package != "demo-pkg" {
 		t.Fatalf("resolution %+v", r)
 	}
 }
 
-func TestAuditBundledPackageNeedsASet(t *testing.T) {
-	configDir, _ := bundledFixture(t)
+func TestAuditManifestPackPackageNeedsASet(t *testing.T) {
+	configDir, _ := manifestPackFixture(t)
 	_, err := AuditBundled(context.Background(), AuditOptions{ConfigDir: configDir, Package: "x", Fetcher: copyFetcher{}})
 	if !IsUsage(err) {
 		t.Fatalf("want a usage error, got %v", err)
