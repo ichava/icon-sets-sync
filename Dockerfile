@@ -17,7 +17,7 @@
 # Compose:  see docker-compose.yml + Makefile.
 
 # ---------------------------------------------------------------- build stage
-FROM golang:1.26-trixie AS build
+FROM golang:1.27-trixie AS build
 
 WORKDIR /src
 
