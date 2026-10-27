@@ -228,9 +228,9 @@ func reportOutcome(o app.Outcome) {
 	case app.StatusSynced:
 		ui.Success("%s: done -- %v", o.Pack, o.Result.Summary())
 	default:
-		// The literal "recipe pending" is a cross-repository contract:
-		// icon-sets-bundled's sync-upstream.yml greps for it. No recipe
-		// returns it any more, but the wording is kept for any that might.
+		// A pack with no recipe yet is reported as a warning, not a failure.
+		// No recipe returns ErrRecipePending today, and since
+		// icon-sets-bundled#95 no workflow greps for its wording.
 		if errors.Is(o.Err, pipeline.ErrRecipePending) {
 			ui.Warning("%s: %s", o.Pack, o.Err)
 			return
