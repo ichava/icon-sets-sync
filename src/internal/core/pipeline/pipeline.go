@@ -454,11 +454,13 @@ func cloneMetrics(m map[string]any) map[string]any {
 
 // ErrRecipePending is returned for a pack whose recipe has not been written.
 //
-// The string is a contract, not a message. icon-sets-bundled's
-// sync-upstream.yml greps the run output for "recipe pending" and converts the
-// failure into a green run with a ::notice::, because that pack's `iconify`
-// recipe genuinely does not exist yet. Change the wording and that workflow
-// starts failing a scheduled job that is meant to be a documented no-op.
+// No recipe returns it today: every pack in config/ has one, and the
+// aggregator pack runs the manifest-pack recipe. icon-sets-bundled's
+// sync-upstream.yml used to grep the run output for "recipe pending" and turn
+// the failure into a green no-op; that wrapper was removed in
+// icon-sets-bundled#95, so nothing outside this module reads the wording now.
+// It stays so a future pack added before its recipe still fails with a clear
+// message rather than a nil pipeline.
 var ErrRecipePending = errors.New("recipe pending")
 
 // slugify lowercases and hyphenates, for the temporary directory prefix.
