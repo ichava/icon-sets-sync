@@ -46,7 +46,7 @@ func TestPrivateConfigDirIsMergedIntoTheRegistry(t *testing.T) {
 		t.Fatalf("loaded %d packs, want %d", len(packs), len(want))
 	}
 	last := packs[len(packs)-1]
-	if last.Name != "icon-sets-example" || last.Recipe != "bundled" {
+	if last.Name != "icon-sets-example" || last.Recipe != "manifest-pack" {
 		t.Fatalf("private pack loaded as %+v", last)
 	}
 	if filepath.Dir(last.File) != privateFixture {

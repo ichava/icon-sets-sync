@@ -146,7 +146,7 @@ func TestEmojiDryRunHasNoCommitPipeline(t *testing.T) {
 // that builds the manifest, because that is the whole remaining task.
 func TestManifestPackNeedsAManifestAndSaysSo(t *testing.T) {
 	pack := &config.PackConfig{
-		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled",
+		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled", Recipe: RecipeManifestPack,
 		Source: config.SourceConfig{Type: "url"},
 	}
 
@@ -180,7 +180,7 @@ func TestManifestPackBuildsOnePipelinePerSet(t *testing.T) {
 	}
 
 	pack := &config.PackConfig{
-		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled", PackRoot: "/work/b",
+		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled", Recipe: RecipeManifestPack, PackRoot: "/work/b",
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
@@ -229,7 +229,7 @@ func TestManifestPackDoesNotEnforceThePolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
-		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled", PackRoot: "/work/b",
+		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled", Recipe: RecipeManifestPack, PackRoot: "/work/b",
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
@@ -261,7 +261,7 @@ func TestManifestPackRefusesAManifestForAnotherPack(t *testing.T) {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
-		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled",
+		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled", Recipe: RecipeManifestPack,
 		Source: config.SourceConfig{Type: "url"},
 	}
 
@@ -342,7 +342,7 @@ func TestManifestPackRetentionFloorMatchesTheAuditFloor(t *testing.T) {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
-		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled", PackRoot: "/work/b",
+		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled", Recipe: RecipeManifestPack, PackRoot: "/work/b",
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
@@ -386,7 +386,7 @@ func TestManifestPackFlattensAVariantSet(t *testing.T) {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
-		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled", PackRoot: "/work/b",
+		Name: "icon-sets-bundled", Pack: "ichava/icon-sets-bundled", Recipe: RecipeManifestPack, PackRoot: "/work/b",
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}

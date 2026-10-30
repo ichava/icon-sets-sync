@@ -2,8 +2,7 @@
 // and for anyone who installed it before the primary binary was renamed.
 //
 // It is the same program -- cli.Execute -- so the two cannot diverge. Install
-// either; the Docker image ships both, plus an ichava-maintainer-toolkit
-// symlink for scripts written against the Python console script.
+// either; the Docker image ships both.
 package main
 
 import (

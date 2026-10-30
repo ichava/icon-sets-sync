@@ -4,7 +4,7 @@
   "pack": "ichava/icon-sets-example",
   "pack_root": "/work/icon-sets-example",
   "current_version": "1.0.0",
-  "recipe": "bundled",
+  "recipe": "manifest-pack",
   "version_check_url": "https://registry.npmjs.org/example-aggregate/latest",
   "source": {
     "type": "url",

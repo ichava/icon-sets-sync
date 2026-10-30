@@ -189,3 +189,22 @@ func TestSinkAndSourceMarshalKeepExtras(t *testing.T) {
 		t.Fatalf("extras lost on marshal: %s", out)
 	}
 }
+
+// "bundled" was manifest-pack's former recipe name and was removed. A config
+// that still carries it fails to load, and the error names the recipe to
+// write instead.
+func TestTheRemovedBundledRecipeIsRejected(t *testing.T) {
+	doc := withField(t, validPack, func(m map[string]any) { m["recipe"] = "bundled" })
+	_, err := ParsePackBytes("icon-sets-demo.json", doc)
+	if err == nil {
+		t.Fatal(`"recipe": "bundled" loaded; it was removed and must be refused`)
+	}
+	for _, want := range []string{"/recipe", "manifest-pack"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not mention %s:\n%v", want, err)
+		}
+	}
+	if doc := withField(t, validPack, func(m map[string]any) { m["recipe"] = "manifest-pack" }); ValidatePackDocument(doc) != nil {
+		t.Errorf(`"recipe": "manifest-pack" is refused: %v`, ValidatePackDocument(doc))
+	}
+}

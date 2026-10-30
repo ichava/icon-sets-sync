@@ -66,8 +66,3 @@ const Name = "icon-sets-sync"
 
 // ShortName is the alias for interactive use, kept from the first Go release.
 const ShortName = "imt"
-
-// LegacyName is the console script the Python package installed. The Docker
-// image keeps it as a symlink so a script or Makefile that called it by name
-// keeps working; it is deprecated and prints a notice when invoked as itself.
-const LegacyName = "ichava-maintainer-toolkit"

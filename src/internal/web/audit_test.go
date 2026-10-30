@@ -73,45 +73,31 @@ func TestAuditIsARunSoReadOnlyHasNone(t *testing.T) {
 	if body := c.get("/manifest-pack/audit").Body.String(); strings.Contains(body, `action="/manifest-pack/audit"`) {
 		t.Error("a read-only server offers an audit")
 	}
-	for _, path := range []string{"/manifest-pack/audit", "/bundled/audit"} {
-		if rec := c.post(path, nil); rec.Code != http.StatusMethodNotAllowed {
-			t.Errorf("POST %s on a read-only server: %d", path, rec.Code)
-		}
+	if rec := c.post("/manifest-pack/audit", nil); rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("POST /manifest-pack/audit on a read-only server: %d", rec.Code)
 	}
 }
 
-// The former address serves the same handlers, unchanged, and says it is
-// deprecated in its response headers. It goes away no earlier than 0.2.0.
-func TestLegacyAuditRouteStillWorksAndIsDeprecated(t *testing.T) {
+// The audit's former address, /bundled/audit, was removed: none of its
+// routes answers any more, while the current address still does.
+func TestRemovedAuditRouteIsNotFound(t *testing.T) {
 	dir := t.TempDir()
 	s, eng := newTestServer(t, func(o *Options) { o.HistoryDir = dir })
 	c := signIn(t, s)
 
-	legacy, current := c.get("/bundled/audit"), c.get("/manifest-pack/audit")
-	if legacy.Code != http.StatusOK || legacy.Body.String() != current.Body.String() {
-		t.Fatalf("GET /bundled/audit: %d, same page as /manifest-pack/audit: %v", legacy.Code, legacy.Body.String() == current.Body.String())
+	if rec := c.get("/manifest-pack/audit"); rec.Code != http.StatusOK {
+		t.Fatalf("GET /manifest-pack/audit: %d", rec.Code)
 	}
-	if legacy.Header().Get("Deprecation") != "true" || legacy.Header().Get("Link") != `</manifest-pack/audit>; rel="successor-version"` {
-		t.Errorf("legacy headers: Deprecation=%q Link=%q", legacy.Header().Get("Deprecation"), legacy.Header().Get("Link"))
+	for _, path := range []string{"/bundled/audit", "/bundled/audit/1/manifest.json"} {
+		if rec := c.get(path); rec.Code != http.StatusNotFound {
+			t.Errorf("GET %s: %d, want 404", path, rec.Code)
+		}
 	}
-	if current.Header().Get("Deprecation") != "" {
-		t.Error("the current route says it is deprecated")
+	form := url.Values{"set": {"tabler-outline"}, "package": {"@tabler/icons"}}
+	if rec := c.post("/bundled/audit", form); rec.Code != http.StatusNotFound {
+		t.Errorf("POST /bundled/audit: %d, want 404", rec.Code)
 	}
-
-	path := startRun(t, c, "/bundled/audit", url.Values{"set": {"tabler-outline"}, "package": {"@tabler/icons"}})
-	waitJob(t, s, path)
-	if calls := eng.runs(); len(calls) != 1 || calls[0].Packs[0] != "tabler-outline" {
-		t.Fatalf("POST /bundled/audit did not start the audit: %+v", calls)
-	}
-	id := strings.TrimPrefix(path, "/jobs/")
-	old, now := c.get("/bundled/audit/"+id+"/manifest.json"), c.get("/manifest-pack/audit/"+id+"/manifest.json")
-	if old.Code != http.StatusOK || old.Body.String() != now.Body.String() {
-		t.Fatalf("legacy manifest download: %d, identical: %v", old.Code, old.Body.String() == now.Body.String())
-	}
-	if want := "</manifest-pack/audit/" + id + `/manifest.json>; rel="successor-version"`; old.Header().Get("Link") != want {
-		t.Errorf("Link = %q, want %q", old.Header().Get("Link"), want)
-	}
-	if rec := c.post("/bundled/audit", url.Values{"set": {"../etc"}}); rec.Code != http.StatusBadRequest {
-		t.Errorf("the legacy route skipped the form checks: %d", rec.Code)
+	if calls := eng.runs(); len(calls) != 0 {
+		t.Errorf("the removed route started an audit: %+v", calls)
 	}
 }

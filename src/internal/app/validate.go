@@ -105,9 +105,6 @@ func checkPack(dir, slug, path string, pack *config.PackConfig, stack settings.S
 		}
 	}
 	var out []Finding
-	if notice := recipes.Deprecation(pack); notice != "" {
-		out = append(out, Finding{LevelWarn, fmt.Sprintf("%s: %s", path, notice)})
-	}
 	if len(pack.Sinks) == 0 {
 		out = append(out, Finding{LevelWarn, fmt.Sprintf("%s: declares no sinks; sync will refuse it outside --dry-run", path)})
 	}

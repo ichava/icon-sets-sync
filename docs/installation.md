@@ -18,9 +18,8 @@ The build is two stages. A `golang:1.26-trixie` stage compiles a static binary f
 | `nodejs`, `npm` | `npm pack <package>@<version>`, the npm source strategy |
 | `ca-certificates` | TLS to the registries, GitHub and unicode.org |
 
-The binary is `/usr/local/bin/icon-sets-sync` and is the `ENTRYPOINT`. `imt` is a symlink to it,
-and so is `ichava-maintainer-toolkit`, the removed Python console script's name, kept so existing
-invocations keep working; it prints a deprecation notice when invoked under that name. The shipped `config/` is copied to `/app/config` and
+The binary is `/usr/local/bin/icon-sets-sync` and is the `ENTRYPOINT`. `imt` is a symlink to it.
+The shipped `config/` is copied to `/app/config` and
 `ICHAVA_CONFIG_DIR` points there.
 
 The pack workflows build from a checkout of this repository rather than pulling the published image,

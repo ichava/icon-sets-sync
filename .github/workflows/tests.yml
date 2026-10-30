@@ -127,13 +127,13 @@ jobs:
       - name: The runtime tools are present
         run: |
           docker run --rm --entrypoint sh icon-sets-sync:ci -c \
-            'git --version && gh --version && npm --version && test -L /usr/local/bin/imt && test -L /usr/local/bin/ichava-maintainer-toolkit'
+            'git --version && gh --version && npm --version && test -L /usr/local/bin/imt'
 
-      - name: The legacy name still runs, and says it is deprecated
+      - name: The removed Python console script name is not shipped
         run: |
-          out=$(docker run --rm --entrypoint ichava-maintainer-toolkit icon-sets-sync:ci version 2>&1)
-          echo "$out"
-          printf '%s' "$out" | grep -q 'deprecated' || { echo "::error::no deprecation notice"; exit 1; }
+          docker run --rm --entrypoint sh icon-sets-sync:ci -c \
+            '! test -e /usr/local/bin/ichava-maintainer-toolkit && ! test -L /usr/local/bin/ichava-maintainer-toolkit' \
+            || { echo "::error::the image still ships /usr/local/bin/ichava-maintainer-toolkit"; exit 1; }
 
   ui-a11y:
     name: Web UI accessibility

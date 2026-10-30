@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -87,11 +86,6 @@ var state runState
 
 // Execute builds the command tree and runs it, returning the process exit code.
 func Execute() int {
-	if filepath.Base(os.Args[0]) == version.LegacyName {
-		fmt.Fprintf(os.Stderr, "warning: %s is deprecated and may be removed in 0.3.0; run %s instead.\n",
-			version.LegacyName, version.Name)
-	}
-
 	ctx, stop := InterruptContext(context.Background())
 	defer stop()
 
@@ -206,7 +200,6 @@ Run with no arguments in a terminal for the interactive menu.`,
 		newRecipeCommand(),
 		newConfigCommand(),
 		newManifestPackCommand(),
-		newBundledCommand(),
 		newMenuCommand(),
 		newServeCommand(),
 		newVersionCommand(),
