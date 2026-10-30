@@ -58,11 +58,8 @@ RUN apt-get update \
 
 COPY --from=build /out/icon-sets-sync /usr/local/bin/icon-sets-sync
 
-# imt is the short alias. ichava-maintainer-toolkit was the Python console
-# script; it stays as a symlink so a script calling it by name keeps working,
-# and the binary prints a deprecation notice when invoked under that name.
-RUN ln -s icon-sets-sync /usr/local/bin/imt \
- && ln -s icon-sets-sync /usr/local/bin/ichava-maintainer-toolkit
+# imt is the short alias.
+RUN ln -s icon-sets-sync /usr/local/bin/imt
 
 # The config bundle ships in the image; the pack workflows bind-mount their
 # own checkout's config/ over it. ICHAVA_CONFIG_DIR is the config_dir setting.
