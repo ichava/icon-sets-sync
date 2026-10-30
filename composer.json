@@ -40,7 +40,7 @@
         "bin/icon-sets-sync"
     ],
     "scripts": {
-        "test": "vendor/bin/pest"
+        "test": "vendor/bin/pest --test-directory=php/tests"
     },
     "config": {
         "sort-packages": true,

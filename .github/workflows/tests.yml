@@ -93,7 +93,7 @@ jobs:
         run: composer update --prefer-dist --no-interaction --no-progress
 
       - name: Pest
-        run: vendor/bin/pest
+        run: vendor/bin/pest --test-directory=php/tests
 
   docker:
     name: Docker image
