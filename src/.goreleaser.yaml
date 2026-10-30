@@ -131,7 +131,7 @@ nfpms:
     package_name: icon-sets-sync
     vendor: Simtabi LLC
     homepage: "https://opensource.simtabi.com/products/ichava/icon-sets-sync"
-    maintainer: "Imani Manyara <imani@simtabi.com>"
+    maintainer: "Simtabi LLC <ichava@simtabi.com>"
     description: "Syncs the Ichava icon packs from their upstream sources."
     license: MIT
     formats: [deb, rpm, apk]

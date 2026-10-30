@@ -10,6 +10,7 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ### Changed
 
+- **Packages name Simtabi LLC as maintainer, not a person.** The `.deb`, `.rpm` and `.apk` packages GoReleaser builds carried a personal name and address as `maintainer`; it is now `Simtabi LLC <ichava@simtabi.com>`, the role address (decided 2026-10-28). A Go test (`TestNoPersonalContactShips`) reads `.goreleaser.yaml`, `README.md`, the `Dockerfile` and `docs/`, fails on a personal name or address, and fails if it read fewer than 12 files.
 - **The `ErrRecipePending` comments say who reads it now: nobody outside this module.** They described a cross-repository contract with icon-sets-bundled's `sync-upstream.yml`, which grepped the run output for "recipe pending". That wrapper was removed in icon-sets-bundled#95, and no recipe returns the error today. Comments only; the error and the CLI's warning for it are unchanged.
 
 ### Removed
