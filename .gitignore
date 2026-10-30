@@ -30,3 +30,7 @@ coverage.xml
 *.swp
 
 # Docker volumes are external; nothing local to ignore.
+
+# Composer (the PHP launcher). A library: the lock is never committed.
+/vendor/
+composer.lock

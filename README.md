@@ -3,8 +3,9 @@
 [![Tests](https://github.com/ichava/icon-sets-sync/actions/workflows/tests.yml/badge.svg)](https://github.com/ichava/icon-sets-sync/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Two badges, not four: this ships as a Docker image and a Go binary, on no package registry, so there
-is no registry version to show, and static analysis (`gofmt`, `go vet`) runs inside the Tests workflow.
+Two badges, not four: this ships as a Docker image, a Go binary and a Composer package that is not on
+Packagist yet, so there is no registry version to show, and static analysis (`gofmt`, `go vet`) runs
+inside the Tests workflow.
 
 > `icon-sets-sync` keeps the Ichava icon packs in step with their upstream registries: it polls
 > each upstream, refreshes the vendored SVGs, records the version in the pack and opens a pull
@@ -20,6 +21,22 @@ git clone https://github.com/ichava/icon-sets-sync.git ~/Artisan/projects/openso
 cd ~/Artisan/projects/opensource/ichava/packages/icon-sets-sync
 make build      # the Docker image: the Go binary plus git, gh and npm
 ```
+
+From a PHP project, through Composer (once the package is on Packagist; until then, add this
+repository as a `vcs` repository):
+
+```bash
+composer require --dev ichava/icon-sets-sync
+vendor/bin/icon-sets-sync version
+```
+
+The package carries no Go code you build. Its first run downloads the release binary for your OS
+and architecture, checks it against the release's `checksums.txt`, caches it under
+`vendor/ichava/icon-sets-sync/.cache/bin/`, and runs it; later runs reuse the cached copy. It
+fetches the release matching the installed tag, or the latest release for a branch install. Set
+`ICHAVA_ICON_SETS_SYNC_VERSION` to pin another. With `cosign` on `PATH` the Sigstore signature over
+`checksums.txt` is verified as well, and `ICHAVA_ICON_SETS_SYNC_REQUIRE_SIGNATURE=1` refuses to run
+without it.
 
 Without Docker, with a Go toolchain:
 
