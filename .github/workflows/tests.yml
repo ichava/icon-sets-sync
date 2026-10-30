@@ -5,7 +5,8 @@
 # release that breaks the build, two green PRs that interact) would otherwise
 # stay invisible until an unrelated pull request goes red.
 #
-# The Go job tests the implementation the Docker image runs.
+# The Go job tests the implementation the Docker image runs. The Composer job
+# tests the PHP launcher that installs that implementation's release binary.
 # The Docker job builds the image the pack workflows build, and runs it the way
 # they do, because nothing else exercises the Dockerfile before a merge.
 
@@ -61,6 +62,38 @@ jobs:
           n=$(go -C src list ./... | wc -l)
           echo "packages: $n"
           [ "$n" -ge 24 ] || { echo "::error::only $n Go packages found under src/"; exit 1; }
+
+  composer:
+    name: Composer launcher (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # composer.json makes this repository installable as ichava/icon-sets-sync:
+    # a PHP launcher in bin/ that downloads the release binary for the host and
+    # checks it against the signed checksums.txt. Strict validation is what
+    # Packagist will apply, so a manifest Packagist would reject fails here first.
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: composer validate --strict
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Pest
+        run: vendor/bin/pest
 
   docker:
     name: Docker image
