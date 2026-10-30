@@ -181,7 +181,7 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `workspace` | none | `ICHAVA_WORKSPACE` | no | directory a relative `pack_root` resolves against |
 | `dry_run` | `false` | `ICHAVA_DRY_RUN` | yes | write files, skip stamp, commit and pull request |
 | `force` | `false` | `ICHAVA_FORCE` | yes | refresh even when current |
-| `git.author` | `ichava-sync-bot <19682005+imanimanyara@users.noreply.github.com>` | `ICHAVA_GIT_AUTHOR` | yes | author and committer, `Name <email>` |
+| `git.author` | `ichava-sync-bot <41898282+github-actions[bot]@users.noreply.github.com>` | `ICHAVA_GIT_AUTHOR` | yes | author and committer, `Name <email>` |
 | `git.base` | `main` | `ICHAVA_GIT_BASE` | yes | the pull request's base branch |
 | `git.branch` | `chore/sync-upstream-{version}` | `ICHAVA_GIT_BRANCH` | yes | the sync branch |
 | `git.commit_subject` | `chore(upstream): bump {pack} to v{new}` | `ICHAVA_GIT_COMMIT_SUBJECT` | yes | commit and pull request title |

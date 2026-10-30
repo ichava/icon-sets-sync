@@ -16,7 +16,7 @@ import (
 )
 
 // DefaultAuthor is the identity sync commits are attributed to.
-const DefaultAuthor = "ichava-sync-bot <19682005+imanimanyara@users.noreply.github.com>"
+const DefaultAuthor = "ichava-sync-bot <41898282+github-actions[bot]@users.noreply.github.com>"
 
 // Runner executes git and gh. Swapped in tests.
 type Runner interface {

@@ -5,15 +5,15 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
 // personalContact matches a personal maintainer name or mailbox. Nothing this
 // repository ships may carry one (decided 2026-10-28): the maintainer is
-// "Simtabi LLC <ichava@simtabi.com>". The sync bot's default commit author, a
-// GitHub noreply login (19682005+imanimanyara@users.noreply.github.com), is
-// not a mailbox and is not matched.
-var personalContact = regexp.MustCompile(`(?i)imani@|imani\s+manyara`)
+// "Simtabi LLC <ichava@simtabi.com>", and the sync bot commits as the
+// github-actions bot's noreply address, not a personal GitHub login.
+var personalContact = regexp.MustCompile(`(?i)imani@|manyara|imanimanyara`)
 
 // minPersonalContactFiles is the number of files the guard read on
 // 2026-10-30 (.goreleaser.yaml, README.md, Dockerfile and 9 under docs/).
@@ -27,7 +27,21 @@ func TestNoPersonalContactShips(t *testing.T) {
 		filepath.Join(root, "README.md"),
 		filepath.Join(root, "Dockerfile"),
 	}
-	err := filepath.WalkDir(filepath.Join(root, "docs"), func(path string, d fs.DirEntry, err error) error {
+	// The Go sources too: the bot's default commit author lives in code
+	// (gitx, settings), and that is where a personal login sat until 2026-10-30.
+	err := filepath.WalkDir(filepath.Join(root, "src", "internal"), func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && filepath.Ext(path) == ".go" && !strings.HasSuffix(path, "_test.go") {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walking src/internal: %v", err)
+	}
+	err = filepath.WalkDir(filepath.Join(root, "docs"), func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

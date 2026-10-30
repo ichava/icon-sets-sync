@@ -42,7 +42,7 @@ func (f *fakeRunner) Run(_ context.Context, dir string, env []string, name strin
 
 func TestSplitAuthor(t *testing.T) {
 	tests := []struct{ in, name, email string }{
-		{DefaultAuthor, "ichava-sync-bot", "19682005+imanimanyara@users.noreply.github.com"},
+		{DefaultAuthor, "ichava-sync-bot", "41898282+github-actions[bot]@users.noreply.github.com"},
 		{"A B <a@b.c>", "A B", "a@b.c"},
 		{"no-email", "no-email", ""},
 		{"broken > <", "broken > <", ""},

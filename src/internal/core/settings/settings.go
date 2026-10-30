@@ -94,7 +94,7 @@ type Key struct {
 // imported to keep this package free of the pipeline layer; settings_test
 // pins each one against its source of truth.
 const (
-	DefaultAuthor          = "ichava-sync-bot <19682005+imanimanyara@users.noreply.github.com>"
+	DefaultAuthor          = "ichava-sync-bot <41898282+github-actions[bot]@users.noreply.github.com>"
 	DefaultBase            = "main"
 	DefaultBranch          = "chore/sync-upstream-{version}"
 	DefaultCommitSubject   = "chore(upstream): bump {pack} to v{new}"
