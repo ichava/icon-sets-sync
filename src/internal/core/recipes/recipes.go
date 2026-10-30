@@ -27,24 +27,7 @@ const (
 	// RecipeManifestPack refreshes a pack set by set, each set from the
 	// upstream its set manifest names, then commits once.
 	RecipeManifestPack = "manifest-pack"
-
-	// RecipeBundled is RecipeManifestPack's former name. A pack config that
-	// still carries it is dispatched exactly as RecipeManifestPack, and the
-	// run logs a deprecation notice.
-	//
-	// Deprecated: write "manifest-pack". Earliest removal: 0.2.0.
-	RecipeBundled = "bundled"
 )
-
-// legacyManifestPackName is the one pack that reached RecipeManifestPack by
-// its name before the recipe could be named in config. A config with no
-// `recipe` still dispatches this way until 0.2.0, with a deprecation notice;
-// from then on the config has to say "recipe": "manifest-pack".
-const legacyManifestPackName = "icon-sets-bundled"
-
-// RemovalRelease is the earliest release that may drop the deprecated
-// recipe name, name-based dispatch, CLI command and route.
-const RemovalRelease = "0.2.0"
 
 // Options carries what a recipe needs beyond the pack config.
 type Options struct {
@@ -93,13 +76,6 @@ func Build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.P
 	for _, p := range built {
 		p.Logger(opts.Logger).Observer(opts.Observer)
 	}
-	if notice := Deprecation(pack); notice != "" {
-		logger := opts.Logger
-		if logger == nil {
-			logger = slog.Default()
-		}
-		logger.Warn(notice, "pack", pack.Name, "removal", RemovalRelease)
-	}
 	return built, nil
 }
 
@@ -126,38 +102,18 @@ func build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.P
 		pack.Pack, pack.Source.Type)
 }
 
-// Select names the recipe a pack runs, or "" when none applies. The
-// deprecated name RecipeBundled selects RecipeManifestPack.
+// Select names the recipe a pack runs, or "" when none applies. A
+// manifest-pack is only ever chosen by its config saying so.
 func Select(pack *config.PackConfig) string {
 	switch pack.Recipe {
 	case RecipeGeneric, RecipeEmojiSets, RecipeManifestPack:
 		return pack.Recipe
-	case RecipeBundled:
-		return RecipeManifestPack
 	}
 	switch {
 	case pack.Name == "icon-sets-emoji":
 		return RecipeEmojiSets
-	case pack.Name == legacyManifestPackName:
-		return RecipeManifestPack
 	case fetchable(pack.Source.Type):
 		return RecipeGeneric
-	}
-	return ""
-}
-
-// Deprecation returns a notice when pack reaches its recipe through a
-// deprecated path, or "" when it does not: the RecipeBundled name, or the
-// name-based dispatch that a config with no `recipe` still gets. Dispatch is
-// the same either way; only the notice differs.
-func Deprecation(pack *config.PackConfig) string {
-	switch {
-	case pack.Recipe == RecipeBundled:
-		return fmt.Sprintf(`%s: "recipe": %q is deprecated and will be removed in %s; write "recipe": %q`,
-			pack.Name, RecipeBundled, RemovalRelease, RecipeManifestPack)
-	case (pack.Recipe == "" || pack.Recipe == RecipeAuto) && pack.Name == legacyManifestPackName:
-		return fmt.Sprintf(`%s: choosing the %s recipe by pack name is deprecated and will be removed in %s; set "recipe": %q in its config`,
-			pack.Name, RecipeManifestPack, RemovalRelease, RecipeManifestPack)
 	}
 	return ""
 }

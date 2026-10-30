@@ -5,7 +5,6 @@ import (
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
-	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
 	"github.com/ichava/icon-sets-sync/src/internal/ui"
 )
 
@@ -20,31 +19,12 @@ func newManifestPackCommand() *cobra.Command {
 		Use:   "manifest-pack",
 		Short: "Tooling for the aggregator pack",
 	}
-	cmd.AddCommand(newManifestPackAuditCommand(""))
+	cmd.AddCommand(newManifestPackAuditCommand())
 	return cmd
 }
 
-// newBundledCommand is `manifest-pack` under its former name. `bundled audit`
-// runs exactly what `manifest-pack audit` runs, after a deprecation notice on
-// stderr, so stdout (and --json) is unchanged. Hidden from the help listing.
-//
-// Deprecated: use `manifest-pack`. Earliest removal: 0.2.0.
-func newBundledCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:    legacyManifestPackCommand,
-		Short:  "Deprecated: use manifest-pack (removed in " + recipes.RemovalRelease + ")",
-		Hidden: true,
-	}
-	cmd.AddCommand(newManifestPackAuditCommand(legacyManifestPackCommand))
-	return cmd
-}
-
-// legacyManifestPackCommand is the `manifest-pack` command's former name.
-const legacyManifestPackCommand = "bundled"
-
-// newManifestPackAuditCommand builds `audit`. A non-empty legacy names the
-// deprecated parent it hangs under, which only adds the notice.
-func newManifestPackAuditCommand(legacy string) *cobra.Command {
+// newManifestPackAuditCommand builds `audit`.
+func newManifestPackAuditCommand() *cobra.Command {
 	var (
 		only     string
 		pkg      string
@@ -83,10 +63,6 @@ the tool answer whether its bytes are the ones already committed:
   imt manifest-pack audit --set phosphor-icons --package @phosphor-icons/core`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if legacy != "" {
-				ui.Warning("`%s audit` is deprecated and will be removed in %s; use `manifest-pack audit`",
-					legacy, recipes.RemovalRelease)
-			}
 			// The survey itself is app.AuditManifestPack, which the web UI
 			// runs too. This command maps its errors and renders its results.
 			results, err := app.AuditManifestPack(cmd.Context(), app.AuditOptions{
@@ -131,16 +107,6 @@ the tool answer whether its bytes are the ones already committed:
 	f.StringVar(&workDir, "work-dir", "", "keep downloads here instead of a temporary directory")
 	f.IntVar(&parallel, "parallel", 0, "concurrent sets (default: CPU count)")
 	return cmd
-}
-
-// resolveAll audits sets concurrently.
-//
-// Deprecated: the audit runs through app.AuditManifestPack, and this forwards to
-// app.ResolveSets for any caller still holding it. Earliest removal: 0.3.0.
-//
-//nolint:unused // kept working on purpose; see the deprecation note above.
-func resolveAll(cmd *cobra.Command, sets []string, filesRoot, workDir string, parallel int, pkg string) []manifestpack.Resolution {
-	return app.ResolveSets(cmd.Context(), sets, filesRoot, workDir, parallel, pkg, manifestpack.NpmFetcher{})
 }
 
 func renderAudit(results []manifestpack.Resolution) string {

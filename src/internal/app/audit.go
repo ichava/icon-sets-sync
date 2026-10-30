@@ -16,11 +16,6 @@ import (
 // audit surveys.
 const ManifestPack = "icon-sets-bundled"
 
-// BundledPack is ManifestPack's former name, and the same value.
-//
-// Deprecated: use ManifestPack. Earliest removal: 0.2.0.
-const BundledPack = ManifestPack
-
 // AuditOptions configures AuditManifestPack.
 type AuditOptions struct {
 	ConfigDir string
@@ -98,13 +93,6 @@ func AuditManifestPack(ctx context.Context, opts AuditOptions) ([]manifestpack.R
 	results := resolveSets(ctx, sets, filesRoot, workDir, parallel, opts.Package, fetcher, opts.Logger, opts.SetDone)
 	manifestpack.SortResolutions(results)
 	return results, nil
-}
-
-// AuditBundled is AuditManifestPack's former name, and forwards to it.
-//
-// Deprecated: use AuditManifestPack. Earliest removal: 0.2.0.
-func AuditBundled(ctx context.Context, opts AuditOptions) ([]manifestpack.Resolution, error) {
-	return AuditManifestPack(ctx, opts)
 }
 
 // ResolveSets audits sets concurrently.

@@ -177,14 +177,6 @@ func (e *AppEngine) AuditManifestPack(ctx context.Context, req AuditRequest, h A
 	})
 }
 
-// AuditBundled is AuditManifestPack's former name, and forwards to it. The
-// Engine interface names only AuditManifestPack.
-//
-// Deprecated: use AuditManifestPack. Earliest removal: 0.2.0.
-func (e *AppEngine) AuditBundled(ctx context.Context, req AuditRequest, h AuditHooks) ([]manifestpack.Resolution, error) {
-	return e.AuditManifestPack(ctx, req, h)
-}
-
 // Pack implements Engine.
 func (e *AppEngine) Pack(slug string) (*config.PackConfig, error) {
 	packs, err := app.LoadPacksIn(e.ConfigDir, slug, e.Workspace)

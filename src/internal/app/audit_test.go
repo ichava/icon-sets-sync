@@ -69,7 +69,7 @@ func manifestPackFixture(t *testing.T) (configDir, upstream string) {
 	pack := `{"name": "icon-sets-bundled", "pack": "ichava/icon-sets-bundled", "pack_root": "` + packRoot + `",
   "current_version": "1.0.0", "version_check_url": "https://example.invalid/latest",
   "source": {"type": "npm", "package": "demo"}, "sinks": []}`
-	if err := os.WriteFile(filepath.Join(configDir, BundledPack+".json"), []byte(pack), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(configDir, ManifestPack+".json"), []byte(pack), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return configDir, upstream
@@ -79,7 +79,7 @@ func TestAuditManifestPackScoresAgainstTheCommittedBytes(t *testing.T) {
 	configDir, upstream := manifestPackFixture(t)
 	var started int
 	var done []string
-	results, err := AuditBundled(context.Background(), AuditOptions{
+	results, err := AuditManifestPack(context.Background(), AuditOptions{
 		SetDone:   func(r manifestpack.Resolution) { done = append(done, r.Set) },
 		ConfigDir: configDir,
 		Set:       "demo-icons",
@@ -102,7 +102,7 @@ func TestAuditManifestPackScoresAgainstTheCommittedBytes(t *testing.T) {
 
 func TestAuditManifestPackPackageNeedsASet(t *testing.T) {
 	configDir, _ := manifestPackFixture(t)
-	_, err := AuditBundled(context.Background(), AuditOptions{ConfigDir: configDir, Package: "x", Fetcher: copyFetcher{}})
+	_, err := AuditManifestPack(context.Background(), AuditOptions{ConfigDir: configDir, Package: "x", Fetcher: copyFetcher{}})
 	if !IsUsage(err) {
 		t.Fatalf("want a usage error, got %v", err)
 	}

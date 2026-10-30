@@ -10,22 +10,15 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 )
 
-// The manifest-pack recipe is reached three ways until 0.2.0: by naming it in
-// config, by its deprecated name "bundled", and, for the one pack that had it
-// first, by pack name with no `recipe` at all. All three must build the same
-// pipelines; only the deprecated two may log a notice.
-func TestManifestPackDispatchIsTheSameWithOrWithoutTheField(t *testing.T) {
-	const name = "icon-sets-bundled" // the pack that is dispatched by name
+// The manifest-pack recipe is reached one way: by naming it in config. It
+// builds the same pipelines whichever pack names it, and logs nothing about
+// how it was reached.
+func TestManifestPackDispatchIsTheSameForEveryPack(t *testing.T) {
 	tests := []struct {
 		label, name, recipe string
-		notice              string // "" means no notice may be logged
 	}{
-		{"recipe named in config", name, RecipeManifestPack, ""},
-		{"no recipe field, dispatched by name", name, "", "by pack name is deprecated"},
-		{"recipe auto, dispatched by name", name, RecipeAuto, "by pack name is deprecated"},
-		{"deprecated recipe name", name, RecipeBundled, "is deprecated and will be removed in " + RemovalRelease + "; write "},
-		{"another pack, recipe named in config", "icon-sets-example", RecipeManifestPack, ""},
-		{"another pack, deprecated recipe name", "icon-sets-example", RecipeBundled, "is deprecated and will be removed in " + RemovalRelease + "; write "},
+		{"recipe named in config", "icon-sets-bundled", RecipeManifestPack},
+		{"another pack, recipe named in config", "icon-sets-example", RecipeManifestPack},
 	}
 
 	var want string
@@ -69,45 +62,23 @@ func TestManifestPackDispatchIsTheSameWithOrWithoutTheField(t *testing.T) {
 				t.Errorf("pipelines differ from the config-named dispatch:\n%s\nwant:\n%s", got, want)
 			}
 
-			if tt.notice == "" {
-				if strings.Contains(logs.String(), "deprecated") {
-					t.Errorf("logged a deprecation notice it should not have:\n%s", logs.String())
-				}
-				return
-			}
-			if !strings.Contains(logs.String(), tt.notice) || !strings.Contains(logs.String(), RemovalRelease) {
-				t.Errorf("want a notice containing %q and %s, got:\n%s", tt.notice, RemovalRelease, logs.String())
+			if strings.Contains(logs.String(), "deprecated") {
+				t.Errorf("logged a deprecation notice:\n%s", logs.String())
 			}
 		})
 	}
 }
 
-func TestDeprecationNamesTheReplacementAndTheRelease(t *testing.T) {
-	tests := []struct {
-		label string
-		pack  config.PackConfig
-		want  string // "" means no notice
-	}{
-		{"manifest-pack", config.PackConfig{Name: "icon-sets-example", Recipe: RecipeManifestPack}, ""},
-		{"manifest-pack on the old name", config.PackConfig{Name: "icon-sets-bundled", Recipe: RecipeManifestPack}, ""},
-		{"bundled", config.PackConfig{Name: "icon-sets-example", Recipe: RecipeBundled}, `write "recipe": "manifest-pack"`},
-		{"by name", config.PackConfig{Name: "icon-sets-bundled"}, `set "recipe": "manifest-pack" in its config`},
-		{"an unrelated pack", config.PackConfig{Name: "icon-sets-tabler"}, ""},
-		{"emoji by name is not deprecated", config.PackConfig{Name: "icon-sets-emoji"}, ""},
-		{"an explicit other recipe on the old name", config.PackConfig{Name: "icon-sets-bundled", Recipe: RecipeGeneric}, ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.label, func(t *testing.T) {
-			got := Deprecation(&tt.pack)
-			if tt.want == "" {
-				if got != "" {
-					t.Errorf("Deprecation = %q, want none", got)
-				}
-				return
-			}
-			if !strings.Contains(got, tt.want) || !strings.Contains(got, "removed in "+RemovalRelease) {
-				t.Errorf("Deprecation = %q, want it to contain %q and the removal release", got, tt.want)
-			}
-		})
+// The recipe's former name and the pack-name dispatch were removed: neither
+// reaches manifest-pack any more, so a config has to name it.
+func TestManifestPackIsNotReachedByItsFormerNameOrByPackName(t *testing.T) {
+	for _, pack := range []config.PackConfig{
+		{Name: "icon-sets-example", Recipe: "bundled", Source: config.SourceConfig{Type: "url"}},
+		{Name: "icon-sets-bundled", Source: config.SourceConfig{Type: "url"}},
+		{Name: "icon-sets-bundled", Recipe: RecipeAuto, Source: config.SourceConfig{Type: "url"}},
+	} {
+		if got := Select(&pack); got == RecipeManifestPack {
+			t.Errorf("Select(%s, recipe %q) = %q; only \"recipe\": %q may select it", pack.Name, pack.Recipe, got, RecipeManifestPack)
+		}
 	}
 }

@@ -31,45 +31,30 @@ func manifestPackConfig(t *testing.T) string {
 	return dir
 }
 
-// `bundled audit` is the deprecated name of `manifest-pack audit`: the same
-// command, the same exit code and output, plus one notice naming the
-// replacement and the release that removes it.
-func TestBundledAuditIsADeprecatedAliasOfManifestPackAudit(t *testing.T) {
+// `manifest-pack audit` runs, and its former name, `bundled audit`, was
+// removed: it is an unknown command now, not an alias.
+func TestManifestPackAuditRunsAndBundledIsGone(t *testing.T) {
 	isolate(t)
 	dir := manifestPackConfig(t)
 
 	// --package without --set is refused before anything is fetched, which
 	// exercises the whole command without the network.
 	now, nowCode := run(t, "--config-dir", dir, "manifest-pack", "audit", "--package", "demo")
-	old, oldCode := run(t, "--config-dir", dir, "bundled", "audit", "--package", "demo")
-	if nowCode != ExitUsage || oldCode != nowCode {
-		t.Fatalf("exit codes: manifest-pack %d, bundled %d, want both %d\n%s\n%s", nowCode, oldCode, ExitUsage, now, old)
-	}
-	if !strings.Contains(now, "--package needs --set") {
-		t.Fatalf("manifest-pack audit did not reach its own checks:\n%s", now)
-	}
-	notice := "`bundled audit` is deprecated and will be removed in 0.2.0; use `manifest-pack audit`"
-	if strings.Contains(now, "deprecated") {
-		t.Errorf("manifest-pack audit printed a deprecation notice:\n%s", now)
-	}
-	if !strings.Contains(old, notice) {
-		t.Errorf("bundled audit printed no deprecation notice:\n%s", old)
-	}
-	if rest := strings.Replace(old, notice, "", 1); !strings.Contains(rest, "--package needs --set") {
-		t.Errorf("bundled audit's own output differs:\n%s", old)
+	if nowCode != ExitUsage || !strings.Contains(now, "--package needs --set") {
+		t.Fatalf("manifest-pack audit: exit %d, did not reach its own checks:\n%s", nowCode, now)
 	}
 
 	help, code := run(t, "manifest-pack", "audit", "--help")
 	if code != ExitOK || !strings.Contains(help, "imt manifest-pack audit --set") {
 		t.Errorf("manifest-pack audit --help: exit %d\n%s", code, help)
 	}
-	if help, code := run(t, "bundled", "audit", "--help"); code != ExitOK || !strings.Contains(help, "Identify which upstream") {
-		t.Errorf("bundled audit --help: exit %d\n%s", code, help)
-	}
 
-	// The old name is kept working, not advertised.
+	old, oldCode := run(t, "--config-dir", dir, "bundled", "audit", "--package", "demo")
+	if oldCode == ExitOK || strings.Contains(old, "--package needs --set") || !strings.Contains(old, `unknown command "bundled"`) {
+		t.Errorf("bundled audit still runs: exit %d\n%s", oldCode, old)
+	}
 	top, _ := run(t, "--help")
 	if !strings.Contains(top, "manifest-pack") || strings.Contains(top, "\n  bundled ") {
-		t.Errorf("top-level help should list manifest-pack and hide bundled:\n%s", top)
+		t.Errorf("top-level help should list manifest-pack and not bundled:\n%s", top)
 	}
 }
