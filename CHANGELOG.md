@@ -8,6 +8,17 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 - **The `ErrRecipePending` comments say who reads it now: nobody outside this module.** They described a cross-repository contract with icon-sets-bundled's `sync-upstream.yml`, which grepped the run output for "recipe pending". That wrapper was removed in icon-sets-bundled#95, and no recipe returns the error today. Comments only; the error and the CLI's warning for it are unchanged.
 
+### Removed
+
+These were deprecated in 0.1.2 with 0.2.0 as the earliest removal, and are removed now on the owner's decision. Each is a breaking change for anyone still using the old name.
+
+- **The `"recipe": "bundled"` value.** Write `"recipe": "manifest-pack"`. Both copies of the pack schema (`config/schema/pack.schema.json` and the embedded one) drop it from the `recipe` enum, so a config that still says `bundled` fails to load with `/recipe: value must be one of 'auto', 'generic', 'emoji-sets', 'manifest-pack'`. `TestTheRemovedBundledRecipeIsRejected` pins it, and fails with `bundled` put back in the enum.
+- **Choosing `manifest-pack` by pack name.** A config for `icon-sets-bundled` with no `recipe` (or `"auto"`) no longer reaches `manifest-pack`; it has to say `"recipe": "manifest-pack"`. `TestManifestPackIsNotReachedByItsFormerNameOrByPackName` fails if the name dispatch returns. The deprecation notice this path and the old recipe name logged on every run, and the warning `config validate` printed for them, go with them (`recipes.Deprecation`, `recipes.RemovalRelease`, `recipes.RecipeBundled`).
+- **The hidden `bundled audit` command.** Use `imt manifest-pack audit`; `bundled` is now an unknown command.
+- **The `/bundled/audit` web routes** (the page, the POST that starts an audit, and `/{id}/manifest.json`). Use `/manifest-pack/audit`; the old address answers 404, which `TestRemovedAuditRouteIsNotFound` pins.
+- **The `ichava-maintainer-toolkit` binary name.** The image no longer ships the symlink and the binary no longer prints a notice under that name; run `icon-sets-sync` or `imt`. CI now asserts the symlink is absent from the image. The docker compose service keeps its name, `ichava-maintainer-toolkit`, which is a service name and not a binary.
+- **Go aliases:** `app.BundledPack` (use `app.ManifestPack`), `app.AuditBundled` (use `app.AuditManifestPack`), `(*web.AppEngine).AuditBundled` (use `AuditManifestPack`), `version.LegacyName`, and the unused `cli.resolveAll` (use `app.ResolveSets`). All are in `internal` packages, so nothing outside this module could import them.
+
 ## [0.1.2] - 2026-10-26
 
 ### Added

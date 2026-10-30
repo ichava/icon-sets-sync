@@ -80,7 +80,7 @@ turning it into `"16"`.
 | `source` | where the assets come from; see [Sources](#sources) |
 | `sinks` | where they land, in order; see [Sinks](#sinks) |
 | `transforms` | what happens in between; see [Transforms](#transforms) |
-| `recipe` | `auto` (default), `generic`, `emoji-sets` or `manifest-pack` (`bundled` is its deprecated former name); see [Recipes](#recipes) |
+| `recipe` | `auto` (default), `generic`, `emoji-sets` or `manifest-pack`; see [Recipes](#recipes) |
 | `settings` | this pack's layer of the [settings](#settings) |
 | `version_file` | pack-repo-relative file recording the vendored version; default `resources/assets/svg/config.json` |
 | `version_keys` | dot-paths inside that file; default `upstream.current_version`, `package.upstream_version` |
@@ -158,10 +158,7 @@ A recipe turns a pack config into pipelines. `auto` picks by pack name, then by 
 | `manifest-pack` | `"recipe": "manifest-pack"` | one pipeline per set in the pack's `<slug>.sets.json` set manifest, each from its own upstream, then one commit |
 | `generic` | any `npm` or `github-*` source | the config's own source, transforms and sinks |
 
-> **Deprecated until 0.2.0.** `"recipe": "bundled"` still runs exactly as `manifest-pack`, and the one
-> aggregator pack that predates the field is still picked by its name when its config has no `recipe`.
-> Both log a deprecation notice on every run and a warning in `config validate`. From 0.2.0 a pack
-> config has to say `"recipe": "manifest-pack"`.
+`manifest-pack` is never picked by `auto`: a pack config has to say `"recipe": "manifest-pack"`.
 
 ## Settings
 
