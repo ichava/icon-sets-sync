@@ -19,3 +19,8 @@
 /src/internal/web/assets/vendor/tabler/** -diff linguist-vendored
 /src/internal/web/assets/vendor/tabler-icons.svg -diff linguist-vendored
 /src/internal/web/testdata/golden/** linguist-generated
+
+# The Composer launcher keeps LF so its shebang works from a Windows clone.
+bin/icon-sets-sync text eol=lf
+/phpunit.xml.dist export-ignore
+/php/tests       export-ignore

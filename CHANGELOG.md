@@ -4,6 +4,10 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ## [Unreleased]
 
+### Added
+
+- **Composer package `ichava/icon-sets-sync`.** A `composer.json` and a small PHP launcher at `bin/icon-sets-sync`, so a PHP project can `composer require --dev ichava/icon-sets-sync` and run `vendor/bin/icon-sets-sync`. The first run downloads the release binary for the host OS and architecture from the GitHub release matching the installed tag (the latest release for a branch install, or `ICHAVA_ICON_SETS_SYNC_VERSION`), checks it against the release's `checksums.txt`, caches it under the package's `.cache/bin/`, and runs it with the given arguments. When `cosign` is on `PATH` the Sigstore signature over `checksums.txt` is verified too; `ICHAVA_ICON_SETS_SYNC_REQUIRE_SIGNATURE=1` makes that mandatory. The Go binary and Docker image are unchanged. Tests now include a Composer job running `composer validate --strict` and the launcher's Pest suite on PHP 8.4 and 8.5. Not on Packagist yet.
+
 ### Changed
 
 - **The `ErrRecipePending` comments say who reads it now: nobody outside this module.** They described a cross-repository contract with icon-sets-bundled's `sync-upstream.yml`, which grepped the run output for "recipe pending". That wrapper was removed in icon-sets-bundled#95, and no recipe returns the error today. Comments only; the error and the CLI's warning for it are unchanged.
