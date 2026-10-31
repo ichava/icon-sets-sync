@@ -4,6 +4,12 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ## [Unreleased]
 
+## [0.1.3] - TBD
+
+First release of `ichava/icon-sets-sync` as a single published commit. The 0.1.x tags cut between 2026-10-23 and 2026-10-26 (v0.1.0 to v0.1.2, with their `src/` module aliases) are folded into this release, and their notes are kept below under *Archived history*.
+
+This section is headed `0.1.3`, not `0.1.0`, on purpose: the Go checksum database already records `github.com/ichava/icon-sets-sync/src` at v0.1.0, v0.1.1 and v0.1.2, so a re-cut `src/v0.1.0` on a different commit would fail every `go install` with a checksum mismatch. If the owner chooses a git `v0.1.0` with a Go-only `src/v0.1.3` alias instead, rename this heading to `[0.1.0]` in the same change that teaches `release.yml` the alias.
+
 ### Added
 
 - **Composer package `ichava/icon-sets-sync`.** A `composer.json` and a small PHP launcher at `bin/icon-sets-sync`, so a PHP project can `composer require --dev ichava/icon-sets-sync` and run `vendor/bin/icon-sets-sync`. The first run downloads the release binary for the host OS and architecture from the GitHub release matching the installed tag (the latest release for a branch install, or `ICHAVA_ICON_SETS_SYNC_VERSION`), checks it against the release's `checksums.txt`, caches it under the package's `.cache/bin/`, and runs it with the given arguments. When `cosign` is on `PATH` the Sigstore signature over `checksums.txt` is verified too; `ICHAVA_ICON_SETS_SYNC_REQUIRE_SIGNATURE=1` makes that mandatory. The Go binary and Docker image are unchanged. Tests now include a Composer job running `composer validate --strict` and the launcher's Pest suite on PHP 8.4 and 8.5. Not on Packagist yet.
@@ -11,7 +17,7 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 ### Changed
 
 - **The sync bot commits as the github-actions bot, not a personal GitHub login.** `git.author` now defaults to `ichava-sync-bot <41898282+github-actions[bot]@users.noreply.github.com>` (gitx, settings, docs/configuration.md). That matches the address new packs get from the scaffolder. The no-personal-contact guard now also scans the Go sources and matches the login.
-- **Packages name Simtabi LLC as maintainer, not a person.** The `.deb`, `.rpm` and `.apk` packages GoReleaser builds carried a personal name and address as `maintainer`; it is now `Simtabi LLC <ichava@simtabi.com>`, the role address (decided 2026-10-28). A Go test (`TestNoPersonalContactShips`) reads `.goreleaser.yaml`, `README.md`, the `Dockerfile` and `docs/`, fails on a personal name or address, and fails if it read fewer than 12 files.
+- **Packages name Simtabi LLC as maintainer, not a person.** The `.deb`, `.rpm` and `.apk` packages GoReleaser builds carried a personal name and address as `maintainer`; it is now `Simtabi LLC <opensource@simtabi.com>`, the community role address (decided 2026-10-28, address set for the first release). A Go test (`TestNoPersonalContactShips`) reads `.goreleaser.yaml`, `README.md`, the `Dockerfile` and `docs/`, fails on a personal name or address, and fails if it read fewer than 12 files.
 - **The `ErrRecipePending` comments say who reads it now: nobody outside this module.** They described a cross-repository contract with icon-sets-bundled's `sync-upstream.yml`, which grepped the run output for "recipe pending". That wrapper was removed in icon-sets-bundled#95, and no recipe returns the error today. Comments only; the error and the CLI's warning for it are unchanged.
 
 ### Removed
@@ -25,39 +31,45 @@ These were deprecated in 0.1.2 with 0.2.0 as the earliest removal, and are remov
 - **The `ichava-maintainer-toolkit` binary name.** The image no longer ships the symlink and the binary no longer prints a notice under that name; run `icon-sets-sync` or `imt`. CI now asserts the symlink is absent from the image. The docker compose service keeps its name, `ichava-maintainer-toolkit`, which is a service name and not a binary.
 - **Go aliases:** `app.BundledPack` (use `app.ManifestPack`), `app.AuditBundled` (use `app.AuditManifestPack`), `(*web.AppEngine).AuditBundled` (use `AuditManifestPack`), `version.LegacyName`, and the unused `cli.resolveAll` (use `app.ResolveSets`). All are in `internal` packages, so nothing outside this module could import them.
 
-## [0.1.2] - 2026-10-26
+## [Archived history]
 
-### Added
+> The 0.1.x sections from 2026-10-23 to 2026-10-26 come first; their tags (v0.1.0 to v0.1.2 and `src/` aliases)
+> are folded into 0.1.3. Below them are the pre-reset sections: versioning was re-based to 0.1.0 on 2026-10-23, and
+> those tags and GitHub releases were removed. Every section is reproduced verbatim, one heading level down.
+
+### [0.1.2] - 2026-10-26
+
+#### Added
 
 - **Private packs load their recipes at run time.** `--private-config-dir` (setting `private_config_dir`, `ICHAVA_PRIVATE_CONFIG_DIR`) names a directory laid out like `config/` -- an optional `packs.json`, `<slug>.json` pack configs and any `<slug>.sets.json` set manifest -- and merges it over the public one: its packs follow the public registry, a file in both is read from the private directory, and a private directory that is set but missing is a usage error rather than an empty overlay. A private pack therefore runs through the same data-driven recipes, the per-set `bundled` one included, without its configuration being committed here. Tests cover the merged registry, the private copy winning, a missing directory failing, a pack and its set manifest loading through the flag and through the environment, and the recipe building one pipeline per set from a synthetic private fixture. Shown end to end with a dry-run sync of the aggregator pack from a private directory in a temporary folder.
 - **A test fails on any tracked file that names a private pack's paths.** `TestPublicTreeNamesNoPrivatePack` reads every file `git ls-files` lists (with a floor on the count) and fails on a path inside, or a config file of, a private pack; a bare pack name and ordinary uses of the word "bundled" stay allowed. One exemption, with a ceiling of 3 lines: the vendored copy of core's SVG policy, which can only change after the canonical copy does. A second test pins that `config/`, which the image ships, carries no private pack. Both were seen failing with the old config restored.
 
 - **A sync ships each upstream's own licence texts beside its icons.** No pack carried the text MIT, ISC, BSD, Apache-2.0 and OFL require to accompany every copy: the licence sits at the upstream root and every recipe narrowed the tree to the icon subdirectory before writing. Every asset pipeline now runs a `FindLicences` transform straight after its source, recording the root's `LICENSE*`, `LICENCE*`, `COPYING*`, `NOTICE*` and `OFL*` files, and a `LicenceTexts` sink straight after `Filesystem`, copying them verbatim to `resources/assets/svg/licenses/<set>` (`tabler-icons`, `flag-icons`, `twemoji`, `openmoji-color`, `openmoji-black`, and one per set of a multi-set pack). `resources/` ships in every pack's dist archive. An upstream with no licence file at its root fails its pipeline, naming the set, instead of syncing icons whose licence cannot be found. A bundled set may instead record the evidence in a new `licence_missing` manifest field; it then refreshes, with its licence directory removed and the gap logged. Tabler, flag-icons, Twemoji and OpenMoji all ship a root licence, measured 2026-10-26 against each package's `latest` tarball. Packs gain the files through their next sync pull request. Tests cover the filename rules, a verbatim byte-for-byte copy (CRLF and non-ASCII kept), a `NOTICE` copied when present and removed when upstream drops it, a missing licence failing, an end-to-end run over zip and tar.gz fixture archives, and every set in a set manifest being wired; that guard failed for every set when `FindLicences` was taken out of the bundled recipe.
 
-### Changed
+#### Changed
 
 - **The internal Go package `internal/core/bundled` is `internal/core/manifestpack`.** It holds the set manifest, the audit scorer and the npm resolver behind the `manifest-pack` recipe, and now carries that name. The source files `recipes/bundled.go` and `cli/bundled.go` are `manifest_pack.go`, and the tests that named the old package follow it. No exported identifier is renamed and nothing behaves differently: the move commit changes only the package name, its import path and its qualifiers, and the suite runs the same 346 tests before and after. The package is `internal`, so nothing outside this module could import it. The deprecated `bundled` recipe value, command and route are unchanged and still work until 0.2.0.
 - **The per-set recipe, its audit command and its page are named `manifest-pack`.** The recipe is `"recipe": "manifest-pack"`, the command is `imt manifest-pack audit`, the web page is `/manifest-pack/audit` (nav: *Manifest pack audit*), and the Go names are `recipes.RecipeManifestPack`, `app.ManifestPack` and `app.AuditManifestPack`. The recipe is chosen by the `recipe` field in a pack's config; the name-based choice is kept for configs without the field, and deprecated. The behaviour is the same under either name: `TestManifestPackDispatchIsTheSameWithOrWithoutTheField` builds the same pipelines with the field, without it and under the old name, `TestBundledAuditIsADeprecatedAliasOfManifestPackAudit` gets the same exit code and output from both commands, and `TestLegacyAuditRouteStillWorksAndIsDeprecated` gets the same page, run and manifest download from both routes. `config validate` reports the recipe by its new name. The pack schema accepts `manifest-pack`, so a config that uses it needs this release or later.
 - **The vendored SVG policy is re-synced from `ichava/core`, and its private-name exemption is gone.** Core reworded six comment strings in `svg-policy.json` that gave per-pack counts for packs that are now private. Only underscore-prefixed comment keys changed, so the sanitiser enforces the same policy. `src/internal/core/svg/svg-policy.json` is the new byte-identical copy, `TestVendoredPolicyHasNotDrifted` pins `56e8145b…c56e70d`, and `TestPublicTreeNamesNoPrivatePack` no longer exempts the file: the old copy fails it on 3 lines, the new one passes with no exemption.
 
-### Deprecated
+#### Deprecated
 
 - **`bundled` as a recipe, command and route, and choosing the recipe by pack name.** Each still works exactly as before and says it is deprecated: `"recipe": "bundled"` runs `manifest-pack` and logs a notice on every run and a warning in `config validate`; a config with no `recipe` that was picked by its pack name does the same; `imt bundled audit` runs `imt manifest-pack audit` after a notice on stderr, so stdout and `--json` are unchanged, and `bundled` no longer appears in `--help`; `/bundled/audit` and its manifest download serve the same handlers with a `Deprecation: true` header, a `Link` to the new address and a logged notice. The Go names `recipes.RecipeBundled`, `app.BundledPack`, `app.AuditBundled` and `web.AppEngine.AuditBundled` forward to their replacements. The earliest release that may remove any of them is 0.2.0.
 
-### Removed
+#### Removed
 
 - **The aggregator pack's config, its set manifest and the migration census files.** `config/` no longer registers or ships the aggregator pack, and `.scripts/migration/` no longer carries the three dated census measurements, which listed private packs' file paths. They moved to that pack's own repository, which passes them back in through `--private-config-dir`. The frozen lxml oracle drops its 36 records from a private pack (1,238 remain), and its test now fails on a record from any pack that is not public. Comments, docs and earlier changelog entries that described private packs' contents were generalised.
 
-### Fixed
+#### Fixed
 
 - **`.scripts/sync-svg-policy.mjs` no longer checks a policy copy icon-browser removed.** It still listed `icon-browser/resources/js/core/svg-policy.json`, which went when icon-browser took the react-icon-browser UI, so the check reported it MISSING and exited 1 on every run, and `--write` recreated a file nothing reads. icon-browser's copy now ships inside the vendored react-icon-browser build and follows core through react-icon-browser; the script's header says so. Against core, react-icon-browser and this repository at `main`, the check now exits 0, and still exits 1 on a drifted copy.
 - **A sync no longer deletes hand-supplied licence texts.** Since the licence-text sink landed, a set flagged `licence_missing` had its `resources/assets/svg/licenses/<set>/` directory removed on every run, which destroyed the texts maintainers add by hand for exactly those sets. A licence directory holding a `SOURCE.md` is now hand-maintained: `LicenceTexts` never deletes or overwrites it, reports the set as `hand-supplied` instead of missing in its log line and its `licence_texts` metric (which now carries a `status` of `copied`, `missing` or `hand-supplied`), and stops the `licence_missing` warning the folder satisfies. Without `licence_missing` the run still fails, but leaves the folder in place. If upstream later ships its own licence for such a set, the folder is kept and the run warns, with `reconcile: true` in the metric, so a person compares the texts. An un-annotated directory is replaced or removed exactly as before. Tests cover a hand-supplied folder surviving byte for byte with no warning, the upstream-now-ships warning, the failure without `licence_missing`, an un-annotated stale folder still removed and still replaced, and a `SOURCE.md` directory not counting as the marker; with the marker check disabled, the three hand-supplied cases fail.
 - **Releases carry their CHANGELOG section again.** `src/.goreleaser.yaml` set `changelog.disable: true`, which also makes GoReleaser ignore `--release-notes`, so v0.1.0 and v0.1.1 were published with an empty body. The changelog pipe is enabled again (`--release-notes` is still the whole body, nothing is generated from commits), and `release.yml` now reads the published release back and fails if its body is shorter than the section it passed in. The two existing release bodies were restored by hand from their CHANGELOG sections.
 - **GoReleaser ignores the `src/vX.Y.Z` module alias tag.** Since v0.1.1 both tags sit on one commit, and GoReleaser took `src/v0.1.1` as the current tag, so the pull-request snapshot build failed writing `icon-sets-sync_src/v0.1.1-SNAPSHOT…_source.tar.gz`. `git.ignore_tags: ["src/*"]` in `src/.goreleaser.yaml`; a local snapshot now builds as `0.1.1-SNAPSHOT`.
 
-## [0.1.1] - 2026-10-23
+### [0.1.1] - 2026-10-23
 
-### Added
+#### Added
 
 - **Releases are prepared by release-please.** A *Release Please* workflow reads the Conventional Commit log, keeps one release pull request open that bumps `.release-please-manifest.json`, and tags the release when that pull request merges; the tag starts `release.yml` as before. On 0.x a breaking change bumps the minor and everything else bumps the patch. Release notes stay hand-written: release-please is set to `skip-changelog`, and the workflow closes this `[Unreleased]` section under the new version on the release branch, failing if it is empty. It runs on `workflow_dispatch`, a weekly schedule, and the merge of a release pull request, so the only `push` trigger is still the tag. The pull request and the tag are made with a per-run Refresh Bot token, because ones made with `GITHUB_TOKEN` start no workflows. GoReleaser now runs with `release.mode: replace`, because release-please creates the GitHub release first and the default mode would keep its generated body instead of this changelog.
 - **`icon-sets-sync serve` (alias `ui`): a localhost web UI.** Server-rendered pages over the same
@@ -128,7 +140,7 @@ These were deprecated in 0.1.2 with 0.2.0 as the earliest removal, and are remov
   serves the same notices at `/about/licenses`.
 - `gitx.CurrentBranch`.
 
-### Changed
+#### Changed
 
 - **The settings stack, config validation and the bundled audit are `internal/app` functions.**
   `app.BuildStack`, `app.ValidateConfigs`/`app.ValidatePack` and `app.AuditBundled`/`app.ResolveSets`
@@ -153,7 +165,7 @@ These were deprecated in 0.1.2 with 0.2.0 as the earliest removal, and are remov
   directory, fsync, the old file's permissions, rename), keeping the submitted bytes and their
   `_note` annotations exactly.
 
-### Fixed
+#### Fixed
 
 - **The release pull request is found in the same run that opens it.** The step that hands the release branch to the changelog close asked `gh pr list --label 'autorelease: pending'`, which goes through GitHub's search index; on the first live run (js-motion#30) the index had not caught up with the pull request opened seconds earlier, so the close was skipped and a second dispatch was needed. It now takes the branch from release-please's own `pr` output, and only when the action reports nothing (the pull request was already current) falls back to the open pull requests, matched by the `release-please--branches--main` prefix rather than the label.
 - **Ctrl-C stops a sync cleanly.** The first SIGINT or SIGTERM cancels the run: the stage in flight
@@ -161,15 +173,15 @@ These were deprecated in 0.1.2 with 0.2.0 as the earliest removal, and are remov
   listened for the signal, so it could only kill the process wherever it happened to be. A second
   Ctrl-C still kills the process outright.
 
-### Deprecated
+#### Deprecated
 
 - **`cli.resolveAll`**, which now forwards to `app.ResolveSets`. Earliest removal: 0.3.0.
 
-## [0.1.0] - 2026-10-23
+### [0.1.0] - 2026-10-23
 
 Versioning re-based to 0.1.0. This is the first release of the Go implementation and the first with release binaries. It contains everything previously tagged v0.1.0 through v0.1.3 (2026-08-31 to 2026-09-22, the Python `ichava/maintainer-toolkit`) plus the changes below. Those tags and their GitHub releases were removed; every commit they pointed at is on `main`, and their sections are kept under *Archived pre-reset history*.
 
-### Changed
+#### Changed
 
 - **`docs/installation.md` shows the packs' current checkout path**, `.icon-sets-sync`, which they moved to with the rename.
 - **Breaking: the Docker image runs the Go binary, `icon-sets-sync`, and only that.** The
@@ -202,7 +214,7 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
 - The Makefile's `test`, `lint` and `format` run the Go checks in a `golang` container.
   `sync-all` uses the new `sync-all` command and takes `CONCURRENCY=`.
 
-### Removed
+#### Removed
 
 - **The Python implementation**: `src/ichava_maintainer_toolkit/`, `pyproject.toml`, `tests/`, the
   Python CI job, the `Setup Python` release step, the `pip` Dependabot entry, the Python Make
@@ -211,12 +223,12 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
   agreement with lxml is still checked against `src/internal/core/svg/testdata/lxml-oracle.json`,
   the frozen output of the last lxml run; the live cross-check that needed Python is gone with it.
 
-### Deprecated
+#### Deprecated
 
 - **The `ichava-maintainer-toolkit` command name**, in favour of `icon-sets-sync`. The image keeps
   it as a symlink that prints a notice. Earliest removal: 0.3.0.
 
-### Fixed
+#### Fixed
 
 - **`make build-emoji` and the `PACK=` examples named packs that no longer exist.** The Makefile
   ran `recipe emoji-sets`, which loads `config/emoji-sets.json`; the file has been
@@ -226,7 +238,7 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
   `docker-compose.yml` and the Dockerfile's run example now use `/work/maintainer-toolkit`, and
   the README's clone instructions `cd` into the right directory.
 
-### Added
+#### Added
 
 - **Release binaries, signed.** A `vX.Y.Z` tag now runs GoReleaser (`src/.goreleaser.yaml`): bare binaries for `icon-sets-sync` and `imt` across Linux, macOS (plus a universal binary), Windows and FreeBSD, `.tar.gz`/`.zip` archives, `.deb`/`.rpm`/`.apk`, a source tarball, an SPDX SBOM per archive and `checksums.txt`. Every artifact gets a build-provenance attestation, and `checksums.txt` a keyless Sigstore signature (`checksums.txt.sigstore.json`). The workflow also pushes the `src/vX.Y.Z` tag Go needs to resolve the module. The Tests workflow builds the same set as a snapshot on every pull request.
 
@@ -388,7 +400,7 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
   `bootstrap-icons` reproduces its 2,078 committed icons **byte for byte, zero differing**.
   `feather-icons` differs by exactly one file, an icon upstream has added since.
 
-### Fixed
+#### Fixed
 
 - **The audit recorded paths in a frame the recipe could not read.** It reported them relative to
   the extraction root (`package/icons`) while `NpmTarball` hands the *inside* of the npm wrapper
@@ -455,7 +467,7 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
   which reports `partial 1512/9072 package/assets/bold` -- the project is right, and the pack has
   flattened several weight variants into one directory, so no single upstream directory covers it.
 
-### Fixed
+#### Fixed
 
 - **The aggregator pack's config describes a pack that does not exist.** Its `_status` points
   at a recipe path that was never written, and the pack's own `update_command._note` claims the
@@ -551,7 +563,7 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
   launch the TUI -- a useful accident, since it forced the shared layer to be named instead of
   living wherever it happened to be written first.
 
-### Fixed
+#### Fixed
 
 - **`check` reported success for a run that checked nothing.** The summary counted stale packs
   only, so when every registry was unreachable it found zero stale and printed
@@ -620,7 +632,7 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
 
   The module has **no third-party dependencies**.
 
-### Fixed
+#### Fixed
 
 - **The README's link label named the old central docs repo.** The URL was already correct —
   `docs/upstream-tracking.md`, in this repository — while the text beside it still read
@@ -631,11 +643,6 @@ Versioning re-based to 0.1.0. This is the first release of the Go implementation
   resolves and the text next to it is wrong — `lychee` and every `](...)` sweep pass it. Found
   by grepping for `` `…documentation/….md` `` rather than for links, after the estate-wide link
   scan came back at zero.
-
-## [Archived pre-reset history]
-
-> Versioning was re-based to 0.1.0 on 2026-10-23. The tags and GitHub releases below were removed;
-> every commit they pointed at is on `main`. Sections reproduced verbatim, one heading level down.
 
 ### [0.1.3] - 2026-09-22
 
