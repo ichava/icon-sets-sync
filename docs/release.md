@@ -4,10 +4,12 @@ How a version of `icon-sets-sync` is cut, and what it reaches.
 
 ## Where this package is
 
-`v0.1.0`, re-based on 2026-10-23 with every other ichava package. It is the first release of the Go
-binary and the first to ship binaries. The pre-reset tags `v0.1.0` to `v0.1.3` (2026-08-31 to
-2026-09-22) were the Python `ichava/maintainer-toolkit`; they were removed, their commits are on `main`,
-and their notes are kept in `CHANGELOG.md` under *Archived pre-reset history*.
+The first published release is cut by hand on a single root commit, the same day as every other ichava
+package. Its CHANGELOG section is `## [0.1.3]`, not `0.1.0`: the Go checksum database already records
+`github.com/ichava/icon-sets-sync/src` at v0.1.0, v0.1.1 and v0.1.2, so a `src/v0.1.0` on a new commit
+would fail `go install` with a checksum mismatch. The earlier 0.1.x sections and the pre-reset Python
+`ichava/maintainer-toolkit` sections (v0.1.0 to v0.1.3, 2026-08-31 to 2026-09-22) are kept in
+`CHANGELOG.md` under *Archived history*.
 
 The Docker image is published to GHCR and is **private**, which is why the pack workflows build from
 a checkout of this repository rather than pulling it: another repository's `GITHUB_TOKEN` cannot pull
