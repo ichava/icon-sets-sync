@@ -22,10 +22,10 @@ compressed archive per platform, `.deb`, `.rpm` and `.apk` packages, and a `chec
 Sigstore:
 
 ```bash
-curl -fsSLO https://github.com/ichava/icon-sets-sync/releases/latest/download/icon-sets-sync_linux_amd64
-curl -fsSLO https://github.com/ichava/icon-sets-sync/releases/latest/download/checksums.txt
-sha256sum --ignore-missing -c checksums.txt
-install -m 0755 icon-sets-sync_linux_amd64 /usr/local/bin/icon-sets-sync
+curl -fsSLO https://github.com/ichava/icon-sets-sync/releases/latest/download/icon-sets-sync_linux_amd64 \
+  && curl -fsSLO https://github.com/ichava/icon-sets-sync/releases/latest/download/checksums.txt \
+  && sha256sum --ignore-missing -c checksums.txt \
+  && install -m 0755 icon-sets-sync_linux_amd64 /usr/local/bin/icon-sets-sync
 ```
 
 From a PHP project, through Composer (once the package is on Packagist; until then, add this
