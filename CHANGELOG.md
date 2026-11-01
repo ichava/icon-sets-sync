@@ -4,11 +4,11 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ## [Unreleased]
 
-## [0.1.3] - TBD
+## [0.1.0] - TBD
 
 First release of `ichava/icon-sets-sync` as a single published commit. The 0.1.x tags cut between 2026-10-23 and 2026-10-26 (v0.1.0 to v0.1.2, with their `src/` module aliases) are folded into this release, and their notes are kept below under *Archived history*.
 
-This section is headed `0.1.3`, not `0.1.0`, on purpose: the Go checksum database already records `github.com/ichava/icon-sets-sync/src` at v0.1.0, v0.1.1 and v0.1.2, so a re-cut `src/v0.1.0` on a different commit would fail every `go install` with a checksum mismatch. If the owner chooses a git `v0.1.0` with a Go-only `src/v0.1.3` alias instead, rename this heading to `[0.1.0]` in the same change that teaches `release.yml` the alias.
+The Go module proxy and checksum database already hold `github.com/ichava/icon-sets-sync/src` at v0.1.0, v0.1.1 and v0.1.2, fetched from commits before the single-commit publication, and neither can be cleared. So `go install github.com/ichava/icon-sets-sync/src/...@v0.1.0` serves that older code, and `@latest` the older v0.1.2. The supported installs are the signed release binaries and the Composer package; `go install` is not offered.
 
 ### Added
 
@@ -34,7 +34,7 @@ These were deprecated in 0.1.2 with 0.2.0 as the earliest removal, and are remov
 ## [Archived history]
 
 > The 0.1.x sections from 2026-10-23 to 2026-10-26 come first; their tags (v0.1.0 to v0.1.2 and `src/` aliases)
-> are folded into 0.1.3. Below them are the pre-reset sections: versioning was re-based to 0.1.0 on 2026-10-23, and
+> are folded into 0.1.0. Below them are the pre-reset sections: versioning was re-based to 0.1.0 on 2026-10-23, and
 > those tags and GitHub releases were removed. Every section is reproduced verbatim, one heading level down.
 
 ### [0.1.2] - 2026-10-26
