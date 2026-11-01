@@ -46,6 +46,11 @@ jobs:
     name: Publish release
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Our own modules come from git, never through the public proxy, so a CI
+    # build never feeds proxy.golang.org or sum.golang.org a tag.
+    env:
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
     permissions:
       contents: write      # create the release, upload assets, push the src/ alias tag
       id-token: write      # Sigstore keyless identity, for cosign and the attestation

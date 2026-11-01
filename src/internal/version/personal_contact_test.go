@@ -11,7 +11,7 @@ import (
 
 // personalContact matches a personal maintainer name or mailbox. Nothing this
 // repository ships may carry one (decided 2026-10-28): the maintainer is
-// "Simtabi LLC <ichava@simtabi.com>", and the sync bot commits as the
+// "Simtabi LLC <opensource@simtabi.com>", and the sync bot commits as the
 // github-actions bot's noreply address, not a personal GitHub login.
 var personalContact = regexp.MustCompile(`(?i)imani@|manyara|imanimanyara`)
 
@@ -62,7 +62,7 @@ func TestNoPersonalContactShips(t *testing.T) {
 		}
 		read++
 		if m := personalContact.Find(data); m != nil {
-			t.Errorf("%s carries a personal name or address (%q); use Simtabi LLC <ichava@simtabi.com>", f, m)
+			t.Errorf("%s carries a personal name or address (%q); use Simtabi LLC <opensource@simtabi.com>", f, m)
 		}
 	}
 	if read < minPersonalContactFiles {

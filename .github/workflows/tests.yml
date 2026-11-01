@@ -30,6 +30,11 @@ jobs:
     name: Go
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Our own modules come from git, never through the public proxy, so a CI
+    # build never feeds proxy.golang.org or sum.golang.org a tag.
+    env:
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
 
     # The Go module lives in src/, not at the root. A bare `go test ./...` at the
     # root finds no packages and passes, so every step names the module
@@ -139,6 +144,11 @@ jobs:
     name: Web UI accessibility
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Our own modules come from git, never through the public proxy, so a CI
+    # build never feeds proxy.golang.org or sum.golang.org a tag.
+    env:
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
 
     # Serves the web UI against a fixture and runs axe over every page in the
     # light and the dark theme, failing on any serious or critical violation.
@@ -181,6 +191,11 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Our own modules come from git, never through the public proxy, so a CI
+    # build never feeds proxy.golang.org or sum.golang.org a tag.
+    env:
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
 
     steps:
       - uses: actions/checkout@v7
@@ -218,6 +233,11 @@ jobs:
     name: Release build (snapshot)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Our own modules come from git, never through the public proxy, so a CI
+    # build never feeds proxy.golang.org or sum.golang.org a tag.
+    env:
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
 
     # release.yml only runs on a tag, so without this the first sight of a
     # broken GoReleaser config, a target that stopped compiling or an archive

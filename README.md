@@ -16,10 +16,16 @@ Go 1.26 or later to build from source; Docker for everything else. The repositor
 
 ## Install
 
+A release binary, for any of the supported platforms. Each GitHub release carries the bare executables
+(`icon-sets-sync_<os>_<arch>`, `macos` for darwin, `icon-sets-sync_macos_universal` for both Macs), a
+compressed archive per platform, `.deb`, `.rpm` and `.apk` packages, and a `checksums.txt` signed with
+Sigstore:
+
 ```bash
-git clone https://github.com/ichava/icon-sets-sync.git ~/Artisan/projects/opensource/ichava/packages/icon-sets-sync
-cd ~/Artisan/projects/opensource/ichava/packages/icon-sets-sync
-make build      # the Docker image: the Go binary plus git, gh and npm
+curl -fsSLO https://github.com/ichava/icon-sets-sync/releases/latest/download/icon-sets-sync_linux_amd64 \
+  && curl -fsSLO https://github.com/ichava/icon-sets-sync/releases/latest/download/checksums.txt \
+  && sha256sum --ignore-missing -c checksums.txt \
+  && install -m 0755 icon-sets-sync_linux_amd64 /usr/local/bin/icon-sets-sync
 ```
 
 From a PHP project, through Composer (once the package is on Packagist; until then, add this
@@ -30,7 +36,7 @@ composer require --dev ichava/icon-sets-sync
 vendor/bin/icon-sets-sync version
 ```
 
-The package carries no Go code you build. Its first run downloads the release binary for your OS
+The Composer package carries no Go code you build. Its first run downloads the release binary for your OS
 and architecture, checks it against the release's `checksums.txt`, caches it under
 `vendor/ichava/icon-sets-sync/.cache/bin/`, and runs it; later runs reuse the cached copy. It
 fetches the release matching the installed tag, or the latest release for a branch install. Set
@@ -38,11 +44,27 @@ fetches the release matching the installed tag, or the latest release for a bran
 `checksums.txt` is verified as well, and `ICHAVA_ICON_SETS_SYNC_REQUIRE_SIGNATURE=1` refuses to run
 without it.
 
-Without Docker, with a Go toolchain:
+To run the syncs the way the packs' workflows do, build the Docker image (the Go binary plus git, gh
+and npm) from a checkout that sits beside the pack repositories:
 
 ```bash
+git clone https://github.com/ichava/icon-sets-sync.git
+cd icon-sets-sync
+make build
+```
+
+To build from source without Docker (Go 1.26 or later), clone the repository and build the module in
+`src/`:
+
+```bash
+git clone https://github.com/ichava/icon-sets-sync.git
+cd icon-sets-sync
 go -C src build -o ../build/icon-sets-sync ./cmd/icon-sets-sync
 ```
+
+`go install` is not an install path. The Go module proxy fetched `src/v0.1.0` to `src/v0.1.2` from
+commits that predate the single-commit publication, and it keeps the first copy of a tag for good,
+so `go install …@v0.1.0` would serve that older code and `@latest` the older v0.1.2.
 
 The original Python implementation was removed before the re-based 0.1.0; see
 [Architecture](docs/architecture.md#why-go-and-what-happened-to-the-python).

@@ -13,7 +13,7 @@ var (
 
 // Version returns the release version.
 //
-// When it was not stamped -- a `go install ...@latest` rather than a GoReleaser
+// When it was not stamped -- a plain `go build` rather than a GoReleaser
 // build -- the module's own version from the build info is used, so the binary
 // still reports something true rather than "dev".
 func Version() string {

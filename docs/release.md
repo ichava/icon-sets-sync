@@ -4,10 +4,16 @@ How a version of `icon-sets-sync` is cut, and what it reaches.
 
 ## Where this package is
 
-`v0.1.0`, re-based on 2026-10-23 with every other ichava package. It is the first release of the Go
-binary and the first to ship binaries. The pre-reset tags `v0.1.0` to `v0.1.3` (2026-08-31 to
-2026-09-22) were the Python `ichava/maintainer-toolkit`; they were removed, their commits are on `main`,
-and their notes are kept in `CHANGELOG.md` under *Archived pre-reset history*.
+The first published release is cut by hand on a single root commit, the same day as every other ichava
+package, and tagged `v0.1.0` with its `src/v0.1.0` module alias. The Go module proxy and the checksum
+database already hold `github.com/ichava/icon-sets-sync/src` at v0.1.0, v0.1.1 and v0.1.2: the proxy
+fetches a public tag from git the first time anyone asks for it, and keeps that copy for good. Those
+copies come from commits before the single-commit publication, so `go install …@v0.1.0` serves the
+older code, and that is why the docs offer the signed release binaries and the Composer package, never
+`go install`. `TestDocsOfferNoGoInstall` fails if a `go install` of this module comes back into the README,
+`CONTRIBUTING.md` or `docs/`. The earlier 0.1.x sections and the pre-reset Python
+`ichava/maintainer-toolkit` sections (v0.1.0 to v0.1.3, 2026-08-31 to 2026-09-22) are kept in
+`CHANGELOG.md` under *Archived history*.
 
 The Docker image is published to GHCR and is **private**, which is why the pack workflows build from
 a checkout of this repository rather than pulling it: another repository's `GITHUB_TOKEN` cannot pull
@@ -46,7 +52,7 @@ The tag starts two workflows:
 `release.yml` also pushes `src/vX.Y.Z` on the same commit before GoReleaser runs. The Go module is
 `github.com/ichava/icon-sets-sync/src`, and Go resolves a subdirectory module only through a tag
 named after the subdirectory. **A `src/` tag is permanent once the Go proxy has fetched it**: never
-move or recreate one. The step leaves an existing alias alone.
+move or recreate one, and the same holds for every `vX.Y.Z`. The step leaves an existing alias alone.
 
 **Vendored web assets and the SBOM.** The web UI embeds Tabler (with the Bootstrap and Popper it
 bundles) and a Tabler Icons subset as committed files, not as an npm dependency, so Syft's SBOM does
