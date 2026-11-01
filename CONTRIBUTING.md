@@ -54,11 +54,11 @@ there is how this tool spent weeks re-opening a pull request it had already open
   tag, by Packagist for a Composer package, and by npm and every consumer pinning a git tag for a
   JavaScript one. Moving the tag afterwards does not change what those serve; it only makes them
   disagree with git. The next fix gets the next number.
-- **A tag ruleset enforces this.** It blocks deleting, updating and force-pushing `v*` (and
-  `src/v*` where a Go module lives in `src/`) tags on this repository. The v0.1.0 publication as a
-  single commit was the one planned exception.
-- **A bad release is retracted, not replaced.** Add `retract vX.Y.Z // <reason>` to `src/go.mod` in the next release, so `go get` and `@latest` skip it. Then ship the fix as the next
-  version.
+- **A tag ruleset enforces this.** Applied once the v0.1.0 tags are pushed, it blocks deleting,
+  updating and force-pushing `v*` and `src/v*` tags on this repository. The v0.1.0 publication as
+  a single commit was the one planned exception.
+- **A bad release is retracted, not replaced.** Add `retract vX.Y.Z // <reason>` to `src/go.mod`
+  in the next release, so `go get` and `@latest` skip it. Then ship the fix as the next version.
 
 ## Security
 
