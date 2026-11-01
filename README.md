@@ -28,12 +28,6 @@ sha256sum --ignore-missing -c checksums.txt
 install -m 0755 icon-sets-sync_linux_amd64 /usr/local/bin/icon-sets-sync
 ```
 
-With a Go toolchain (1.26 or later). The module lives in `src/`, so its path names it:
-
-```bash
-go install github.com/ichava/icon-sets-sync/src/cmd/icon-sets-sync@latest
-```
-
 From a PHP project, through Composer (once the package is on Packagist; until then, add this
 repository as a `vcs` repository):
 
@@ -59,11 +53,18 @@ cd icon-sets-sync
 make build
 ```
 
-Or build the binary from that checkout without Docker:
+To build from source without Docker (Go 1.26 or later), clone the repository and build the module in
+`src/`:
 
 ```bash
+git clone https://github.com/ichava/icon-sets-sync.git
+cd icon-sets-sync
 go -C src build -o ../build/icon-sets-sync ./cmd/icon-sets-sync
 ```
+
+`go install` is not an install path. The Go module proxy fetched `src/v0.1.0` to `src/v0.1.2` from
+commits that predate the single-commit publication, and it keeps the first copy of a tag for good,
+so `go install …@v0.1.0` would serve that older code and `@latest` the older v0.1.2.
 
 The original Python implementation was removed before the re-based 0.1.0; see
 [Architecture](docs/architecture.md#why-go-and-what-happened-to-the-python).
