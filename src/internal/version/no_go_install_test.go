@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -16,9 +17,9 @@ import (
 var goInstallOfThisModule = regexp.MustCompile(`go\s+install\s+github\.com/ichava/icon-sets-sync`)
 
 // minGoInstallDocFiles is the number of files the guard read on 2026-11-01
-// (README.md, CONTRIBUTING.md and 10 under docs/). A walk that stops matching
+// (README.md, CONTRIBUTING.md and the 9 tracked files under docs/). A walk that stops matching
 // must fail rather than pass over nothing.
-const minGoInstallDocFiles = 12
+const minGoInstallDocFiles = 11
 
 func TestDocsOfferNoGoInstall(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
@@ -30,7 +31,8 @@ func TestDocsOfferNoGoInstall(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() {
+		// Skip dotfiles such as a local .DS_Store, so the count matches a clean checkout.
+		if !d.IsDir() && !strings.HasPrefix(d.Name(), ".") {
 			files = append(files, path)
 		}
 		return nil
