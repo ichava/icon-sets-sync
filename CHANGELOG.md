@@ -6,6 +6,7 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ### Changed
 
+- **The SVG policy's `_always_blocked_comment` describes the parked brand logos.** The five raster-wrapping brand logos it called "render blank" are now parked outside their pack's registered assets (OQ-018), so the comment says so. Only that underscore-prefixed comment changed; the policy is identical. The copies in icon-sets-sync and react-icon-browser are re-synced to the new digest (`950214c5828531987ecfa72f1055ab3491c3c664336eaca657cc04907400d390`).
 - Binary releases are off until the maintainers decide on one. A version tag is git only:
   `release.yml` is manual and needs `-f confirm=release-go`, and `docker.yml` no longer publishes on
   a tag. The README and docs install from source (`make build-local`).
