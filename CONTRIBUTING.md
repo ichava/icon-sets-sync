@@ -47,13 +47,16 @@ there is how this tool spent weeks re-opening a pull request it had already open
 ## Releases and versioning
 
 - **A version tag is pushed only for final code.** `vX.Y.Z` marks a release, nothing else. To try a
-  release build first, push a pre-release tag, `vX.Y.Z-rc.N`: it is cached like any other tag, but it
-  uses up no release number.
-- **A public tag is never moved, deleted or reused.** The first time anything fetches a tag, its
-  contents are cached for good: by the Go module proxy and `sum.golang.org` for any public GitHub
-  tag, by Packagist for a Composer package, and by npm and every consumer pinning a git tag for a
-  JavaScript one. Moving the tag afterwards does not change what those serve; it only makes them
-  disagree with git. The next fix gets the next number.
+  release build first, push a pre-release tag, `vX.Y.Z-rc.N`, which uses up no release number. It runs
+  the same release workflow and publishes as a GitHub pre-release. It needs no CHANGELOG section of
+  its own: the workflow uses a `## [X.Y.Z-rc.N]` section when the commit has one, and a fixed
+  test-build note otherwise.
+- **A public tag is never moved, deleted or reused.** Once a tag has been fetched, moving it makes
+  consumers of the same version disagree. Composer and npm git dependencies resolve the tag afresh, so
+  new installs get the moved commit while every existing lockfile and cache keeps the old one (an npm
+  registry version cannot be republished at all). For a Go module, the module proxy keeps the copy it
+  first served and `sum.golang.org` records its checksum, so `go` fetches after the move fail
+  verification. The next fix gets the next number.
 - **A tag ruleset enforces this.** Applied once the v0.1.0 tags are pushed, it blocks deleting,
   updating and force-pushing `v*` and `src/v*` tags on this repository. The v0.1.0 publication as
   a single commit was the one planned exception.
