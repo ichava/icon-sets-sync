@@ -10,19 +10,19 @@
 // and TUI layers run the stack the rest of the estate already does.
 module github.com/ichava/icon-sets-sync/src
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/mattn/go-isatty v0.0.20
+	github.com/mattn/go-isatty v0.0.24
 	github.com/muesli/termenv v0.16.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.9
-	go.yaml.in/yaml/v3 v3.0.5
-	golang.org/x/text v0.28.0
+	github.com/spf13/pflag v1.0.10
+	go.yaml.in/yaml/v3 v3.0.6
+	golang.org/x/text v0.43.0
 )
 
 require (
