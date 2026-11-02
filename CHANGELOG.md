@@ -4,6 +4,17 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ## [Unreleased]
 
+### Changed
+
+- Binary releases are off until the maintainers decide on one. A version tag is git only:
+  `release.yml` is manual and needs `-f confirm=release-go`, and `docker.yml` no longer publishes on
+  a tag. The README and docs install from source (`make build-local`).
+
+### Added
+
+- `ICHAVA_ICON_SETS_SYNC_BIN`: the Composer launcher runs a binary you built from source instead of
+  downloading a release. Without it, and with no release published, the launcher says how to build one.
+
 ## [0.1.0] - TBD
 
 First release of `ichava/icon-sets-sync` as a single published commit. The 0.1.x tags cut between 2026-10-23 and 2026-10-26 (v0.1.0 to v0.1.2, with their `src/` module aliases) are folded into this release, and their notes are kept below under *Archived history*.

@@ -9,8 +9,7 @@ package, and tagged `v0.1.0` with its `src/v0.1.0` module alias. The Go module p
 database already hold `github.com/ichava/icon-sets-sync/src` at v0.1.0, v0.1.1 and v0.1.2: the proxy
 fetches a public tag from git the first time anyone asks for it, and keeps that copy for good. Those
 copies come from commits before the single-commit publication, so `go install …@v0.1.0` serves the
-older code, and that is why the docs offer the signed release binaries and the Composer package, never
-`go install`. `TestDocsOfferNoGoInstall` fails if a `go install` of this module comes back into the README,
+older code, and that is why the docs never offer `go install`. `TestDocsOfferNoGoInstall` fails if a `go install` of this module comes back into the README,
 `CONTRIBUTING.md` or `docs/`. The earlier 0.1.x sections and the pre-reset Python
 `ichava/maintainer-toolkit` sections (v0.1.0 to v0.1.3, 2026-08-31 to 2026-09-22) are kept in
 `CHANGELOG.md` under *Archived history*.
@@ -18,6 +17,21 @@ older code, and that is why the docs offer the signed release binaries and the C
 The Docker image is published to GHCR and is **private**, which is why the pack workflows build from
 a checkout of this repository rather than pulling it: another repository's `GITHUB_TOKEN` cannot pull
 a private package.
+
+## Binary releases are off
+
+**No binary release is published until the maintainers decide on one.** A `vX.Y.Z` tag is git only:
+it records the version and starts nothing. Users build from source (`make build-local`, see the
+README). `release.yml` is manual and refuses to run without an explicit confirmation, and
+`docker.yml` no longer publishes on a tag. When a binary release is decided on, dispatch it against
+an existing tag:
+
+```bash
+gh workflow run release.yml -R ichava/icon-sets-sync --ref vX.Y.Z -f confirm=release-go
+```
+
+v0.1.0's release run was cancelled on 2026-11-02 before GoReleaser finished, so v0.1.0 has no GitHub
+release. Its tags (`v0.1.0`, `src/v0.1.0`) are final and stay where they are.
 
 ## Cutting a release
 
@@ -31,25 +45,22 @@ a private package.
 3. Run *Release Please* from the Actions tab (it also runs every Monday). It opens or refreshes one
    release pull request that bumps `.release-please-manifest.json` and closes `[Unreleased]` as
    `## [X.Y.Z] - date` on that branch; it fails when `[Unreleased]` is empty. Merging it tags
-   `vX.Y.Z` and creates the GitHub release. GoReleaser runs with `release.mode: replace`, so the
-   changelog section replaces the generated body release-please wrote.
+   `vX.Y.Z`. That is the whole release while binary releases are off.
 
 On 0.x a breaking change (`feat!:` or a `BREAKING CHANGE:` footer) bumps the minor and everything
 else bumps the patch. icon-sets-sync is versioned independently of the coupled ichava packages.
 Never edit the release pull request by hand: release-please rebuilds its branch and drops anything
 it did not write. Change the notes on `main` instead.
 
-If a tag ever starts nothing, run `release.yml` by hand against it:
-`gh workflow run release.yml --ref vX.Y.Z`.
-
-The tag starts two workflows:
+When a binary release is decided on, `release.yml` is dispatched by hand against the tag (above).
+It and `docker.yml` publish:
 
 | Workflow | Publishes |
 |---|---|
 | `release.yml` | the GitHub release: bare binaries for both entrypoints (`icon-sets-sync`, `imt`), `.tar.gz`/`.zip` archives, `.deb`/`.rpm`/`.apk`, a source tarball, an SPDX SBOM per archive, `checksums.txt`, its keyless cosign signature `checksums.txt.sigstore.json`, and a build-provenance attestation for every artifact |
 | `docker.yml` | the GHCR image |
 
-`release.yml` also pushes `src/vX.Y.Z` on the same commit before GoReleaser runs. The Go module is
+A dispatched `release.yml` also pushes `src/vX.Y.Z` on the same commit before GoReleaser runs. The Go module is
 `github.com/ichava/icon-sets-sync/src`, and Go resolves a subdirectory module only through a tag
 named after the subdirectory. **A `src/` tag is permanent once the Go proxy has fetched it**: never
 move or recreate one, and the same holds for every `vX.Y.Z`. The step leaves an existing alias alone.

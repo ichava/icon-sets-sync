@@ -17,6 +17,11 @@ final class Launcher
     public static function main(array $arguments): int
     {
         try {
+            $local = self::localBinary();
+            if ($local !== null) {
+                return self::exec($local, $arguments);
+            }
+
             $installer = new Installer(
                 fetcher: new HttpFetcher,
                 platform: Platform::detect(),
@@ -29,9 +34,29 @@ final class Launcher
             return self::exec($installer->ensure(), $arguments);
         } catch (Throwable $e) {
             fwrite(STDERR, 'icon-sets-sync: ' . $e->getMessage() . PHP_EOL);
+            fwrite(STDERR, 'icon-sets-sync: no release binary is published yet. Build from source '
+                . '(git clone https://github.com/ichava/icon-sets-sync.git && make -C icon-sets-sync build-local) '
+                . 'and set ICHAVA_ICON_SETS_SYNC_BIN to the built binary.' . PHP_EOL);
 
             return 1;
         }
+    }
+
+    /**
+     * A binary the user built from source, named by ICHAVA_ICON_SETS_SYNC_BIN.
+     * Used instead of a downloaded release; no release binaries are published yet.
+     */
+    public static function localBinary(?string $path = null): ?string
+    {
+        $path ??= getenv('ICHAVA_ICON_SETS_SYNC_BIN') ?: null;
+        if ($path === null) {
+            return null;
+        }
+        if (! is_file($path) || ! is_executable($path)) {
+            throw new LauncherException("ICHAVA_ICON_SETS_SYNC_BIN is set to {$path}, which is not an executable file.");
+        }
+
+        return $path;
     }
 
     /**
