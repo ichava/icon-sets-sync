@@ -80,5 +80,5 @@
   "blockImageNonFragmentHref": true,
   "blockAnchorNonFragmentHref": true,
   "blockCdataScript": true,
-  "_always_blocked_comment": "stripDoctype and stripEntities cover XXE and billion-laughs. <image> and <a> with a non-fragment href are blocked, which is why 5 brand logos that embed a raster image render blank -- known-degraded by policy, OQ-018."
+  "_always_blocked_comment": "stripDoctype and stripEntities cover XXE and billion-laughs. <image> and <a> with a non-fragment href are blocked, which is why the 5 brand logos in a proprietary icon set that embed a raster image are parked outside that pack's registered assets rather than shipped blank (OQ-018)."
 }
