@@ -88,6 +88,12 @@ jobs:
             found && /^## \[/        { exit }
             found                    { print }
           ' CHANGELOG.md > "$RUNNER_TEMP/section.md"
+          # A pre-release tag (vX.Y.Z-rc.N) is a test build: GoReleaser marks it a
+          # pre-release (`prerelease: auto`) and it needs no CHANGELOG section of its
+          # own. A final tag still fails closed below.
+          if [ -z "$(tr -d '[:space:]' < "$RUNNER_TEMP/section.md")" ] && [[ "$VERSION" == *-* ]]; then
+            echo "Pre-release build ${GITHUB_REF_NAME}, for testing. It is not a release; the notes ship with the final v${VERSION%%-*} tag." > "$RUNNER_TEMP/section.md"
+          fi
           if [ -z "$(tr -d '[:space:]' < "$RUNNER_TEMP/section.md")" ]; then
             echo "::error::CHANGELOG.md has no '## [$VERSION]' section. Refusing to publish $GITHUB_REF_NAME."
             exit 1
