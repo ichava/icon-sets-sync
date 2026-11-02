@@ -1,36 +1,36 @@
-# Tag-driven. One pushed `vX.Y.Z` tag publishes the source and the binaries
-# together, per the Simtabi Go release standard:
+# Manual only. icon-sets-sync is published as git source for now: no release binaries,
+# packages, GitHub releases or Docker tags are cut from a tag. Pushing a `vX.Y.Z` tag
+# records the version and starts nothing. Users clone the repository and build the
+# binary themselves (`make build-local`, see the README).
+#
+# This workflow is kept for the day a binary release is decided on. It runs only when
+# dispatched against a tag with the explicit confirmation input:
+#
+#   gh workflow run release.yml -R ichava/icon-sets-sync --ref vX.Y.Z -f confirm=release-go
+#
+# Any other value stops the run before anything is built or published. When it does run:
 #
 #   - GoReleaser cross-compiles both entrypoints (icon-sets-sync, imt) for the
 #     whole matrix, builds the bare binaries, the .tar.gz/.zip archives, the
 #     deb/rpm/apk packages and a reproducible source tarball, an SPDX SBOM per
 #     archive, and checksums.txt over all of it (config: src/.goreleaser.yaml);
-#   - cosign signs checksums.txt keylessly through Sigstore
-#     (checksums.txt.sigstore.json), so one signature covers every artifact;
+#   - cosign signs checksums.txt keylessly through Sigstore;
 #   - attest-build-provenance signs a build-provenance attestation for every
-#     artifact listed in checksums.txt (`gh attestation verify <file>
-#     --repo ichava/icon-sets-sync`). Mandatory; the cosign signature is in
-#     addition to it, not instead of it.
+#     artifact listed in checksums.txt.
 #
 # The release body is the tagged version's CHANGELOG section, never generated
-# notes alone. The Docker image is published separately, by docker.yml, on the
-# same tag.
-#
-# A tag is the only legitimate `push` trigger in this ecosystem; everything else
-# runs on `pull_request`.
+# notes alone.
 
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
-      - 'v*.*.*-*'
-
-  # Recovery path for a tag push that started nothing. Dispatch it against the
-  # tag: `gh workflow run release.yml --ref v0.1.0`. On a branch it fails at
-  # GoReleaser's "current tag is not semver" rather than publishing anything.
+  # No `push: tags` trigger: a tag is git only until a binary release is decided on.
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type release-go to publish binaries for the tag this run is dispatched against'
+        required: true
+        default: 'no'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -57,6 +57,23 @@ jobs:
       attestations: write  # store the build-provenance attestation
 
     steps:
+      # Binary releases are off until the maintainers decide otherwise. Refuse
+      # without the explicit confirmation, and refuse on anything but a tag.
+      - name: Require the explicit release confirmation
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          set -euo pipefail
+          if [ "$CONFIRM" != "release-go" ]; then
+            echo "::error::Binary releases are off. Dispatch with -f confirm=release-go only when a release has been decided on."
+            exit 1
+          fi
+          if [ "$REF_TYPE" != "tag" ]; then
+            echo "::error::Dispatch this workflow against a vX.Y.Z tag (--ref vX.Y.Z)."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v7
         with:

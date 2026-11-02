@@ -46,11 +46,13 @@ there is how this tool spent weeks re-opening a pull request it had already open
 
 ## Releases and versioning
 
-- **A version tag is pushed only for final code.** `vX.Y.Z` marks a release, nothing else. To try a
-  release build first, push a pre-release tag, `vX.Y.Z-rc.N`, which uses up no release number. It runs
-  the same release workflow and publishes as a GitHub pre-release. It needs no CHANGELOG section of
-  its own: the workflow uses a `## [X.Y.Z-rc.N]` section when the commit has one, and a fixed
-  test-build note otherwise.
+- **No binary release until the maintainers say so.** A version is git only for now: a `vX.Y.Z` tag
+  starts no workflow, and no GitHub release, binary, package or Docker tag is published. Users build
+  from source. `release.yml` stays in the repository but is manual and refuses to run without
+  `-f confirm=release-go`; do not dispatch it, or restore a `push: tags` trigger, without an explicit
+  maintainer decision. See [Release](docs/release.md#binary-releases-are-off).
+- **A version tag is pushed only for final code.** `vX.Y.Z` marks a release, nothing else. Test a
+  change on a branch; a pre-release tag (`vX.Y.Z-rc.N`) is for the day binary releases are on.
 - **A public tag is never moved, deleted or reused.** Once a tag has been fetched, moving it makes
   consumers of the same version disagree. Composer and npm git dependencies resolve the tag afresh, so
   new installs get the moved commit while every existing lockfile and cache keeps the old one (an npm
