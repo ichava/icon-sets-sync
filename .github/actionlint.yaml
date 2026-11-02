@@ -1,0 +1,13 @@
+# actionlint configuration. Every ignore below is a known false positive, with the evidence and the
+# condition under which it should be deleted. An entry is a ceiling, not a licence: it names one file and
+# one message, so a new problem elsewhere still fails the lint.
+paths:
+  .github/workflows/release-please.yml:
+    ignore:
+      # actionlint's bundled action metadata predates actions/create-github-app-token v3, whose own
+      # action.yml declares `client-id` and makes `app-id` optional ("deprecationMessage: Use 'client-id'
+      # instead."). Checked 2026-10-23 against actionlint v1.7.12, the latest release, and against
+      # create-github-app-token v3.3.0's action.yml. Delete both entries once an actionlint release
+      # knows v3's inputs and the lint passes without them.
+      - 'missing input "app-id" which is required by action "actions/create-github-app-token@v3"'
+      - 'input "client-id" is not defined in action "actions/create-github-app-token@v3"'

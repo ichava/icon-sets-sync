@@ -1,0 +1,21 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// Composer's bin proxy sets this; fall back to the two layouts that matter: this
+// package installed under vendor/, and this repository checked out on its own.
+$autoload = $GLOBALS['_composer_autoload_path'] ?? null;
+foreach ([$autoload, __DIR__ . '/../../../autoload.php', __DIR__ . '/../vendor/autoload.php'] as $candidate) {
+    if (is_string($candidate) && is_file($candidate)) {
+        require $candidate;
+        break;
+    }
+}
+
+if (! class_exists(Simtabi\Laranail\Ichava\IconSetsSync\Launcher::class)) {
+    fwrite(STDERR, "icon-sets-sync: Composer's autoloader was not found. Run composer install.\n");
+    exit(1);
+}
+
+exit(Simtabi\Laranail\Ichava\IconSetsSync\Launcher::main(array_values(array_slice($argv, 1))));

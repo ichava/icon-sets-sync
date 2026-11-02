@@ -1,0 +1,354 @@
+# Tests + lint + typecheck for ichava/icon-sets-sync.
+#
+# Runs on every pull request, on demand via workflow_dispatch, and once a week
+# on main: nothing re-runs after a merge, so drift on main (an upstream
+# release that breaks the build, two green PRs that interact) would otherwise
+# stay invisible until an unrelated pull request goes red.
+#
+# The Go job tests the implementation the Docker image runs. The Composer job
+# tests the PHP launcher that installs that implementation's release binary.
+# The Docker job builds the image the pack workflows build, and runs it the way
+# they do, because nothing else exercises the Dockerfile before a merge.
+
+name: Tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 10 * * 1'   # Mondays, 06:17 New York
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Our own modules come from git, never through the public proxy, so a CI
+    # build never feeds proxy.golang.org or sum.golang.org a tag.
+    env:
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
+
+    # The Go module lives in src/, not at the root. A bare `go test ./...` at the
+    # root finds no packages and passes, so every step names the module
+    # explicitly: `go-version-file` for setup-go, `go -C src` for the rest.
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l src)
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt would reformat:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: go vet
+        run: go -C src vet ./...
+
+      - name: go test
+        run: go -C src test -count=1 ./...
+
+      # A test run that compiled nothing would pass; pin the package count.
+      - name: Assert packages were tested
+        run: |
+          n=$(go -C src list ./... | wc -l)
+          echo "packages: $n"
+          [ "$n" -ge 24 ] || { echo "::error::only $n Go packages found under src/"; exit 1; }
+
+  composer:
+    name: Composer launcher (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # composer.json makes this repository installable as ichava/icon-sets-sync:
+    # a PHP launcher in bin/ that downloads the release binary for the host and
+    # checks it against the signed checksums.txt. Strict validation is what
+    # Packagist will apply, so a manifest Packagist would reject fails here first.
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: composer validate --strict
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Pest
+        run: vendor/bin/pest --test-directory=php/tests
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the image the pack workflows build
+        run: docker build --build-arg VERSION=ci -t icon-sets-sync:ci .
+
+      - name: The entrypoint is the Go binary
+        run: |
+          out=$(docker run --rm icon-sets-sync:ci version)
+          echo "$out"
+          [ "$out" = "icon-sets-sync ci" ] || { echo "::error::unexpected version line: $out"; exit 1; }
+
+      # The same mounts sync-upstream.yml uses: the toolkit's config/ over
+      # /app/config. If the image cannot find or validate the configs this
+      # way, every pack's Monday sync fails, so check it here.
+      - name: The shipped configs validate inside the image
+        run: |
+          docker run --rm -v "$PWD/config:/app/config" icon-sets-sync:ci config validate
+
+      - name: The web UI is in the image
+        run: |
+          docker run --rm icon-sets-sync:ci serve --help | grep -q -- '--allow-remote' \
+            || { echo "::error::the image's binary has no serve command"; exit 1; }
+
+      - name: The runtime tools are present
+        run: |
+          docker run --rm --entrypoint sh icon-sets-sync:ci -c \
+            'git --version && gh --version && npm --version && test -L /usr/local/bin/imt'
+
+      - name: The removed Python console script name is not shipped
+        run: |
+          docker run --rm --entrypoint sh icon-sets-sync:ci -c \
+            '! test -e /usr/local/bin/ichava-maintainer-toolkit && ! test -L /usr/local/bin/ichava-maintainer-toolkit' \
+            || { echo "::error::the image still ships /usr/local/bin/ichava-maintainer-toolkit"; exit 1; }
+
+  ui-a11y:
+    name: Web UI accessibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Our own modules come from git, never through the public proxy, so a CI
+    # build never feeds proxy.golang.org or sum.golang.org a tag.
+    env:
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
+
+    # Serves the web UI against a fixture and runs axe over every page in the
+    # light and the dark theme, failing on any serious or critical violation.
+    # Node is used here and only here: the Go build never needs it. Not
+    # path-filtered, so it can be a required check (a path-filtered required
+    # check never reports and blocks the merge). The script asserts how many
+    # pages it scanned, so a run that loaded nothing cannot pass.
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+
+      - name: Build
+        run: go -C src build -o "$RUNNER_TEMP/icon-sets-sync" ./cmd/icon-sets-sync
+
+      - name: axe, light and dark
+        env:
+          AXE_VERSION: 4.14.0
+          BIN: ${{ runner.temp }}/icon-sets-sync
+        run: CHROMEDRIVER="$CHROMEWEBDRIVER/chromedriver" .github/scripts/ui-a11y.sh
+
+      - name: Keep the reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-a11y
+          path: ${{ runner.temp }}/ui-a11y/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  tabler-latest:
+    name: Tabler is current
+    # Weekly and on demand only: a new Tabler release is not a reason to fail
+    # someone's pull request. It warns and never opens one -- the vendored
+    # files move with `make tabler-update`, reviewed like any other change.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Our own modules come from git, never through the public proxy, so a CI
+    # build never feeds proxy.golang.org or sum.golang.org a tag.
+    env:
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+
+      - name: Compare TABLER_VERSION with npm
+        run: go -C src run ./internal/tools/tablervendor -check -root ..
+
+  actionlint:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # Nothing else reads these files until a tag is pushed. `release.yml` triggers
+    # on `push: tags`, so until now a broken workflow was first observed as a
+    # release that refused to start -- after the decision to release had been made.
+    #
+    # A YAML parse is not a substitute. `yaml.safe_load` accepts a duplicate key
+    # and silently keeps the last one, which is how a double-applied patch shipped
+    # a step carrying `continue-on-error:` twice and still validated clean.
+    # actionlint rejects what Actions rejects.
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: actionlint
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+
+  release-config:
+    name: Release build (snapshot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Our own modules come from git, never through the public proxy, so a CI
+    # build never feeds proxy.golang.org or sum.golang.org a tag.
+    env:
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
+
+    # release.yml only runs on a tag, so without this the first sight of a
+    # broken GoReleaser config, a target that stopped compiling or an archive
+    # that lost a file is a tag that published nothing. This builds the whole
+    # release matrix the way release.yml does, minus the publish and the
+    # keyless signature (no tag, no point), and checks what came out.
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+
+      - name: GoReleaser snapshot
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          version: '~> v2'
+          args: release --snapshot --clean --config src/.goreleaser.yaml --skip=sign,publish
+
+      # Floors, not exact counts, so a target added later does not fail this;
+      # a target that silently stopped building does.
+      - name: Assert the release set
+        run: |
+          set -euo pipefail
+          cd build/dist
+          bins=$(grep -cvE '\.(tar\.gz|zip|deb|rpm|apk|json)$|_source\.tar\.gz$' checksums.txt)
+          archives=$(find . -maxdepth 1 \( -name '*.tar.gz' -o -name '*.zip' \) ! -name '*_source.tar.gz' | wc -l)
+          pkgs=$(find . -maxdepth 1 \( -name '*.deb' -o -name '*.rpm' -o -name '*.apk' \) | wc -l)
+          sboms=$(find . -maxdepth 1 -name '*.sbom.json' | wc -l)
+          echo "bare binaries=$bins archives=$archives packages=$pkgs sboms=$sboms"
+          [ "$bins" -ge 38 ] || { echo "::error::expected at least 38 bare binaries"; exit 1; }
+          [ "$archives" -ge 19 ] || { echo "::error::expected at least 19 archives"; exit 1; }
+          [ "$pkgs" -ge 24 ] || { echo "::error::expected at least 24 Linux packages"; exit 1; }
+          [ "$sboms" -eq "$archives" ] || { echo "::error::one SBOM per archive expected"; exit 1; }
+          find . -maxdepth 1 -name '*_source.tar.gz' | grep -q . || { echo "::error::no source tarball"; exit 1; }
+          grep -q 'icon-sets-sync_macos_universal$' checksums.txt
+          tar tzf icon-sets-sync_linux_amd64.tar.gz | sort | tr '\n' ' ' \
+            | grep -qx 'CHANGELOG.md LICENSE README.md THIRD_PARTY_NOTICES.md icon-sets-sync imt ' \
+            || { echo "::error::linux_amd64 archive contents changed"; tar tzf icon-sets-sync_linux_amd64.tar.gz; exit 1; }
+
+  changelog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    name: Changelog order
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # A misordered CHANGELOG still releases correctly, because release.yml
+      # finds a section by heading rather than by position -- so nothing else
+      # in this ecosystem catches it. Two packs had it: browser carried
+      # [Unreleased] below [0.2.7], and icon-sets-emoji had [0.2.6] filed
+      # between [0.1.1] and [0.1.0]. Closing [Unreleased] in place would have
+      # filed the new version underneath an older one.
+      - name: Check CHANGELOG section order
+        run: |
+          python3 - CHANGELOG.md <<'PYEOF'
+          import collections
+          import re, sys
+
+          path = sys.argv[1]
+          try:
+              text = open(path, encoding='utf-8').read()
+          except FileNotFoundError:
+              print(f'::error::{path} not found'); sys.exit(1)
+
+          heads = re.findall(r'^## \[([^\]]+)\]', text, re.M)
+          if not heads:
+              print(f'::error::{path} has no "## [version]" headings'); sys.exit(1)
+
+          def order_key(v):
+              nums = [int(n) for n in re.findall(r'\d+', v)[:3]]
+              return tuple(nums + [0] * (3 - len(nums)))
+
+          problems = []
+          # Duplicates first. Ordering says nothing about how many [Unreleased]
+          # headings there are, and release.yml extracts exactly one section by
+          # version heading: a second [Unreleased] means the next release
+          # publishes part of its notes and strands the rest under a heading no
+          # version will ever match. Four had accumulated here before anyone
+          # looked, and three other repos in the ecosystem had the same.
+          seen = [h for h, n in collections.Counter(heads).items() if n > 1]
+          if seen:
+              problems.append(
+                  'duplicate section headings: ' + ', '.join(f'[{h}]' for h in seen)
+                  + '. Each branch must add to the existing section, not prepend its own.')
+
+          if 'Unreleased' in heads and heads[0] != 'Unreleased':
+              problems.append(
+                  f'[Unreleased] is section {heads.index("Unreleased") + 1}, not the first. '
+                  'Closing it in place would file the new version below an older one.')
+
+          versions = [h for h in heads if h != 'Unreleased']
+          for older, newer in zip(versions, versions[1:]):
+              if order_key(older) < order_key(newer):
+                  problems.append(f'[{older}] is listed above [{newer}], but is the lower version.')
+
+          if problems:
+              print(f'::error::{path} sections are out of order:')
+              for p in problems:
+                  print(f'::error::  {p}')
+              sys.exit(1)
+
+          print(f'{path}: {len(heads)} sections, correctly ordered')
+          PYEOF

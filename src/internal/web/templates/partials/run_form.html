@@ -1,0 +1,11 @@
+{{define "run_mode"}}<fieldset class="mb-3">
+  <legend class="form-label">Mode</legend>
+  <label class="form-check">
+    <input class="form-check-input" type="radio" name="mode" value="dry-run" checked>
+    <span class="form-check-label">Dry run <span class="text-secondary">-- refresh files in the pack's working tree; no version stamp, commit, push or pull request</span></span>
+  </label>
+  <label class="form-check">
+    <input class="form-check-input" type="radio" name="mode" value="real">
+    <span class="form-check-label">Real sync <span class="text-secondary">-- commits, pushes and opens a pull request; asks you to confirm</span></span>
+  </label>
+</fieldset>{{end}}
