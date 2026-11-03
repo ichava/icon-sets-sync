@@ -185,7 +185,7 @@ the full architecture.
 
 ## See also
 
-- [`architecture.md`](https://opensource.simtabi.com/documentation/ichava/core/architecture) -- where this slots into the
+- [`architecture.md`](https://github.com/ichava/core/blob/main/docs/architecture.md) -- where this slots into the
   overall service-provider hierarchy
   poisoning considerations for the version-check endpoints
 

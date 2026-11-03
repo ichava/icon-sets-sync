@@ -130,7 +130,7 @@ nfpms:
     ids: [icon-sets-sync, imt]
     package_name: icon-sets-sync
     vendor: Simtabi LLC
-    homepage: "https://opensource.simtabi.com/products/ichava/icon-sets-sync"
+    homepage: "https://github.com/ichava/icon-sets-sync"
     maintainer: "Simtabi LLC <ichava@simtabi.com>"
     description: "Syncs the Ichava icon packs from their upstream sources."
     license: MIT

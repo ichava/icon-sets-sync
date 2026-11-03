@@ -140,7 +140,7 @@ would be scope creep without user demand.
 ## See also
 
 - [`icon-pack-upstream-tracking.md`](upstream-tracking.md) -- the host-app side of the story
-- [`architecture.md`](https://opensource.simtabi.com/documentation/ichava/core/architecture) -- where this slots into the package topology
+- [`architecture.md`](https://github.com/ichava/core/blob/main/docs/architecture.md) -- where this slots into the package topology
 
 ---
 
