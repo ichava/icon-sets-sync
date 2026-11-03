@@ -4,7 +4,7 @@
     "type": "library",
     "license": "MIT",
     "keywords": ["ichava", "icons", "svg", "icon-sets", "sync", "cli"],
-    "homepage": "https://opensource.simtabi.com/products/ichava/icon-sets-sync",
+    "homepage": "https://github.com/ichava/icon-sets-sync",
     "authors": [
         {
             "name": "Simtabi LLC",
@@ -17,7 +17,7 @@
         "issues": "https://github.com/ichava/icon-sets-sync/issues",
         "source": "https://github.com/ichava/icon-sets-sync",
         "security": "https://github.com/ichava/icon-sets-sync/security/policy",
-        "docs": "https://opensource.simtabi.com/documentation/ichava/icon-sets-sync/"
+        "docs": "https://github.com/ichava/icon-sets-sync/tree/main/docs"
     },
     "require": {
         "php": "^8.4",
