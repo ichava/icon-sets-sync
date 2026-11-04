@@ -24,6 +24,13 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ### Added
 
+- **CI mode (Phase 2, D5).** `.github/workflows/sync-pack.yml` is a reusable workflow (`on: workflow_call`) the pack repositories can call instead of each carrying a copy of the sync logic. It builds the binary from source at a pinned toolkit tag or SHA, opens the update pull request with a Refresh Bot token limited to `contents` and `pull-requests` write, and turns an upstream licence change into an issue instead of a pull request. A Go test holds the file to its triggers, permissions, timeout, concurrency and pinning (P2-C3, P2-C8, P2-C9).
+- **`run` is an alias of `sync`, and `--non-interactive` of `--no-input`**, the names the CI mode uses (P2-C2).
+- **`sync --json` marks a licence change**: a pack the licence guard stopped carries `licence_changed: true` (P2-S3).
+- **The per-pack diff.** The filesystem sink's metrics gain `added`, `removed` and `changed` counts and up to 50 names of each, hashed before the wipe, so a dry run reports them too. The web UI's run page shows the counts, and names a licence change as one rather than as a generic failure (P2-S2, P2-S3).
+- **`make cross`** builds the whole release matrix locally into `build/dist/` from `src/.goreleaser.yaml`, with publishing, signing and SBOMs skipped (P2-B2).
+- A test proves a GitHub token in the environment reaches neither the run history on disk nor a page the web UI renders (P2-T5).
+
 - **A sync recipe for `ichava/icon-sets-openmoji` (Q15).** `config/icon-sets-openmoji.json` and the
   `openmoji-sets` recipe pull the colour and black sets from `hfg-gmuend/openmoji`, pinned to the
   release tag the checker finds, and the pack is listed in `config/packs.json`. It shares one
@@ -38,6 +45,10 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 - A golden test pins that a sync preserves `package.kind`, `categories.*.kind`, `items` and `kinds.rules` byte for byte.
 - `ICHAVA_ICON_SETS_SYNC_BIN`: the Composer launcher runs a binary you built from source instead of
   downloading a release. Without it, and with no release published, the launcher says how to build one.
+
+### Fixed
+
+- **A licence declared by a pack on the `generic` recipe is enforced.** Only the `openmoji-sets` recipe passed the pack's `licence` to its licence-text sink, so a declaration in a tabler or flag config was silently unguarded (P2-G10). No shipped generic config declares one, so no sync changes behaviour today.
 
 ## [0.1.0] - TBD
 
