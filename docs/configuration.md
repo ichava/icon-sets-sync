@@ -146,6 +146,16 @@ are seen as `url(`. Then:
 
 A value that fails is dropped whole, like any other disallowed attribute.
 
+Three presentation attributes have a narrower rule of their own, on top of that guard:
+
+- `display` survives only as bare keywords: `none`, `inline`, `block`, `inline flow-root`. No
+  parens, no `url()`, no escape. OpenMoji hides construction shapes in its subdivision flags with
+  `display="none"`, and stripping it makes them render.
+- `color` takes the CSS guard above.
+- `marker-start`, `marker-mid` and `marker-end` survive only as `none` or `url(#fragment)`.
+
+Inkscape's `sodipodi:docname` is metadata and is stripped.
+
 A document over 4,500,000 bytes or 30,000 elements is refused before it builds a tree. It is treated like an
 unparseable file: counted and left as it was. The caps are the `MaxBytes` and `MaxNodes` fields on the
 policy, and match react-icon-browser's and core's; the pack SVGs measure at most 1.0 MB and 6,741 elements.

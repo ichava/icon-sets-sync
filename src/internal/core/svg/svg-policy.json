@@ -40,9 +40,13 @@
     "class", "id", "xmlns", "xmlns:xlink", "role",
 
     "x1", "y1", "x2", "y2", "fx", "fy", "fr", "spreadMethod",
-    "clipPathUnits", "maskUnits", "maskContentUnits"
+    "clipPathUnits", "maskUnits", "maskContentUnits",
+
+    "display", "color", "marker-start", "marker-mid", "marker-end"
   ],
   "_allowedAttributes_addendum": "The last row is NOT in phase-3-redesign.md §4.1 and is added here deliberately. §4.1 (and brief §1.3 before it) list gradientUnits and gradientTransform but omit the coordinates a gradient is actually drawn with. A <linearGradient> without x1/y1/x2/y2 has no direction, a <radialGradient> without fx/fy/fr has no focal point, and clipPathUnits / maskUnits / maskContentUnits decide whether a clip or mask is interpreted in user space or object space -- get it wrong and the shape is clipped to nothing. The shipped PHP config had all eleven; adopting §4.1 verbatim would have REMOVED them and broken all 65 gradient icons plus every clip and mask. Caught by diffing the effective config before and after this file was wired in. This is the same single-archetype omission §1.1 describes, one level up: the spec was written from the fidelity contract, and the fidelity contract itself was incomplete.",
+
+  "_allowedAttributes_addendum_presentation": "The row display, color, marker-start, marker-mid, marker-end was added 2026-11-04 after a dry run of OpenMoji 17 stripped display=\"none\" from 13 subdivision flags (their hidden construction shapes would render), color from 3 files and marker-end from 1. Each is name-allowed here and value-guarded in every reader: display only as one or more bare keywords (no parens, no url, no escapes) and through the CSS value guard; color through the CSS value guard; marker-* only as none or url(#fragment), through the CSS value guard. Inkscape's sodipodi:docname stays stripped.",
 
   "allowedAttributePrefixes": ["aria-"],
   "_allowedAttributePrefixes_comment": "Includes aria-labelledby and aria-describedby. Allowed by SHAPE rather than by list, so a newly standardised ARIA attribute cannot become an accessibility regression. Hundreds of icons in the measured corpus carry aria-labelledby, and it is the line most often forgotten when ids are rewritten.",

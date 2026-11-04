@@ -131,8 +131,8 @@ func TestPresentationAttributesGetTheSameGuard(t *testing.T) {
 			{`image-set("https://evil.test/x" 1x)`, false},
 			{`url("https://e/x'y")`, false},
 		} {
-			// marker-* are not on the allow-list by name, so for those the only
-			// question is that they can never survive with a remote target.
+			// A name off the allow-list cannot survive at all, so for one the
+			// only question is that it never survives with a remote target.
 			got := p.AttributeAllowed(name, tc.value, false)
 			if tc.want && !p.allowedAttrLower[name] {
 				continue

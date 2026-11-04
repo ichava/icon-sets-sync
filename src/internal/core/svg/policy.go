@@ -250,6 +250,15 @@ func (p *Policy) AttributeAllowed(name, value string, alsoStripClass bool) bool 
 		return StyleValueIsSafe(value)
 	}
 
+	switch lowered {
+	case "display":
+		return DisplayValueIsSafe(value)
+	case "marker-start", "marker-mid", "marker-end":
+		return MarkerValueIsSafe(value)
+	case "color":
+		return CSSValueIsSafe(value)
+	}
+
 	// A presentation attribute that takes a paint, url or filter fetches exactly
 	// as style does, and used to be trusted on its name alone.
 	if cssURLAttributes[lowered] {
@@ -257,6 +266,34 @@ func (p *Policy) AttributeAllowed(name, value string, alsoStripClass bool) bool 
 	}
 
 	return true
+}
+
+// displayKeywords is one or more bare CSS keywords: none, inline, block,
+// "inline flow-root". No parens, so no url() or other function, and no
+// backslash, so no escape that spells one.
+var displayKeywords = regexp.MustCompile(`^[A-Za-z][A-Za-z-]*(?: [A-Za-z][A-Za-z-]*)*$`)
+
+// markerReference is the only non-keyword a marker-* attribute may hold: a
+// same-document url(#id), quotes matched.
+var markerReference = regexp.MustCompile(`^url\(\s*(?:#[A-Za-z_][\w.:-]*|"#[A-Za-z_][\w.:-]*"|'#[A-Za-z_][\w.:-]*')\s*\)$`)
+
+// DisplayValueIsSafe reports whether a display attribute value is permitted:
+// bare keywords only, and still through the CSS value guard. OpenMoji hides
+// the construction shapes of its subdivision flags with display="none";
+// stripping it makes them render.
+func DisplayValueIsSafe(value string) bool {
+	v := strings.TrimSpace(value)
+	return displayKeywords.MatchString(v) && CSSValueIsSafe(v)
+}
+
+// MarkerValueIsSafe reports whether a marker-start, marker-mid or marker-end
+// value is permitted: none, or url(#fragment), through the CSS value guard.
+func MarkerValueIsSafe(value string) bool {
+	v := strings.TrimSpace(value)
+	if strings.EqualFold(v, "none") {
+		return true
+	}
+	return markerReference.MatchString(v) && CSSValueIsSafe(v)
 }
 
 // StyleValueIsSafe reports whether a style attribute value is permitted.
