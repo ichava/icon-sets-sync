@@ -106,13 +106,16 @@ test-go:  ## Go: vet + test with the host's Go toolchain
 	go -C src test -count=1 ./...
 
 # golangci-lint runs when it is installed and is skipped with a note when it is
-# not, so `make lint` needs nothing beyond Go. CI runs gofmt and vet.
+# not, so `make lint` needs nothing beyond Go. CI runs gofmt and vet. It reports
+# only issues new since main: the tree carried 19 older ones on 2026-11-04.
+# `make lint GOLANGCI_ARGS=` shows them all.
+GOLANGCI_ARGS ?= --new-from-rev=main
 .PHONY: lint
 lint:  ## gofmt check + go vet, and golangci-lint when it is installed
 	@test -z "$$(gofmt -l src)" || { echo "gofmt would reformat:"; gofmt -l src; exit 1; }
 	go -C src vet ./...
 	@if command -v golangci-lint >/dev/null; then \
-		echo "golangci-lint run ./..."; cd src && golangci-lint run ./...; \
+		echo "golangci-lint run $(GOLANGCI_ARGS) ./..."; cd src && golangci-lint run $(GOLANGCI_ARGS) ./...; \
 	else \
 		echo "golangci-lint is not installed; skipped (https://golangci-lint.run/welcome/install/)"; \
 	fi
