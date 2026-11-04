@@ -60,7 +60,8 @@ the browser in; without it every page answers 401.
 
 Opens the default browser at that address when run by a person at a desktop:
 never when CI is set, when ICHAVA_NO_BROWSER=1, when stdin or stdout is not a
-terminal, or on Linux with neither DISPLAY nor WAYLAND_DISPLAY. --no-open
+terminal (unless a desktop started it: the macOS app, or ICHAVA_DESKTOP_LAUNCH=1),
+or on Linux with neither DISPLAY nor WAYLAND_DISPLAY. --no-open
 turns it off. Running the binary with no arguments at all does the same as
 plain serve.
 

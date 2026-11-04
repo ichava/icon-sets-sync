@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 
@@ -19,6 +20,10 @@ type launchEnv struct {
 	getenv    func(string) string
 	stdinTTY  bool
 	stdoutTTY bool
+	// exe is the path the process was started by, unresolved.
+	exe string
+	// consoleAlone is Windows' console holding this process only.
+	consoleAlone bool
 }
 
 // currentLaunchEnv reads the real process. A seam: tests replace it.
@@ -28,7 +33,18 @@ var currentLaunchEnv = func() launchEnv {
 		getenv:    os.Getenv,
 		stdinTTY:  isTTY(os.Stdin),
 		stdoutTTY: isTTY(os.Stdout),
+		exe:       executable(),
+		// Asked only when no argument was given, so the CLI pays nothing.
+		consoleAlone: runtime.GOOS == "windows" && len(os.Args) == 1 && consoleAlone(),
 	}
+}
+
+func executable() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	return exe
 }
 
 func isTTY(f *os.File) bool {
@@ -49,15 +65,17 @@ const (
 // The binary runs on GitHub Actions runners and servers as often as on a
 // laptop, so the answer is no unless every sign points at a person at a
 // desktop: no CI, no opt-out, a terminal on both stdin and stdout (a
-// double-click in Finder or Explorer opens one), and on Linux and the BSDs a
-// display server to open it on.
+// double-click on the bare binary in Finder or Explorer opens one) or a
+// desktop launch (the .app, the .desktop entry; see desktopLaunchOf), and on
+// Linux and the BSDs a display server to open it on.
 func browserAllowed(e launchEnv) (bool, string) {
+	desktop, _ := desktopLaunchOf(e)
 	switch {
 	case e.getenv("CI") != "":
 		return false, noBrowserCI
 	case truthy(e.getenv("ICHAVA_NO_BROWSER")):
 		return false, noBrowserOptOut
-	case !e.stdinTTY || !e.stdoutTTY:
+	case (!e.stdinTTY || !e.stdoutTTY) && !desktop:
 		return false, noBrowserTerminal
 	case e.goos != "darwin" && e.goos != "windows" &&
 		e.getenv("DISPLAY") == "" && e.getenv("WAYLAND_DISPLAY") == "":
@@ -80,17 +98,30 @@ func truthy(v string) bool {
 // in the default browser. Anything else -- a flag with no subcommand -- keeps
 // the earlier behaviour: the terminal menu, or help where nobody can drive
 // it. Every subcommand has its own RunE and never comes here.
+//
+// Started from the .app or by an Explorer double-click, it hands the server
+// to a detached `serve` and exits, so no window is left behind; if that
+// start fails it serves here instead.
 func runDefault(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 || anyFlagSet(cmd.Flags()) {
 		return runMenu(cmd, args)
 	}
-	ok, reason := browserAllowed(currentLaunchEnv())
+	env := currentLaunchEnv()
+	ok, reason := browserAllowed(env)
 	if !ok {
 		ui.Info("%s", reason)
 		return cmd.Help()
 	}
 	if handOff(cmd) {
 		return nil
+	}
+	if _, detach := desktopLaunchOf(env); detach {
+		err := relaunchServe()
+		if err == nil {
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "icon-sets-sync is starting in the background and will open in your browser.")
+			return nil
+		}
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "could not start in the background (%s); serving here\n", err)
 	}
 	return serveUI(cmd, defaultServeOptions(), false)
 }
