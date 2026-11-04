@@ -10,7 +10,7 @@
 #
 # Any other value stops the run before anything is built or published. When it does run:
 #
-#   - GoReleaser cross-compiles both entrypoints (icon-sets-sync, imt) for the
+#   - GoReleaser cross-compiles icon-sets-sync for the
 #     whole matrix, builds the bare binaries, the .tar.gz/.zip archives, the
 #     deb/rpm/apk packages and a reproducible source tarball, an SPDX SBOM per
 #     archive, and checksums.txt over all of it (config: src/.goreleaser.yaml);

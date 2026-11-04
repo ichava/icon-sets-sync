@@ -67,7 +67,7 @@ It publishes binaries only, no container image:
 
 | Workflow | Publishes |
 |---|---|
-| `release.yml` | the GitHub release: bare binaries for both entrypoints (`icon-sets-sync`, `imt`), `.tar.gz`/`.zip` archives, `.deb`/`.rpm`/`.apk`, a source tarball, an SPDX SBOM per archive, `checksums.txt`, its keyless cosign signature `checksums.txt.sigstore.json`, and a build-provenance attestation for every artifact |
+| `release.yml` | the GitHub release: bare `icon-sets-sync` binaries, `.tar.gz`/`.zip` archives, `.deb`/`.rpm`/`.apk`, a source tarball, an SPDX SBOM per archive, `checksums.txt`, its keyless cosign signature `checksums.txt.sigstore.json`, and a build-provenance attestation for every artifact |
 
 A dispatched `release.yml` also pushes `src/vX.Y.Z` on the same commit before GoReleaser runs. The Go module is
 `github.com/ichava/icon-sets-sync/src`, and Go resolves a subdirectory module only through a tag

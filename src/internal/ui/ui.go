@@ -124,7 +124,7 @@ func Println(a ...any) {
 // Status writes a status line to stderr.
 //
 // Status, progress and diagnostics go to stderr so stdout carries only the
-// command's actual output -- which is what makes `imt check --json | jq` work.
+// command's actual output -- which is what makes `icon-sets-sync check --json | jq` work.
 func Status(glyph, format string, a ...any) {
 	if quiet {
 		return
