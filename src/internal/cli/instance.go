@@ -138,4 +138,3 @@ func writeTokenFileBytes(path string, b []byte) error {
 	}
 	return os.Chmod(path, 0o600)
 }
-
