@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
@@ -249,7 +250,17 @@ type UnicodeCldr struct {
 func (UnicodeCldr) Name() string { return "UnicodeCldr" }
 
 // URL is the emoji-test.txt this source downloads.
+//
+// Unicode stopped publishing new emoji releases under /Public/emoji/<version>/
+// after 16.0 (17.0 answers 404 there); from 17.0 the file lives under the full
+// version, /Public/17.0.0/emoji/. Releases up to 16.0 keep their old URL, so
+// nothing already fetched changes.
 func (s UnicodeCldr) URL() string {
+	if major, _, ok := strings.Cut(s.UnicodeVersion, "."); ok {
+		if n, err := strconv.Atoi(major); err == nil && n >= 17 {
+			return fmt.Sprintf("https://unicode.org/Public/%s.0/emoji/emoji-test.txt", s.UnicodeVersion)
+		}
+	}
 	return fmt.Sprintf("https://unicode.org/Public/emoji/%s/emoji-test.txt", s.UnicodeVersion)
 }
 

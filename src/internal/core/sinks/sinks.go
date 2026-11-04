@@ -49,6 +49,16 @@ type Filesystem struct {
 	// morning cron.
 	MinRetention float64
 
+	// RefuseRemovals fails the sink, before the wipe, when any icon the
+	// destination ships today is absent from the incoming tree. MinRetention
+	// only catches a large shrink by count; this catches one icon, and a swap
+	// of one for another that leaves the count unchanged. Off by default.
+	RefuseRemovals bool
+
+	// Force lets RefuseRemovals through, for an upstream that really did retire
+	// icons. The removals are logged either way.
+	Force bool
+
 	Log *slog.Logger
 }
 
@@ -85,6 +95,9 @@ func (s Filesystem) Execute(ctx *pipeline.Context) error {
 	if !s.Incremental {
 		if _, err := os.Stat(target); err == nil {
 			if err := s.guardRetention(source, target, log); err != nil {
+				return err
+			}
+			if err := s.guardRemovals(source, target, log); err != nil {
 				return err
 			}
 			log.Info("filesystem: wiping", "target", target)
@@ -177,6 +190,63 @@ func (s Filesystem) guardRetention(source, target string, log *slog.Logger) erro
 		"refusing to replace %d icons in %s with %d (%.0f%% of what is there, floor is %.0f%%): "+
 			"upstream has probably reorganised, so check the manifest path before letting this through",
 		existing, target, incoming, ratio*100, s.MinRetention*100)
+}
+
+// guardRemovals refuses a wipe that would delete a shipped icon. Compared by
+// path relative to the root, which is how a pack addresses an icon.
+func (s Filesystem) guardRemovals(source, target string, log *slog.Logger) error {
+	if !s.RefuseRemovals {
+		return nil
+	}
+	existing, err := relSVGs(target)
+	if err != nil {
+		return err
+	}
+	incoming, err := relSVGs(source)
+	if err != nil {
+		return err
+	}
+	var gone []string
+	for rel := range existing {
+		if !incoming[rel] {
+			gone = append(gone, rel)
+		}
+	}
+	if len(gone) == 0 {
+		return nil
+	}
+	sort.Strings(gone)
+	shown := gone
+	if len(shown) > 10 {
+		shown = shown[:10]
+	}
+	if s.Force {
+		log.Warn("filesystem: removing shipped icons because the run is forced",
+			"target", target, "removed", len(gone), "names", shown)
+		return nil
+	}
+	return fmt.Errorf("refusing to remove %d icon(s) %s ships today (e.g. %s); "+
+		"upstream retired or renamed them, or a taxonomy no longer names them -- check, then pass --force",
+		len(gone), target, strings.Join(shown, ", "))
+}
+
+func relSVGs(dir string) (map[string]bool, error) {
+	out := map[string]bool{}
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(strings.ToLower(path), ".svg") {
+			return nil
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+		out[filepath.ToSlash(rel)] = true
+		return nil
+	})
+	return out, err
 }
 
 func countSVGs(dir string) (int, error) {

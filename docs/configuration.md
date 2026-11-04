@@ -296,9 +296,19 @@ A recipe turns a pack config into pipelines. `auto` picks by pack name, then by 
 | Recipe | Picked for | Builds |
 |---|---|---|
 | `emoji-sets` | `icon-sets-emoji` | Twemoji (npm) + OpenMoji colour and black (GitHub archive), categorised by the Unicode taxonomy, then one commit |
-| `openmoji-sets` | `icon-sets-openmoji` | OpenMoji colour and black from one pinned `hfg-gmuend/openmoji` release tag (no `v` prefix), categorised by the Unicode taxonomy, then one commit. Runs the same pipelines as the OpenMoji sets inside `emoji-sets`, so the two stay byte-identical |
+| `openmoji-sets` | `icon-sets-openmoji` | OpenMoji colour and black from one pinned `hfg-gmuend/openmoji` release tag (no `v` prefix), categorised by the Unicode taxonomy, then one commit. Runs the same pipelines as the OpenMoji sets inside `emoji-sets`, plus three protections they lack (below) |
 | `manifest-pack` | `"recipe": "manifest-pack"` | one pipeline per set in the pack's `<slug>.sets.json` set manifest, each from its own upstream, then one commit |
 | `generic` | any `npm` or `github-*` source | the config's own source, transforms and sinks |
+
+#### `openmoji-sets` never drops an icon
+
+The deprecated `emoji-sets` recipe files an icon only when its filename matches a `emoji-test.txt` entry exactly, and drops the rest (its log line says `missing=N`). `openmoji-sets` opts out of that:
+
+- **Selector-insensitive match.** OpenMoji names about 200 emoji without the emoji-presentation selector (`2600.svg`, the sun; `emoji-test.txt` has `2600 FE0F`). They match their taxonomy entry anyway.
+- **An explicit bucket.** An icon still unmatched, such as an OpenMoji extra (`e380.svg`), an emoji newer than the taxonomy, or a component glyph, is kept as `uncategorised/<upstream-name>.svg`, with a warning and an `uncategorised` count. Two emoji that slug to one name (`keycap: #` and `keycap: *`) keep both: the later takes the name, the earlier goes to the bucket.
+- **The taxonomy follows the release.** `emoji.unicode_version` defaults to the OpenMoji release's major and minor, unless something above the built-in default sets it.
+- **Two guards, both lifted by `--force`.** The run fails if more than 20% of the icons are uncategorised (a taxonomy of the wrong release), and the file sink refuses, before it wipes anything, to remove an icon the pack ships today. Removing one on purpose (upstream retired it) needs `--force`; the removals are logged.
+
 
 `manifest-pack` is never picked by `auto`: a pack config has to say `"recipe": "manifest-pack"`.
 
@@ -330,7 +340,7 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `git.commit_subject` | `chore(upstream): bump {pack} to v{new}` | `ICHAVA_GIT_COMMIT_SUBJECT` | yes | commit and pull request title |
 | `git.commit_body` | `Automated sync from upstream {pack} {old} -> {new}. ...` | `ICHAVA_GIT_COMMIT_BODY` | yes | commit and pull request body |
 | `git.open_pr` | `true` | `ICHAVA_GIT_OPEN_PR` | yes | open a pull request after pushing |
-| `emoji.unicode_version` | `16.0` | `ICHAVA_EMOJI_UNICODE_VERSION` | yes | Unicode release whose `emoji-test.txt` drives categorisation; must exist at unicode.org/Public/emoji/ |
+| `emoji.unicode_version` | `16.0` | `ICHAVA_EMOJI_UNICODE_VERSION` | yes | Unicode release whose `emoji-test.txt` drives categorisation; must exist at unicode.org (up to 16.0 under `Public/emoji/<v>/`, from 17.0 under `Public/<v>.0/emoji/`). `openmoji-sets` follows its OpenMoji release instead (17.0.0 uses 17.0) unless this is set |
 | `emoji.openmoji_version` | `15.1.0` | `ICHAVA_EMOJI_OPENMOJI_VERSION` | yes | OpenMoji release tag |
 
 The run-wide settings (the four marked "no") cannot appear in a pack config's `settings`.

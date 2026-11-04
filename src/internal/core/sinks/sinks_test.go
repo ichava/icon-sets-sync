@@ -88,3 +88,38 @@ func TestRetentionGuardIgnoresAnEmptyDestination(t *testing.T) {
 		t.Fatalf("a first sync has nothing to protect: %v", err)
 	}
 }
+
+// TestRefuseRemovalsKeepsShippedIcons: a refresh that would drop an icon the
+// pack ships today fails before the wipe, and leaves the pack as it was.
+func TestRefuseRemovalsKeepsShippedIcons(t *testing.T) {
+	target := svgTree(t, filepath.Join(t.TempDir(), "dest"), 10)
+	source := svgTree(t, filepath.Join(t.TempDir(), "src"), 9) // iconaa..: drops the last one
+
+	err := Filesystem{Root: target, RefuseRemovals: true}.Execute(ctxFor(t, source))
+	if err == nil {
+		t.Fatal("expected a refusal naming the icon that would go")
+	}
+	if n, _ := countSVGs(target); n != 10 {
+		t.Errorf("destination has %d icons, want all 10 untouched", n)
+	}
+
+	if err := (Filesystem{Root: target, RefuseRemovals: true, Force: true}).Execute(ctxFor(t, source)); err != nil {
+		t.Fatalf("forced, the refresh must go through: %v", err)
+	}
+	if n, _ := countSVGs(target); n != 9 {
+		t.Errorf("destination has %d icons after a forced refresh, want 9", n)
+	}
+}
+
+func TestRefuseRemovalsAllowsAdditionsAndIsOffByDefault(t *testing.T) {
+	target := svgTree(t, filepath.Join(t.TempDir(), "dest"), 5)
+	grown := svgTree(t, filepath.Join(t.TempDir(), "src"), 8)
+	if err := (Filesystem{Root: target, RefuseRemovals: true}).Execute(ctxFor(t, grown)); err != nil {
+		t.Fatalf("adding icons is not a removal: %v", err)
+	}
+
+	smaller := svgTree(t, filepath.Join(t.TempDir(), "src2"), 4)
+	if err := (Filesystem{Root: target}).Execute(ctxFor(t, smaller)); err != nil {
+		t.Fatalf("without the option the sink is unchanged: %v", err)
+	}
+}

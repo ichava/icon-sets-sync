@@ -7,8 +7,11 @@ import (
 	"testing"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
 	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
+	"github.com/ichava/icon-sets-sync/src/internal/core/transforms"
 )
 
 var shippedConfigDir = filepath.Join("..", "..", "..", "..", "config")
@@ -104,6 +107,10 @@ func TestOpenMojiAndEmojiBuildTheSameOpenMojiSets(t *testing.T) {
 	for i := range ob {
 		e, o := eb[i+1].Stages(), ob[i].Stages()
 		fsE, fsO := indexOf(stageNames(eb[i+1]), "Filesystem"), indexOf(stageNames(ob[i]), "Filesystem")
+		// The openmoji pack opts into preserving, guarded removals and a
+		// taxonomy derived from the release; those are the only differences
+		// allowed (see TestOpenMojiPackNeverDropsAnIconButEmojiIsUnchanged).
+		o = neutraliseOptIns(o)
 		if fsE != fsO || !reflect.DeepEqual(e[:fsE+1], o[:fsO+1]) {
 			t.Errorf("%s: source, transforms or file sink differ from emoji's", ob[i].Name())
 		}
@@ -118,4 +125,124 @@ func TestOpenMojiRecipeNeedsAVersion(t *testing.T) {
 	if _, err := buildFor(om, "", true); err == nil {
 		t.Fatal("an empty version must be refused, not fetched as an empty tag")
 	}
+}
+
+func openmojiPack(t *testing.T) *config.PackConfig {
+	t.Helper()
+	om, err := config.LoadPack("icon-sets-openmoji", shippedConfigDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	om.PackRoot = "/work/x"
+	return om
+}
+
+func TestUnicodeVersionIsDerivedFromTheOpenMojiRelease(t *testing.T) {
+	for _, tc := range []struct{ release, want string }{
+		{"17.0.0", "17.0"}, {"15.1.0", "15.1"}, {"16.0.0", "16.0"}, {"nightly", ""},
+	} {
+		if got := unicodeVersionFor(tc.release); got != tc.want {
+			t.Errorf("unicodeVersionFor(%q) = %q, want %q", tc.release, got, tc.want)
+		}
+	}
+
+	built, err := buildFor(openmojiPack(t), "17.0.0", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cldr := built[0].Stages()[0].(sources.Compound).First.(sources.UnicodeCldr)
+	if cldr.UnicodeVersion != "17.0" {
+		t.Errorf("OpenMoji 17.0.0 is categorised against Unicode %q, want 17.0", cldr.UnicodeVersion)
+	}
+}
+
+// An explicit emoji.unicode_version always wins over the derived one.
+func TestExplicitUnicodeVersionBeatsTheDerivedOne(t *testing.T) {
+	r := settings.Resolve(settings.LayerValues{Layer: settings.LayerEnv, Values: settings.Values{"emoji.unicode_version": "16.0"}})
+	built, err := Build(openmojiPack(t), "17.0.0", Options{DryRun: true, Settings: &r})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cldr := built[0].Stages()[0].(sources.Compound).First.(sources.UnicodeCldr)
+	if cldr.UnicodeVersion != "16.0" {
+		t.Errorf("got %q, want the explicit 16.0", cldr.UnicodeVersion)
+	}
+}
+
+// TestOpenMojiPackNeverDropsAnIconButEmojiIsUnchanged is the split: the new
+// pack opts into preserving, guarded removals and a forced override; the
+// deprecated emoji pack keeps the exact-match, drop-and-count behaviour.
+func TestOpenMojiPackNeverDropsAnIconButEmojiIsUnchanged(t *testing.T) {
+	emoji := &config.PackConfig{
+		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/x",
+		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
+		Source: config.SourceConfig{Type: "url"},
+	}
+	eb, err := buildFor(emoji, "15.0.0", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range eb {
+		for _, st := range p.Stages() {
+			switch v := st.(type) {
+			case transforms.Categorise:
+				if v.Preserve || v.MaxUncategorised != 0 || v.Force {
+					t.Errorf("%s: emoji Categorise gained opt-in behaviour: %+v", p.Name(), v)
+				}
+			case sinks.Filesystem:
+				if v.RefuseRemovals || v.Force {
+					t.Errorf("%s: emoji Filesystem gained opt-in behaviour: %+v", p.Name(), v)
+				}
+			}
+		}
+	}
+
+	r := settings.Resolve(settings.LayerValues{Layer: settings.LayerFlag, Values: settings.Values{"force": true}})
+	ob, err := Build(openmojiPack(t), "17.0.0", Options{DryRun: true, Settings: &r})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cat, fs int
+	for _, p := range ob {
+		for _, st := range p.Stages() {
+			switch v := st.(type) {
+			case transforms.Categorise:
+				cat++
+				if !v.Preserve || v.MaxUncategorised <= 0 || !v.Force {
+					t.Errorf("%s: Categorise = %+v, want preserving, guarded and forced", p.Name(), v)
+				}
+			case sinks.Filesystem:
+				fs++
+				if !v.RefuseRemovals || !v.Force {
+					t.Errorf("%s: Filesystem = %+v, want removals refused and forced", p.Name(), v)
+				}
+			}
+		}
+	}
+	if cat != 2 || fs != 2 {
+		t.Fatalf("inspected %d Categorise and %d Filesystem stages, want 2 and 2", cat, fs)
+	}
+}
+
+// neutraliseOptIns zeroes the fields only the openmoji pack sets, on a copy.
+func neutraliseOptIns(stages []pipeline.Stage) []pipeline.Stage {
+	out := make([]pipeline.Stage, len(stages))
+	for i, st := range stages {
+		switch v := st.(type) {
+		case sources.Compound:
+			if c, ok := v.First.(sources.UnicodeCldr); ok {
+				c.UnicodeVersion = settings.DefaultUnicodeVersion
+				v.First = c
+			}
+			st = v
+		case transforms.Categorise:
+			v.Preserve, v.MaxUncategorised, v.Force = false, 0, false
+			st = v
+		case sinks.Filesystem:
+			v.RefuseRemovals, v.Force = false, false
+			st = v
+		}
+		out[i] = st
+	}
+	return out
 }

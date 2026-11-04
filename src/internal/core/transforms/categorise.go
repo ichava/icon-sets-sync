@@ -74,8 +74,45 @@ type Categorise struct {
 	pipeline.TransformKind
 
 	// By is "cldr" or "passthrough".
-	By  string
+	By string
+
+	// Preserve opts into never dropping an icon. Off by default, which is the
+	// historical behaviour the deprecated emoji pack relies on: exact match
+	// only, and an icon with no taxonomy entry is dropped and counted missing.
+	//
+	// On, two things change. A file whose name differs from a taxonomy entry
+	// only by the emoji-presentation selector (FE0F) is matched to it --
+	// OpenMoji ships 2600.svg where emoji-test.txt has 2600 FE0F, which left
+	// the sun, the wastebasket and ~200 more without a category. And an icon
+	// still unmatched, such as an OpenMoji extra or an emoji newer than the
+	// taxonomy, is kept in UncategorisedDir under its upstream name and counted
+	// as "uncategorised".
+	Preserve bool
+
+	// MaxUncategorised fails the run when more than this fraction of the icons
+	// ended up uncategorised, which is what a taxonomy of the wrong release
+	// looks like. Zero disables it. Only read with Preserve.
+	MaxUncategorised float64
+
+	// Force lets a run past MaxUncategorised. Nothing is dropped either way.
+	Force bool
+
 	Log *slog.Logger
+}
+
+// UncategorisedDir is where Preserve keeps icons the taxonomy does not name.
+const UncategorisedDir = "uncategorised"
+
+// withoutFE0F drops the emoji-presentation selector from a hyphenated key.
+func withoutFE0F(key string) string {
+	parts := strings.Split(key, "-")
+	kept := parts[:0]
+	for _, p := range parts {
+		if p != "fe0f" {
+			kept = append(kept, p)
+		}
+	}
+	return strings.Join(kept, "-")
 }
 
 func (Categorise) Name() string { return "Categorise" }
@@ -108,6 +145,23 @@ func (t Categorise) Execute(ctx *pipeline.Context) error {
 	index := make(map[string][2]string, len(records))
 	for _, r := range records {
 		index[r.Key()] = [2]string{SlugifyGroup(r.Group), SlugifyName(r.Name)}
+	}
+
+	// Selector-insensitive lookup, used only by Preserve and only where it is
+	// unambiguous: two taxonomy entries sharing a stripped key map to neither.
+	loose := map[string][2]string{}
+	if t.Preserve {
+		clash := map[string]bool{}
+		for k, v := range index {
+			sk := withoutFE0F(k)
+			if _, seen := loose[sk]; seen {
+				clash[sk] = true
+			}
+			loose[sk] = v
+		}
+		for sk := range clash {
+			delete(loose, sk)
+		}
 	}
 
 	files, err := walkSVGs(root)
@@ -143,7 +197,8 @@ func (t Categorise) Execute(ctx *pipeline.Context) error {
 		return err
 	}
 
-	var copied, missing int
+	var copied, missing, uncategorised int
+	placed := map[string]string{} // target path -> stem, to catch slug collisions
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -152,6 +207,21 @@ func (t Categorise) Execute(ctx *pipeline.Context) error {
 		stem := strings.ToLower(strings.TrimSuffix(name, filepath.Ext(name)))
 
 		entry, found := index[stem]
+		if !found && t.Preserve {
+			entry, found = loose[withoutFE0F(stem)]
+		}
+		if !found && t.Preserve {
+			// Kept, in a bucket that says what it is, under the upstream name.
+			uncategorised++
+			target := filepath.Join(root, UncategorisedDir, stem+".svg")
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return err
+			}
+			if err := os.Rename(filepath.Join(staging, name), target); err != nil {
+				return err
+			}
+			continue
+		}
 		if !found {
 			// A codepoint the taxonomy does not name. The file is dropped,
 			// which is what Python does -- an icon with no category has
@@ -164,6 +234,22 @@ func (t Categorise) Execute(ctx *pipeline.Context) error {
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
+		if prev, clash := placed[target]; clash && t.Preserve {
+			// Two emoji with one slug ("keycap: #" and "keycap: *" are both
+			// "keycap"). A rename would overwrite the first without a word.
+			// The later one keeps the name, as it always has; the earlier is
+			// moved to the uncategorised bucket under its upstream name.
+			moved := filepath.Join(root, UncategorisedDir, prev+".svg")
+			if err := os.MkdirAll(filepath.Dir(moved), 0o755); err != nil {
+				return err
+			}
+			if err := os.Rename(target, moved); err != nil {
+				return err
+			}
+			copied--
+			uncategorised++
+		}
+		placed[target] = stem
 		if err := os.Rename(filepath.Join(staging, name), target); err != nil {
 			return err
 		}
@@ -171,15 +257,44 @@ func (t Categorise) Execute(ctx *pipeline.Context) error {
 	}
 	_ = os.RemoveAll(staging)
 
-	ctx.Metric("categorise", map[string]any{"copied": copied, "missing": missing})
+	metric := map[string]any{"copied": copied, "missing": missing}
+	if t.Preserve {
+		metric["uncategorised"] = uncategorised
+	}
+	ctx.Metric("categorise", metric)
 	ctx.Extras[pipeline.KeyCLDRRecords] = records
 
 	log := t.Log
 	if log == nil {
 		log = ctx.Logger()
 	}
-	log.Info("categorise", "taxonomy", "cldr", "copied", copied, "missing", missing)
+	if !t.Preserve {
+		log.Info("categorise", "taxonomy", "cldr", "copied", copied, "missing", missing)
+		return nil
+	}
+
+	log.Info("categorise", "taxonomy", "cldr", "copied", copied, "missing", missing, "uncategorised", uncategorised)
+	total := copied + uncategorised
+	if uncategorised > 0 {
+		log.Warn("categorise: icons with no taxonomy entry were kept uncategorised",
+			"bucket", UncategorisedDir, "count", uncategorised, "of", total, "taxonomy_version", cldrVersion(ctx))
+	}
+	if t.MaxUncategorised > 0 && total > 0 && float64(uncategorised)/float64(total) > t.MaxUncategorised {
+		share := float64(uncategorised) / float64(total)
+		msg := fmt.Sprintf("Categorise: %d of %d icons (%.0f%%) matched no taxonomy entry, over the %.0f%% limit; "+
+			"the emoji-test.txt release (%s) is probably older than the icons -- set emoji.unicode_version",
+			uncategorised, total, share*100, t.MaxUncategorised*100, cldrVersion(ctx))
+		if !t.Force {
+			return fmt.Errorf("%s, or pass --force", msg)
+		}
+		log.Warn(msg + "; continuing because the run is forced")
+	}
 	return nil
+}
+
+func cldrVersion(ctx *pipeline.Context) string {
+	v, _ := ctx.String(pipeline.KeyCLDRVersion)
+	return v
 }
 
 // Indexer writes the lookup files a picker needs beside the icons.
