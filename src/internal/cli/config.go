@@ -143,6 +143,7 @@ value.`,
 				doc["pack_file"] = p.File
 				doc["recipe"] = recipes.Select(p)
 				doc["pack"] = p
+				doc["pack_root_origin"] = p.PackRootOrigin
 			}
 
 			doc["settings"] = resolved.Tree()

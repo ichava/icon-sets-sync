@@ -99,8 +99,15 @@ ICHAVA_GIT_BASE=develop build/icon-sets-sync --config-dir config sync-all --dry-
 Or do the same from a browser, dry run first:
 
 ```bash
-make ui   # prints http://127.0.0.1:7878/?token=...
+make serve   # prints http://127.0.0.1:7878/?token=...
 ```
+
+The web UI exists only while `serve` is running; stop the command and the page is gone. Open the
+**printed** address, token included. Opening `http://127.0.0.1:7878` on its own is refused on purpose
+(a 401 "Sign-in link required" page), because the token is what proves the request came from you. The
+same command from the repository root also works without `make`:
+`go -C src run ./cmd/icon-sets-sync serve`. It finds this repository's `config/` itself; to use
+another directory, set `ICHAVA_CONFIG_DIR` or pass `--config-dir`.
 
 The full walkthrough is in [Getting started](docs/getting-started.md), and everything else is under
 [Documentation](#documentation).

@@ -25,7 +25,7 @@ func TestEveryResponseCarriesTheSecurityHeaders(t *testing.T) {
 			if h.Get("Content-Security-Policy") != ContentSecurityPolicy {
 				t.Errorf("CSP %q", h.Get("Content-Security-Policy"))
 			}
-			if h.Get("X-Content-Type-Options") != "nosniff" || h.Get("Referrer-Policy") != "no-referrer" {
+			if h.Get("X-Content-Type-Options") != "nosniff" || h.Get("Referrer-Policy") != "same-origin" {
 				t.Errorf("headers %v", h)
 			}
 		})
@@ -131,7 +131,13 @@ func TestStateChangesNeedSameOriginAndCSRF(t *testing.T) {
 		{"no origin, same-origin fetch", "", "same-origin", c.csrf, http.StatusSeeOther},
 		{"cross origin", "http://evil.example", "", c.csrf, http.StatusForbidden},
 		{"other allowed host", "http://localhost:7878", "", c.csrf, http.StatusForbidden},
-		{"null origin", "null", "", c.csrf, http.StatusForbidden},
+		{"null origin, no fetch site", "null", "", c.csrf, http.StatusForbidden},
+		{"null origin, cross-site", "null", "cross-site", c.csrf, http.StatusForbidden},
+		{"null origin, same-site", "null", "same-site", c.csrf, http.StatusForbidden},
+		// What a browser sends for a same-origin form POST under a
+		// no-referrer policy: the Fetch spec serialises the origin as null.
+		{"null origin, same-origin fetch", "null", "same-origin", c.csrf, http.StatusSeeOther},
+		{"null origin, same-origin fetch, no token", "null", "same-origin", "", http.StatusForbidden},
 		{"no origin, cross-site fetch", "", "cross-site", c.csrf, http.StatusForbidden},
 		{"no origin at all", "", "", c.csrf, http.StatusForbidden},
 		{"missing token", "http://" + testHost, "", "", http.StatusForbidden},

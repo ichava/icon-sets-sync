@@ -45,6 +45,10 @@ means that port: if it is taken, `serve` fails instead of moving. `--port 0` let
 icon-sets-sync web UI: http://127.0.0.1:7878/?token=3q2...
 ```
 
+The UI runs only while `serve` is running. Open the printed address as it is, token included:
+opening `http://127.0.0.1:7878` without the token is refused by design and shows a 401 sign-in
+page, not the dashboard.
+
 Opening it exchanges the token for a session cookie (`HttpOnly`, `SameSite=Strict`) and removes the
 token from the address bar and history. Without the cookie every page answers 401. The token changes
 every time `serve` starts.
@@ -81,6 +85,18 @@ applies to the next run without a restart.
 make ui        # builds build/icon-sets-sync, then serve --port 7878 against config/
 make serve     # go run, on the first free port from 7878
 ```
+
+`make serve` is `go -C src run ./cmd/icon-sets-sync serve`. It runs from `src/`, and the registry
+lives in the repository's `config/`, so the config directory is resolved in this order: `--config-dir`,
+`ICHAVA_CONFIG_DIR`, `config/` beside the binary, `./config` if it holds `packs.json`, then the
+`config/` of the repository around the working directory (up to 5 parents up, stopping at `.git`,
+next to `src/go.mod`; the directory chosen is logged at info level). If none exists, the Packs page
+says "missing pack registry" and names `ICHAVA_CONFIG_DIR` and `--config-dir` as the fix.
+
+The pack checkouts are found the same way: the shipped configs name `/work/<pack>` (the CI runner's
+layout), so locally the `workspace` setting (`ICHAVA_WORKSPACE`) wins when it holds the pack, then
+`/work/<pack>`, then the sibling checkout beside this repository. A pack page shows the root and where
+it came from; `config print --pack <slug>` prints it as `pack_root_origin`.
 
 `make ui` pins port 7878 and fails if it is taken; `make serve` moves to the next free port. Both
 listen on `127.0.0.1` only. Open the address it logs.

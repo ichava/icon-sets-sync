@@ -36,6 +36,8 @@ type fakeEngine struct {
 	// cfg answers the config editor's calls: a real AppEngine over a fixture
 	// directory, because the editor's whole point is the real loaders.
 	cfg *AppEngine
+	// packsFn, when set, replaces the fixed pack list (to fail like a real engine).
+	packsFn func() ([]*config.PackConfig, error)
 }
 
 func (f *fakeEngine) ConfigFiles() ([]ConfigFile, error)     { return f.cfg.ConfigFiles() }
@@ -91,7 +93,12 @@ func newFakeEngine() *fakeEngine {
 	}}
 }
 
-func (f *fakeEngine) Packs() ([]*config.PackConfig, error) { return f.packs, nil }
+func (f *fakeEngine) Packs() ([]*config.PackConfig, error) {
+	if f.packsFn != nil {
+		return f.packsFn()
+	}
+	return f.packs, nil
+}
 
 func (f *fakeEngine) Check(_ context.Context, packs []*config.PackConfig) []checker.Result {
 	f.mu.Lock()

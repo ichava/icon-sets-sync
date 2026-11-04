@@ -88,7 +88,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		h := w.Header()
 		h.Set("Content-Security-Policy", ContentSecurityPolicy)
 		h.Set("X-Content-Type-Options", "nosniff")
-		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Referrer-Policy", "same-origin")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Cross-Origin-Opener-Policy", "same-origin")
 		h.Set("Cross-Origin-Resource-Policy", "same-origin")
@@ -196,7 +196,10 @@ func (s *Server) sameOrigin(next http.Handler) http.Handler {
 func (s *Server) originAllowed(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" || origin == "null" {
-		return origin == "" && r.Header.Get("Sec-Fetch-Site") == "same-origin"
+		// A browser serialises the origin of a same-origin form POST as null
+		// when the referrer policy is no-referrer, so null passes only with the
+		// browser's own same-origin verdict. A bare null is refused.
+		return r.Header.Get("Sec-Fetch-Site") == "same-origin"
 	}
 	u, err := url.Parse(origin)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {

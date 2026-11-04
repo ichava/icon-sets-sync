@@ -106,7 +106,7 @@ const (
 // Keys is the registry, in display order.
 var Keys = []Key{
 	{Name: "config_dir", Kind: String, Default: "", Env: "ICHAVA_CONFIG_DIR", LegacyEnv: []string{"ICHAVA_DEV_CONFIG_DIR"},
-		Help: "directory holding packs.json and the pack configs (default: config/ beside the binary, else ./config)"},
+		Help: "directory holding packs.json and the pack configs (default: config/ beside the binary, else ./config when it holds packs.json, else the config/ of the repository around the working directory, up to 5 levels)"},
 	{Name: "private_config_dir", Kind: String, Default: "", Env: "ICHAVA_PRIVATE_CONFIG_DIR",
 		Help: "directory of private pack configs merged over config_dir at run time (packs.json optional; none by default)"},
 	{Name: "log_level", Kind: String, Default: "info", Env: "ICHAVA_LOG_LEVEL", LegacyEnv: []string{"ICHAVA_DEV_LOG_LEVEL"},
@@ -117,7 +117,7 @@ var Keys = []Key{
 		Pattern: regexp.MustCompile(`^[A-Za-z0-9.,\s-]*$`),
 		Help:    "extra upstream hosts, comma separated, on top of the built-in github.com, api.github.com, codeload.github.com, registry.npmjs.org and unicode.org (https only)"},
 	{Name: "workspace", Kind: String, Default: "", Env: "ICHAVA_WORKSPACE",
-		Help: "directory a relative pack_root is resolved against"},
+		Help: "directory holding the pack checkouts: a relative pack_root is resolved against it, and it replaces the /work/<pack> a shipped config names (default: /work if present, else the checkouts beside this repository)"},
 	{Name: "dry_run", Kind: Bool, Default: false, Env: "ICHAVA_DRY_RUN", PackScoped: true,
 		Help: "refresh files but skip the version stamp, commit, push and pull request"},
 	{Name: "force", Kind: Bool, Default: false, Env: "ICHAVA_FORCE", PackScoped: true,

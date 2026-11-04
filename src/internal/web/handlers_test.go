@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 )
 
 func TestDashboardChecksOnceAndCaches(t *testing.T) {
@@ -107,5 +109,20 @@ func TestAssetsAreFingerprintedAndImmutable(t *testing.T) {
 	}
 	if rec := c.get("/assets/" + s.assets.hashes["app.css"] + "/../server.go"); rec.Code == http.StatusOK {
 		t.Error("an asset path escaped the asset set")
+	}
+}
+
+// A server pointed at a directory with no registry says how to fix it, naming
+// the environment variable and the flag, instead of listing zero packs quietly.
+func TestDashboardBannerNamesTheConfigFix(t *testing.T) {
+	s, eng := newTestServer(t)
+	eng.cfg = &AppEngine{ConfigDir: t.TempDir()}
+	eng.packsFn = func() ([]*config.PackConfig, error) { return eng.cfg.Packs() }
+	c := signIn(t, s)
+	body := c.get("/").Body.String()
+	for _, want := range []string{"missing pack registry", "ICHAVA_CONFIG_DIR", "--config-dir"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("banner lacks %q", want)
+		}
 	}
 }
