@@ -69,7 +69,7 @@ func TestGetJSONDecodes(t *testing.T) {
 	c, _, _ := newTestClient(stubResponse{status: 200, body: `{"version":"3.47.0"}`})
 
 	var out map[string]any
-	if err := c.GetJSON(context.Background(), "https://registry.example/x", &out); err != nil {
+	if err := c.GetJSON(context.Background(), "https://registry.npmjs.org/x", &out); err != nil {
 		t.Fatal(err)
 	}
 	if out["version"] != "3.47.0" {
@@ -90,7 +90,7 @@ func TestGetJSONSendsTheToolkitUserAgent(t *testing.T) {
 	})
 
 	var out map[string]any
-	if err := c.GetJSON(context.Background(), "https://x", &out); err != nil {
+	if err := c.GetJSON(context.Background(), "https://registry.npmjs.org/x", &out); err != nil {
 		t.Fatal(err)
 	}
 	if seen != UserAgent {
@@ -111,7 +111,7 @@ func TestGetJSONRetriesA503(t *testing.T) {
 	)
 
 	var out map[string]any
-	if err := c.GetJSON(context.Background(), "https://x", &out); err != nil {
+	if err := c.GetJSON(context.Background(), "https://registry.npmjs.org/x", &out); err != nil {
 		t.Fatal(err)
 	}
 	if tr.hits != 3 {
@@ -128,7 +128,7 @@ func TestGetJSONRetriesATransportError(t *testing.T) {
 		stubResponse{status: 200, body: `{"ok":true}`},
 	)
 	var out map[string]any
-	if err := c.GetJSON(context.Background(), "https://x", &out); err != nil {
+	if err := c.GetJSON(context.Background(), "https://registry.npmjs.org/x", &out); err != nil {
 		t.Fatal(err)
 	}
 	if tr.hits != 2 {
@@ -140,7 +140,7 @@ func TestGetJSONGivesUpAfterFourAttempts(t *testing.T) {
 	c, tr, _ := newTestClient(stubResponse{status: 502})
 
 	var out map[string]any
-	if err := c.GetJSON(context.Background(), "https://x", &out); err == nil {
+	if err := c.GetJSON(context.Background(), "https://registry.npmjs.org/x", &out); err == nil {
 		t.Fatal("expected an error")
 	}
 	if tr.hits != Attempts {
@@ -156,7 +156,7 @@ func TestGetJSONDoesNotRetryA404(t *testing.T) {
 	c, tr, waits := newTestClient(stubResponse{status: 404})
 
 	var out map[string]any
-	if err := c.GetJSON(context.Background(), "https://x", &out); err == nil {
+	if err := c.GetJSON(context.Background(), "https://registry.npmjs.org/x", &out); err == nil {
 		t.Fatal("expected an error")
 	}
 	if tr.hits != 1 {
@@ -171,7 +171,7 @@ func TestGetJSONDoesNotRetryAMalformedBody(t *testing.T) {
 	c, tr, _ := newTestClient(stubResponse{status: 200, body: `not json`})
 
 	var out map[string]any
-	if err := c.GetJSON(context.Background(), "https://x", &out); err == nil {
+	if err := c.GetJSON(context.Background(), "https://registry.npmjs.org/x", &out); err == nil {
 		t.Fatal("expected an error")
 	}
 	if tr.hits != 1 {
@@ -205,17 +205,17 @@ func TestDownloadIsIdempotentByExistence(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "nested", "archive.zip")
 	ctx := context.Background()
 
-	if _, err := c.Download(ctx, "https://x", dest, false); err != nil {
+	if _, err := c.Download(ctx, "https://registry.npmjs.org/x", dest, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.Download(ctx, "https://x", dest, false); err != nil {
+	if _, err := c.Download(ctx, "https://registry.npmjs.org/x", dest, false); err != nil {
 		t.Fatal(err)
 	}
 	if tr.hits != 1 {
 		t.Errorf("hits = %d, want 1 -- the second call must hit the cache", tr.hits)
 	}
 
-	if _, err := c.Download(ctx, "https://x", dest, true); err != nil {
+	if _, err := c.Download(ctx, "https://registry.npmjs.org/x", dest, true); err != nil {
 		t.Fatal(err)
 	}
 	if tr.hits != 2 {
@@ -235,7 +235,7 @@ func TestDownloadLeavesNoTruncatedFileOnFailure(t *testing.T) {
 	c, _, _ := newTestClient(stubResponse{status: 404})
 	dest := filepath.Join(t.TempDir(), "archive.zip")
 
-	if _, err := c.Download(context.Background(), "https://x", dest, false); err == nil {
+	if _, err := c.Download(context.Background(), "https://registry.npmjs.org/x", dest, false); err == nil {
 		t.Fatal("expected an error")
 	}
 	if _, err := os.Stat(dest); !os.IsNotExist(err) {
@@ -253,7 +253,7 @@ func TestDownloadRetriesA500(t *testing.T) {
 	)
 	dest := filepath.Join(t.TempDir(), "archive.zip")
 
-	if _, err := c.Download(context.Background(), "https://x", dest, false); err != nil {
+	if _, err := c.Download(context.Background(), "https://registry.npmjs.org/x", dest, false); err != nil {
 		t.Fatal(err)
 	}
 	if tr.hits != 2 {
@@ -317,7 +317,7 @@ func TestGetJSONRefusesABodyOverTheCap(t *testing.T) {
 	c.MaxJSONBytes = 64
 
 	var out map[string]any
-	err := c.GetJSON(context.Background(), "https://registry.example/x", &out)
+	err := c.GetJSON(context.Background(), "https://registry.npmjs.org/x", &out)
 	if err == nil || !strings.Contains(err.Error(), "byte limit") {
 		t.Fatalf("err = %v, want a byte-limit error", err)
 	}
@@ -332,7 +332,7 @@ func TestGetJSONAcceptsABodyExactlyAtTheCap(t *testing.T) {
 	c.MaxJSONBytes = int64(len(body))
 
 	var out map[string]any
-	if err := c.GetJSON(context.Background(), "https://registry.example/x", &out); err != nil {
+	if err := c.GetJSON(context.Background(), "https://registry.npmjs.org/x", &out); err != nil {
 		t.Fatalf("a body at the cap must pass: %v", err)
 	}
 }
@@ -342,7 +342,10 @@ func TestDownloadRefusesABodyOverTheCapAndLeavesNothing(t *testing.T) {
 	c.MaxDownloadBytes = 100
 	dest := filepath.Join(t.TempDir(), "archive.zip")
 
-	err := func() error { _, e := c.Download(context.Background(), "https://x", dest, false); return e }()
+	err := func() error {
+		_, e := c.Download(context.Background(), "https://registry.npmjs.org/x", dest, false)
+		return e
+	}()
 	if err == nil || !strings.Contains(err.Error(), "byte limit") {
 		t.Fatalf("err = %v, want a byte-limit error", err)
 	}
@@ -361,7 +364,7 @@ func TestDownloadAcceptsABodyAtTheCap(t *testing.T) {
 	c.MaxDownloadBytes = 100
 	dest := filepath.Join(t.TempDir(), "archive.zip")
 
-	if _, err := c.Download(context.Background(), "https://x", dest, false); err != nil {
+	if _, err := c.Download(context.Background(), "https://registry.npmjs.org/x", dest, false); err != nil {
 		t.Fatalf("a body at the cap must pass: %v", err)
 	}
 }
@@ -388,14 +391,14 @@ func TestRedirectPolicy(t *testing.T) {
 	}{
 		{"https to https, same host", "https://github.com/a.zip", "https://github.com/b.zip", true},
 		{"https to another https host", "https://github.com/a.zip", "https://codeload.github.com/b.zip", true},
-		{"http to https", "http://registry.example/a", "https://registry.example/a", true},
-		{"https to http downgrade", "https://registry.example/a", "http://registry.example/a", false},
-		{"https to ftp", "https://registry.example/a", "ftp://registry.example/a", false},
-		{"to loopback ip", "https://registry.example/a", "https://127.0.0.1/a", false},
-		{"to link-local metadata ip", "https://registry.example/a", "https://169.254.169.254/latest/meta-data/", false},
-		{"to private ip", "https://registry.example/a", "https://10.0.0.5/a", false},
-		{"to ipv6 loopback", "https://registry.example/a", "https://[::1]/a", false},
-		{"to a public ip literal", "https://registry.example/a", "https://93.184.216.34/a", true},
+		{"loopback http to https", "http://127.0.0.1/a", "https://registry.npmjs.org/a", true},
+		{"https to http downgrade", "https://registry.npmjs.org/a", "http://registry.npmjs.org/a", false},
+		{"https to ftp", "https://registry.npmjs.org/a", "ftp://registry.npmjs.org/a", false},
+		{"to loopback ip", "https://registry.npmjs.org/a", "https://127.0.0.1/a", false},
+		{"to link-local metadata ip", "https://registry.npmjs.org/a", "https://169.254.169.254/latest/meta-data/", false},
+		{"to private ip", "https://registry.npmjs.org/a", "https://10.0.0.5/a", false},
+		{"to ipv6 loopback", "https://registry.npmjs.org/a", "https://[::1]/a", false},
+		{"to a public ip literal off the allowlist", "https://registry.npmjs.org/a", "https://93.184.216.34/a", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -421,15 +424,15 @@ func TestRedirectPolicyAlsoGuardsDownloads(t *testing.T) {
 		stubResponse{status: 200, body: "payload"},
 	)
 	dest := filepath.Join(t.TempDir(), "a.zip")
-	if _, err := c.Download(context.Background(), "https://registry.example/a.zip", dest, false); err == nil {
+	if _, err := c.Download(context.Background(), "https://registry.npmjs.org/a.zip", dest, false); err == nil {
 		t.Fatal("a download followed an https to http redirect")
 	}
 }
 
 func TestRedirectChainIsBounded(t *testing.T) {
-	c, tr, _ := newTestClient(stubResponse{status: 302, location: "https://registry.example/loop"})
+	c, tr, _ := newTestClient(stubResponse{status: 302, location: "https://registry.npmjs.org/loop"})
 	var out map[string]any
-	if err := c.GetJSON(context.Background(), "https://registry.example/loop", &out); err == nil {
+	if err := c.GetJSON(context.Background(), "https://registry.npmjs.org/loop", &out); err == nil {
 		t.Fatal("an endless redirect chain succeeded")
 	}
 	if tr.hits > 40 {

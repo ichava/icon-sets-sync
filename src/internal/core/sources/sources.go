@@ -145,6 +145,15 @@ type GithubArchive struct {
 
 func (GithubArchive) Name() string { return "GithubArchive" }
 
+// URL is the archive this source downloads, with {version} filled in.
+func (s GithubArchive) URL() string {
+	template := s.ArchiveURL
+	if template == "" {
+		template = fmt.Sprintf("https://github.com/%s/%s/archive/refs/tags/v{version}.zip", s.Owner, s.Repo)
+	}
+	return strings.ReplaceAll(template, "{version}", s.Version)
+}
+
 func (s GithubArchive) Execute(ctx *pipeline.Context) error {
 	if s.ArchiveURL == "" && (s.Owner == "" || s.Repo == "" || s.Version == "") {
 		return fmt.Errorf("GithubArchive: needs archive_url, or all of owner, repo and version")
@@ -162,11 +171,7 @@ func (s GithubArchive) Execute(ctx *pipeline.Context) error {
 		client = httpx.New()
 	}
 
-	template := s.ArchiveURL
-	if template == "" {
-		template = fmt.Sprintf("https://github.com/%s/%s/archive/refs/tags/v{version}.zip", s.Owner, s.Repo)
-	}
-	url := strings.ReplaceAll(template, "{version}", s.Version)
+	url := s.URL()
 
 	workDir := filepath.Join(ctx.WorkingDir, "gh-archive")
 	if err := os.MkdirAll(workDir, 0o755); err != nil {
@@ -243,6 +248,11 @@ type UnicodeCldr struct {
 
 func (UnicodeCldr) Name() string { return "UnicodeCldr" }
 
+// URL is the emoji-test.txt this source downloads.
+func (s UnicodeCldr) URL() string {
+	return fmt.Sprintf("https://unicode.org/Public/emoji/%s/emoji-test.txt", s.UnicodeVersion)
+}
+
 func (s UnicodeCldr) Execute(ctx *pipeline.Context) error {
 	version := s.UnicodeVersion
 	if version == "" {
@@ -258,7 +268,7 @@ func (s UnicodeCldr) Execute(ctx *pipeline.Context) error {
 		log = ctx.Logger()
 	}
 
-	url := fmt.Sprintf("https://unicode.org/Public/emoji/%s/emoji-test.txt", version)
+	url := s.URL()
 	dest := filepath.Join(ctx.WorkingDir, fmt.Sprintf("emoji-test-%s.txt", version))
 
 	log.Info("downloading emoji taxonomy", "url", url)

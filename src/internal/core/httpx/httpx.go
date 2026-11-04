@@ -89,6 +89,11 @@ type Client struct {
 	// Zero means the defaults below. Tests set them small.
 	MaxJSONBytes     int64
 	MaxDownloadBytes int64
+
+	// AllowedHosts extends the built-in upstream allowlist for this client
+	// only. The run-wide `allowed_hosts` setting reaches every client through
+	// SetExtraAllowedHosts instead.
+	AllowedHosts []string
 }
 
 // New returns a client with the shared timeout.
@@ -101,18 +106,20 @@ func (c *Client) clientFor(timeout time.Duration) *http.Client {
 	if transport == nil {
 		transport = defaultTransport()
 	}
-	return &http.Client{Timeout: timeout, Transport: transport, CheckRedirect: checkRedirect}
+	return &http.Client{Timeout: timeout, Transport: transport, CheckRedirect: c.checkRedirect}
 }
 
-// checkRedirect is the redirect policy (S13).
+// checkRedirect is the redirect policy (S13, P2-G5, P2-G6).
 //
-// Every upstream is a fixed https URL from a config template, and each one
-// legitimately redirects (github.com to codeload.github.com, npm to its CDN), so
-// a host allowlist would break working syncs. What no legitimate upstream does
-// is leave https for plain http, leave http(s) altogether, or hand a client to a
-// loopback, private or link-local address (169.254.169.254 is the cloud
-// metadata service). Those are refused, and the chain is bounded.
-func checkRedirect(req *http.Request, via []*http.Request) error {
+// Every hop is a fetch, so each is held to the same rules as the first request
+// except the loopback exemption, which is for a test's own server and is never
+// a place a real upstream sends a client. The legitimate chains stay inside the
+// allowlist (github.com to codeload.github.com). What no legitimate upstream
+// does is leave https for plain http, leave http(s) altogether, land on a host
+// nobody listed, or hand a client to a loopback, private or link-local address
+// (169.254.169.254 is the cloud metadata service). Those are refused, and the
+// chain is bounded.
+func (c *Client) checkRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= maxRedirects {
 		return &errRedirectRefused{fmt.Sprintf("stopped after %d redirects", maxRedirects)}
 	}
@@ -124,10 +131,16 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 	if prev := via[len(via)-1]; strings.EqualFold(prev.URL.Scheme, "https") && scheme == "http" {
 		return &errRedirectRefused{fmt.Sprintf("refusing a downgrade from https to http (%s)", req.URL.Redacted())}
 	}
+	if scheme == "http" {
+		return &errRedirectRefused{fmt.Sprintf("refusing %s: %s", req.URL.Redacted(), schemeRule)}
+	}
 	if ip := net.ParseIP(req.URL.Hostname()); ip != nil &&
 		(ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
 			ip.IsUnspecified() || ip.IsMulticast()) {
 		return &errRedirectRefused{fmt.Sprintf("refusing the non-public address %s", ip)}
+	}
+	if err := c.checkHost(req.URL.Redacted(), normaliseHost(req.URL.Hostname())); err != nil {
+		return &errRedirectRefused{err.Error()}
 	}
 	return nil
 }
@@ -240,6 +253,9 @@ func retryable(status int) bool {
 
 // GetJSON fetches and decodes a JSON document.
 func (c *Client) GetJSON(ctx context.Context, url string, out any) error {
+	if err := c.CheckURL(url); err != nil {
+		return err
+	}
 	client := c.clientFor(DefaultTimeout)
 	var lastErr error
 
@@ -300,6 +316,9 @@ func (c *Client) GetJSON(ctx context.Context, url string, out any) error {
 // interrupted download never leaves a truncated file that the next run would
 // treat as a complete cache hit.
 func (c *Client) Download(ctx context.Context, url, dest string, force bool) (string, error) {
+	if err := c.CheckURL(url); err != nil {
+		return "", err
+	}
 	if !force {
 		if info, err := os.Stat(dest); err == nil && info.Size() > 0 {
 			return dest, nil

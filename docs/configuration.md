@@ -168,9 +168,47 @@ declares, because a decompression bomb is exactly the archive whose header lies.
 hard links and device members were already refused.
 
 **Redirects.** The HTTP client follows at most 10, and refuses one that leaves `https` for `http`,
-leaves `http(s)` altogether, or lands on a literal loopback, private or link-local address (the cloud
-metadata service is `169.254.169.254`). It does not restrict the host: GitHub and npm legitimately
-redirect to CDNs.
+leaves `http(s)` altogether, lands on a host that is not on the allowlist, or lands on a literal
+loopback, private or link-local address (the cloud metadata service is `169.254.169.254`).
+
+## Upstream hosts and https
+
+Every fetch the HTTP client makes, and every redirect hop, must be `https` and must go to an allowed host.
+It is checked before any request is sent, and a refusal is never retried.
+
+| Default host | Used for |
+|---|---|
+| `registry.npmjs.org` | version checks of the npm-backed packs (tabler, flag, emoji) |
+| `api.github.com` | the openmoji version check |
+| `github.com` | the OpenMoji tag archive |
+| `codeload.github.com` | where `github.com` redirects the archive to |
+| `unicode.org` | the CLDR `emoji-test.txt` the emoji categoriser reads |
+
+A test loads every shipped pack config, builds its pipelines and fails if any URL they reach is off this
+list, so adding a recipe that fetches from a new host means adding the host here in the same change.
+Release-asset hosts (`objects.githubusercontent.com`, `release-assets.githubusercontent.com`) are not on
+it, because no shipped recipe downloads a release asset.
+
+Plain `http` is refused in a pack config when it loads and again when it is fetched. The exception is a
+test's own server: `http://127.0.0.1`, `http://localhost` and `http://[::1]`, on the first request only.
+
+To fetch from another host, for a mirror or a private pack, add it to `allowed_hosts`. It is run-wide
+and cannot be set in a pack config, so editing a pack from the web UI cannot widen where the toolkit
+fetches from:
+
+```bash
+icon-sets-sync --set allowed_hosts=mirror.example,cdn.mirror.example sync --pack=<slug>
+ICHAVA_ALLOWED_HOSTS=mirror.example icon-sets-sync sync --pack=<slug>
+```
+
+```json
+{ "allowed_hosts": "mirror.example" }
+```
+
+(that last one in the global config). Names only: no scheme, port, path or wildcard, and a host does not
+cover its subdomains. A blocked fetch fails with the URL, the host and this setting's name. The setting
+is read when the program starts, so `serve` needs a restart to pick up a change. `npm pack` talks to the
+registry through npm and its own configuration, not through this client.
 
 **`npm pack` runs with `--ignore-scripts`**, so a git or local spec in a config cannot run a package's
 `prepare` script on the runner.
@@ -283,6 +321,7 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `log_level` | `info` | `ICHAVA_LOG_LEVEL` (older: `ICHAVA_DEV_LOG_LEVEL`) | no | `debug`, `info`, `warn`, `error` |
 | `concurrency` | `1` | `ICHAVA_CONCURRENCY` | no | packs synced at once by `sync-all` |
 | `workspace` | none | `ICHAVA_WORKSPACE` | no | directory a relative `pack_root` resolves against |
+| `allowed_hosts` | none | `ICHAVA_ALLOWED_HOSTS` | no | extra upstream hosts the client may fetch from, comma separated; see [Upstream hosts and https](#upstream-hosts-and-https) |
 | `dry_run` | `false` | `ICHAVA_DRY_RUN` | yes | write files, skip stamp, commit and pull request |
 | `force` | `false` | `ICHAVA_FORCE` | yes | refresh even when current |
 | `git.author` | `ichava-sync-bot <41898282+github-actions[bot]@users.noreply.github.com>` | `ICHAVA_GIT_AUTHOR` | yes | author and committer, `Name <email>` |
