@@ -58,6 +58,7 @@ src/
         ├── sources/      NpmTarball, GithubArchive, UnicodeCldr, Compound, Static
         ├── transforms/   FindLicences, SubsetTo, Sanitise, Slugify, Categorise, Indexer, FlattenVariants
         ├── svg/          the shared SVG policy and the parser that applies it
+        ├── kinds/        a pack's icon/illustration kind keys, the glob, and the suggestion heuristic
         ├── sinks/        Filesystem, LicenceTexts, VersionStamp, GitBranch, Discard
         ├── recipes/      config -> pipelines: generic, emoji-sets, manifest-pack
         └── manifestpack/ the aggregator pack's set manifest and audit
