@@ -535,8 +535,11 @@ func writeMember(path string, src io.Reader, mode os.FileMode, budget *extractBu
 		err = fmt.Errorf("archive entry %q is over the %s size limit (%d bytes)", filepath.Base(path), which, room)
 	}
 	if err != nil {
+		// Empty what was written through the handle already open, rather than
+		// removing by path: the extraction is being abandoned, and a path built
+		// from archive entry names should be touched only where it must be.
+		_ = out.Truncate(0)
 		out.Close()
-		_ = os.Remove(path)
 		return err
 	}
 	return out.Close()
