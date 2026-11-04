@@ -1,0 +1,23 @@
+{
+  "_note": "Recipe-dispatched by name: icon-sets-openmoji runs the openmoji-sets recipe (src/internal/core/recipes), which fetches one pinned OpenMoji release tag from hfg-gmuend/openmoji and writes the colour and black sets. It shares its pipelines with the deprecated openmoji sets inside icon-sets-emoji, so the two stay byte-identical. OpenMoji tags have no `v` prefix. `licence` is guarded: a sync whose upstream LICENSE.txt no longer opens as CC-BY-SA 4.0 fails before touching the pack.",
+  "name": "icon-sets-openmoji",
+  "pack": "ichava/icon-sets-openmoji",
+  "pack_root": "/work/icon-sets-openmoji",
+  "recipe": "openmoji-sets",
+  "licence": "CC-BY-SA-4.0",
+  "current_version": "15.1.0",
+  "version_check_url": "https://api.github.com/repos/hfg-gmuend/openmoji/releases/latest",
+  "source": {
+    "type": "github-release",
+    "owner": "hfg-gmuend",
+    "repo": "openmoji",
+    "archive_url": "https://github.com/hfg-gmuend/openmoji/archive/refs/tags/{version}.zip"
+  },
+  "sinks": [
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

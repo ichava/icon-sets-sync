@@ -105,13 +105,15 @@ func Execute() int {
 	return ExitOK
 }
 
-// InterruptContext returns a context cancelled by the first SIGINT or
-// SIGTERM, so Ctrl-C stops a sync cleanly: the stage in flight sees the
+// InterruptContext returns a context cancelled by the first SIGINT, SIGTERM
+// or SIGHUP, so Ctrl-C stops a sync cleanly: the stage in flight sees the
 // cancel, its subprocess or download is stopped, and no later stage (the
 // commit, the push) runs. After the first signal the default handling is
 // restored, so a second Ctrl-C still kills the process outright.
 func InterruptContext(parent context.Context) (context.Context, context.CancelFunc) {
-	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
+	// SIGHUP is a closed terminal window, which is how a double-clicked
+	// server is usually stopped; it gets the same clean shutdown.
+	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	go func() {
 		<-ctx.Done()
 		stop()
@@ -152,11 +154,13 @@ Settings resolve in this order, highest first:
 The global config is $XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml}.
 Run "config print --origins" to see where every value came from.
 
-Run with no arguments in a terminal for the interactive menu.`,
+Run with no arguments (or double-click the binary) to open the web UI in your
+browser. Pass a command to run headless, as CI and servers do; "menu" opens
+the interactive terminal menu.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMenu(cmd, args)
+			return runDefault(cmd, args)
 		},
 	}
 
@@ -289,7 +293,7 @@ func resolveState(cmd *cobra.Command) error {
 // addRunFlags binds the flags the refreshing commands share. --force only
 // means something where there is an upstream check to override.
 func addRunFlags(f *pflag.FlagSet, withForce bool) {
-	f.BoolVar(&g.dryRun, "dry-run", false, "refresh files but skip the version stamp, commit and pull request (setting dry_run)")
+	f.BoolVar(&g.dryRun, "dry-run", false, "fetch and report the diff, but write nothing into the pack and skip the version stamp, commit and pull request (setting dry_run)")
 	f.BoolVar(&g.commit, "commit", false, "commit even if a config or ICHAVA_DRY_RUN says dry run")
 	if withForce {
 		f.BoolVar(&g.force, "force", false, "refresh even when not stale (setting force)")
@@ -321,6 +325,23 @@ func configDir() string {
 		return dir
 	}
 	return config.DefaultConfigDir()
+}
+
+// configSource is configDir with the layer that chose it, as the Settings
+// page and serve's startup line show it: flag, env, cwd, executable or
+// embedded (a global config's config_dir reports "global").
+func configSource() (string, string) {
+	if dir := state.run.String("config_dir"); dir != "" {
+		switch o := state.run.Origin("config_dir"); o {
+		case settings.LayerFlag:
+			return dir, config.SourceFlag
+		case settings.LayerEnv:
+			return dir, config.SourceEnv
+		default:
+			return dir, string(o)
+		}
+	}
+	return config.DefaultConfigSource()
 }
 
 func workspace() string { return state.run.String("workspace") }

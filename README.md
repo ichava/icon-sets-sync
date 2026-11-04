@@ -78,6 +78,11 @@ make validate
 
 ### Usage
 
+Double-click the binary (or run `build/icon-sets-sync` with no arguments) to open the web UI in your
+browser. Pass a command for CLI and CI use: a command never opens a browser, and with no terminal,
+with `CI` set, or on Linux without a display, no arguments prints the help instead. The terminal menu
+that no arguments used to open is `icon-sets-sync menu` (`make menu`).
+
 See which packs are behind upstream, without writing anything:
 
 ```bash
@@ -90,7 +95,7 @@ Refresh one pack, commit it to `chore/sync-upstream-<version>` and open a pull r
 make sync PACK=icon-sets-tabler
 ```
 
-Refresh every pack's files as a dry run, two at a time, against a different base branch:
+Dry-run every pack (fetch and report the diff, write nothing), two at a time, against a different base branch:
 
 ```bash
 ICHAVA_GIT_BASE=develop build/icon-sets-sync --config-dir config sync-all --dry-run --concurrency=2

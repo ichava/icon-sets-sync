@@ -20,6 +20,7 @@ import (
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
+	"github.com/ichava/icon-sets-sync/src/internal/defaultconfig"
 )
 
 // SourceConfig says where to fetch upstream artefacts from.
@@ -233,14 +234,12 @@ type PacksRegistry struct {
 }
 
 // DefaultConfigDir resolves the directory the pack configs live in, from the
-// process environment, working directory and executable. See ResolveConfigDir.
+// process environment, working directory and executable. See
+// ResolveConfigSource; ResolveConfigDir is the earlier subset of it, kept for
+// its callers.
 func DefaultConfigDir() string {
-	cwd, _ := os.Getwd()
-	exeDir := ""
-	if exe, err := os.Executable(); err == nil {
-		exeDir = filepath.Dir(exe)
-	}
-	return ResolveConfigDir("", os.Getenv, cwd, exeDir)
+	dir, _ := DefaultConfigSource()
+	return dir
 }
 
 // configWalkLimit is how many parent directories the repository-layout search
@@ -651,4 +650,91 @@ func WriteVendoredVersion(pack *PackConfig, version string) (string, error) {
 		}
 	}
 	return target, nil
+}
+
+// Config directory sources, as the Settings page and the startup log name them.
+const (
+	SourceFlag       = "flag"
+	SourceEnv        = "env"
+	SourceCwd        = "cwd"
+	SourceExecutable = "executable"
+	SourceEmbedded   = "embedded"
+	SourceMissing    = "missing"
+)
+
+// ResolveConfigSource is ResolveConfigDir plus the layers a double-clicked
+// binary needs, and it names the layer that answered. Finder and Explorer
+// start a binary with the working directory at $HOME, so the walk from cwd
+// never reaches the checkout. In order:
+//
+//  1. explicit (--config-dir): SourceFlag;
+//  2. ICHAVA_CONFIG_DIR, or its older name: SourceEnv;
+//  3. config/ beside the executable: SourceExecutable;
+//  4. ./config, or the repository layout walking up from cwd: SourceCwd;
+//  5. the repository layout walking up from the executable's own directory,
+//     by the same rule (config/packs.json next to src/go.mod, at most
+//     configWalkLimit parents, stopping at .git), so build/icon-sets-sync and
+//     build/dist/icon-sets-sync_macos_* find the checkout: SourceExecutable;
+//  6. the configs embedded in the binary, written to a read-only cache
+//     directory: SourceEmbedded;
+//  7. ./config, so a missing registry reports the path it looked for:
+//     SourceMissing (only if the embedded copy cannot be written).
+func ResolveConfigSource(explicit string, getenv func(string) string, cwd, exeDir string) (string, string) {
+	if explicit != "" {
+		return explicit, SourceFlag
+	}
+	for _, env := range []string{"ICHAVA_CONFIG_DIR", "ICHAVA_DEV_CONFIG_DIR"} {
+		if dir := getenv(env); dir != "" {
+			return dir, SourceEnv
+		}
+	}
+	if exeDir != "" {
+		candidate := filepath.Join(exeDir, "config")
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate, SourceExecutable
+		}
+	}
+	if cwd != "" {
+		if isFile(filepath.Join(cwd, "config", "packs.json")) {
+			return "config", SourceCwd
+		}
+		if root := FindToolkitRoot(cwd); root != "" {
+			return filepath.Join(root, "config"), SourceCwd
+		}
+	}
+	if exeDir != "" {
+		if root := FindToolkitRoot(exeDir); root != "" {
+			return filepath.Join(root, "config"), SourceExecutable
+		}
+	}
+	if dir, err := defaultconfig.Dir(""); err == nil {
+		return dir, SourceEmbedded
+	}
+	return "config", SourceMissing
+}
+
+// ExecutableDir is the directory of the running binary with symlinks
+// resolved, so a symlink on PATH still finds the checkout it points into.
+// "" when it cannot be told.
+func ExecutableDir() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	if real, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = real
+	}
+	return filepath.Dir(exe)
+}
+
+// DefaultConfigSource is DefaultConfigDir with the layer that answered.
+func DefaultConfigSource() (string, string) {
+	cwd, _ := os.Getwd()
+	dir, src := ResolveConfigSource("", os.Getenv, cwd, ExecutableDir())
+	if lastLogged.Load() != dir {
+		lastLogged.Store(dir)
+		slog.Info("using config directory", "dir", dir, "source", src,
+			"hint", "set ICHAVA_CONFIG_DIR or pass --config-dir to choose another")
+	}
+	return dir, src
 }

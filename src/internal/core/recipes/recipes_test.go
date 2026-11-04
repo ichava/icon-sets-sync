@@ -78,7 +78,7 @@ func TestDryRunDropsTheCommittingSinks(t *testing.T) {
 		}
 	}
 	if indexOf(names, "Filesystem") < 0 {
-		t.Errorf("a dry run should still write the assets locally: %v", names)
+		t.Errorf("a dry run keeps the Filesystem sink, which reports the diff: %v", names)
 	}
 }
 

@@ -48,17 +48,19 @@ var ciWorkRoot = "/work"
 //     <workspace>/<pack> exists;
 //  2. /work/<pack>, when it exists (CI);
 //  3. the sibling checkout <toolkit root>/../<pack>, when it exists (a
-//     developer machine, where the packs sit beside this repository);
+//     developer machine, where the packs sit beside this repository), with
+//     the toolkit root found from the working directory or, failing that,
+//     from the executable's own directory;
 //  4. the configured value, unchanged, with PackRootOrigin naming the
 //     setting that fixes it.
 //
 // pack.PackRootOrigin records which of these applied.
 func ApplyWorkspace(pack *config.PackConfig, workspace string) {
 	cwd, _ := os.Getwd()
-	applyWorkspaceIn(pack, workspace, cwd, ciWorkRoot)
+	applyWorkspaceIn(pack, workspace, cwd, config.ExecutableDir(), ciWorkRoot)
 }
 
-func applyWorkspaceIn(pack *config.PackConfig, workspace, cwd, ciRoot string) {
+func applyWorkspaceIn(pack *config.PackConfig, workspace, cwd, exeDir, ciRoot string) {
 	pack.PackRootOrigin = "pack config"
 	if pack.PackRoot == "" {
 		return
@@ -83,13 +85,20 @@ func applyWorkspaceIn(pack *config.PackConfig, workspace, cwd, ciRoot string) {
 	if isDir(pack.PackRoot) {
 		return
 	}
-	if root := config.FindToolkitRoot(cwd); root != "" {
-		if c := filepath.Join(filepath.Dir(root), name); isDir(c) {
-			pack.PackRoot, pack.PackRootOrigin = c, "sibling checkout of this repository"
-			return
+	// From the working directory, then from the binary's own directory: a
+	// double-clicked binary runs with cwd=$HOME.
+	for _, start := range []string{cwd, exeDir} {
+		if start == "" {
+			continue
+		}
+		if root := config.FindToolkitRoot(start); root != "" {
+			if c := filepath.Join(filepath.Dir(root), name); isDir(c) {
+				pack.PackRoot, pack.PackRootOrigin = c, "sibling checkout of this repository"
+				return
+			}
 		}
 	}
-	pack.PackRootOrigin = "pack config (" + pack.PackRoot + " does not exist; set ICHAVA_WORKSPACE or --set workspace=<directory holding the " + name + " checkout>)"
+	pack.PackRootOrigin = "pack config (" + pack.PackRoot + " does not exist; sync needs a workspace: set ICHAVA_WORKSPACE or --set workspace=<directory holding the " + name + " checkout>)"
 }
 
 func isDir(path string) bool {

@@ -126,6 +126,16 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		if r.URL.Path == HealthPath {
+			// A second launch's probe: the token in a header, never a URL,
+			// and no session is created for it.
+			if !equal(r.Header.Get(HealthTokenHeader), s.opts.Token) {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
 		if tok := r.URL.Query().Get("token"); tok != "" {
 			if !equal(tok, s.opts.Token) || (r.Method != http.MethodGet && r.Method != http.MethodHead) {
 				s.renderUnauthorized(w, r)

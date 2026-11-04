@@ -1,10 +1,13 @@
 package web
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 )
 
@@ -71,5 +74,14 @@ func TestAppEngineReadsPacksAndNotes(t *testing.T) {
 	}
 	if _, err := e.Pack("icon-sets-missing"); err == nil {
 		t.Error("an unregistered pack loaded")
+	}
+}
+
+// A pack with no checkout says how to get one, not an lstat error.
+func TestPackStatsWithoutACheckoutNamesTheWorkspace(t *testing.T) {
+	p := &config.PackConfig{Name: "icon-sets-flag", PackRoot: filepath.Join(t.TempDir(), "missing", "icon-sets-flag")}
+	st := ReadPackStats(context.Background(), nil, p)
+	if strings.Contains(st.Err, "lstat") || !strings.Contains(st.Err, "ICHAVA_WORKSPACE") {
+		t.Fatalf("Err = %q", st.Err)
 	}
 }

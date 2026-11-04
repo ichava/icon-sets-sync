@@ -326,13 +326,13 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 
 | Setting | Default | Environment | Per pack | Meaning |
 |---|---|---|---|---|
-| `config_dir` | `config/` beside the binary, else `./config` | `ICHAVA_CONFIG_DIR` (older: `ICHAVA_DEV_CONFIG_DIR`) | no | where the registry and pack configs live |
+| `config_dir` | `config/` beside the binary, else the checkout found walking up from the working directory, then from the binary, else the configs embedded in the binary | `ICHAVA_CONFIG_DIR` (older: `ICHAVA_DEV_CONFIG_DIR`) | no | where the registry and pack configs live |
 | `private_config_dir` | none | `ICHAVA_PRIVATE_CONFIG_DIR` | no | private pack configs merged over `config_dir` at run time; see [Private packs](#private-packs) |
 | `log_level` | `info` | `ICHAVA_LOG_LEVEL` (older: `ICHAVA_DEV_LOG_LEVEL`) | no | `debug`, `info`, `warn`, `error` |
 | `concurrency` | `1` | `ICHAVA_CONCURRENCY` | no | packs synced at once by `sync-all` |
 | `workspace` | none | `ICHAVA_WORKSPACE` | no | directory a relative `pack_root` resolves against |
 | `allowed_hosts` | none | `ICHAVA_ALLOWED_HOSTS` | no | extra upstream hosts the client may fetch from, comma separated; see [Upstream hosts and https](#upstream-hosts-and-https) |
-| `dry_run` | `false` | `ICHAVA_DRY_RUN` | yes | write files, skip stamp, commit and pull request |
+| `dry_run` | `false` | `ICHAVA_DRY_RUN` | yes | fetch and diff, write nothing into the pack, skip stamp, commit and pull request |
 | `force` | `false` | `ICHAVA_FORCE` | yes | refresh even when current |
 | `git.author` | `ichava-sync-bot <41898282+github-actions[bot]@users.noreply.github.com>` | `ICHAVA_GIT_AUTHOR` | yes | author and committer, `Name <email>` |
 | `git.base` | `main` | `ICHAVA_GIT_BASE` | yes | the pull request's base branch |

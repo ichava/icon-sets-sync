@@ -56,7 +56,7 @@ shell: build-local  ## Open a shell with build/ on PATH and ICHAVA_CONFIG_DIR se
 # ---------------------------------------------------------------------------
 
 .PHONY: menu
-menu: build-local  ## Open the interactive menu (default action)
+menu: build-local  ## Open the interactive terminal menu (no arguments opens the web UI)
 	$(RUN) menu
 
 .PHONY: check
@@ -74,7 +74,7 @@ sync: build-local  ## Sync upstream for one pack (refresh + commit + PR): PACK=<
 	$(RUN) sync --pack=$(PACK)
 
 .PHONY: sync-all
-sync-all: build-local  ## Sync every pack as a dry run (files only): CONCURRENCY=<n>
+sync-all: build-local  ## Dry-run every pack: fetch and report the diff, write nothing: CONCURRENCY=<n>
 	$(RUN) sync-all --dry-run --concurrency=$(CONCURRENCY)
 
 .PHONY: sync-all-force
@@ -88,6 +88,10 @@ build-emoji: build-local  ## Run the icon-sets-emoji recipe (Twemoji + OpenMoji 
 .PHONY: validate
 validate: build-local  ## Validate every pack config against config/schema/pack.schema.json
 	$(RUN) config validate
+
+.PHONY: embed-config
+embed-config:  ## Copy config/ into the binary's embedded defaults (run after editing config/)
+	go -C src generate ./internal/defaultconfig
 
 .PHONY: config-print
 config-print: build-local  ## Print the effective settings and where each came from [PACK=<name>]
@@ -129,15 +133,29 @@ build-local:  ## Build $(BIN) with the host's Go toolchain
 	go -C src build -trimpath -o ../$(BIN) ./cmd/icon-sets-sync
 
 # The target list is src/.goreleaser.yaml's builds, the one place it is kept,
-# so this builds exactly the set a release would, into build/dist/: the flat
-# {binary}_{os}_{arch} executables (macOS as `macos`, plus the universal
-# binary), the archives and the Linux packages. A snapshot with publishing,
-# signing and SBOMs skipped, so nothing leaves the machine.
+# so these build exactly the set a release would. A snapshot with publishing,
+# signing and SBOMs skipped, so nothing leaves the machine, and no Go release.
+# flatdist then trims GoReleaser's per-target folders and metadata away:
+#   cross -> build/dist/{binary}_{os}_{arch}[.exe] (macOS as `macos`, plus the
+#            universal binary) and build/dist/checksums.txt, nothing else;
+#   dist  -> the same, plus build/dist/archives/: the .tar.gz/.zip archives,
+#            the deb/rpm/apk packages, the source tarball and their checksums.txt.
+GORELEASER_SNAPSHOT := GOPRIVATE='github.com/ichava/*' GONOSUMDB='github.com/ichava/*' \
+	goreleaser release --snapshot --clean --config src/.goreleaser.yaml
+
 .PHONY: cross
-cross:  ## Build every release target locally into build/dist (needs goreleaser v2)
+cross:  ## Build every release target's bare binary into build/dist (needs goreleaser v2)
 	@command -v goreleaser >/dev/null || { echo "goreleaser v2 is required: https://goreleaser.com/install/"; exit 2; }
-	GOPRIVATE='github.com/ichava/*' GONOSUMDB='github.com/ichava/*' \
-		goreleaser release --snapshot --clean --config src/.goreleaser.yaml --skip=publish,sign,sbom
+	$(GORELEASER_SNAPSHOT) --skip=publish,sign,sbom,nfpm
+	go -C src run ./internal/tools/flatdist -root ..
+	@dirs="$$(find build/dist -mindepth 1 -type d)"; if [ -n "$$dirs" ]; then \
+		echo "make cross left directories in build/dist, which must hold only binaries and checksums.txt:"; echo "$$dirs"; exit 1; fi
+
+.PHONY: dist
+dist:  ## cross, plus the archives and Linux packages in build/dist/archives (needs goreleaser v2)
+	@command -v goreleaser >/dev/null || { echo "goreleaser v2 is required: https://goreleaser.com/install/"; exit 2; }
+	$(GORELEASER_SNAPSHOT) --skip=publish,sign,sbom
+	go -C src run ./internal/tools/flatdist -root .. -archives
 
 .PHONY: test-local
 test-local:  ## go vet + go test with the host's Go toolchain
@@ -149,7 +167,7 @@ test-local:  ## go vet + go test with the host's Go toolchain
 # ---------------------------------------------------------------------------
 
 .PHONY: serve
-serve:  ## Run the web UI (icon-sets-sync serve) with the host's Go toolchain
+serve:  ## Run the web UI (icon-sets-sync serve; opens a browser unless --no-open) with the host Go toolchain
 	go -C src run ./cmd/icon-sets-sync serve
 
 .PHONY: ui

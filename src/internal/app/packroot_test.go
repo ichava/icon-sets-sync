@@ -64,7 +64,7 @@ func TestPackRootResolution(t *testing.T) {
 				mkdir(t, ws, "icon-sets-tabler")
 			}
 			p := &config.PackConfig{Name: "icon-sets-tabler", PackRoot: filepath.Join(ci, "icon-sets-tabler")}
-			applyWorkspaceIn(p, ws, filepath.Join(toolkit, "src"), ci)
+			applyWorkspaceIn(p, ws, filepath.Join(toolkit, "src"), "", ci)
 			if want := tc.wantRoot(base, ci, ws); p.PackRoot != want {
 				t.Errorf("PackRoot = %q, want %q", p.PackRoot, want)
 			}
@@ -77,7 +77,7 @@ func TestPackRootResolution(t *testing.T) {
 
 func TestRelativePackRootStillUsesWorkspace(t *testing.T) {
 	p := &config.PackConfig{Name: "x", PackRoot: "x"}
-	applyWorkspaceIn(p, "/ws", "", "/work")
+	applyWorkspaceIn(p, "/ws", "", "", "/work")
 	if p.PackRoot != filepath.Join("/ws", "x") {
 		t.Errorf("PackRoot = %q", p.PackRoot)
 	}

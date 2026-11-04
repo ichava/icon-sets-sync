@@ -100,6 +100,19 @@ func (s Filesystem) Execute(ctx *pipeline.Context) error {
 			if err := s.guardRemovals(source, target, log); err != nil {
 				return err
 			}
+		}
+	}
+
+	if ctx.DryRun() {
+		// Report the diff a real run would make and write nothing: the
+		// fetched tree already sits in the pipeline's temporary working
+		// directory, and that is the only place a dry run may write. The
+		// guards above still run, so a dry run fails where a real one would.
+		return s.reportDryRun(ctx, source, target, before, log)
+	}
+
+	if !s.Incremental {
+		if _, err := os.Stat(target); err == nil {
 			log.Info("filesystem: wiping", "target", target)
 			if err := os.RemoveAll(target); err != nil {
 				return err
@@ -154,6 +167,25 @@ func (s Filesystem) Execute(ctx *pipeline.Context) error {
 	})
 	ctx.SetString(pipeline.KeyFilesystemTgt, target)
 	log.Info("filesystem", "copied", copied, "target", target)
+	return nil
+}
+
+// reportDryRun records the same metric a real run does, with copied 0 and
+// would_write the number of SVGs a real run would copy.
+func (s Filesystem) reportDryRun(ctx *pipeline.Context, source, target string, before map[string][32]byte, log *slog.Logger) error {
+	after, err := hashSVGs(source)
+	if err != nil {
+		return err
+	}
+	d := diffTrees(before, after, !s.Incremental)
+	ctx.Metric("filesystem", map[string]any{
+		"copied": 0, "would_write": len(after), "dry_run": true, "target": target,
+		"added": len(d.added), "removed": len(d.removed), "changed": len(d.changed),
+		"added_names": capNames(d.added), "removed_names": capNames(d.removed), "changed_names": capNames(d.changed),
+	})
+	ctx.SetString(pipeline.KeyFilesystemTgt, target)
+	log.Info("filesystem: dry run, pack left untouched", "would_write", len(after), "target", target,
+		"added", len(d.added), "removed", len(d.removed), "changed", len(d.changed))
 	return nil
 }
 

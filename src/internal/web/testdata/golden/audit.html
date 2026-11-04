@@ -39,6 +39,12 @@
         </ul>
       </nav>
       
+      
+      <form method="post" action="/server/stop" class="d-flex order-md-last ms-2" data-confirm="Stop the server? This page and every open tab stop working until you run icon-sets-sync again.">
+        <input type="hidden" name="csrf" value="CSRF">
+        <button type="submit" class="btn btn-outline-secondary btn-sm" title="Shut down icon-sets-sync"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-player-stop"></use></svg><span class="ms-1">Stop server</span></button>
+      </form>
+      
       <div class="navbar-nav flex-row order-md-last ms-auto" role="group" aria-label="Colour theme">
         <a href="?theme=light" class="nav-link px-2" title="Light theme"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-sun"></use></svg><span class="visually-hidden">Light theme</span></a>
         <a href="?theme=dark" class="nav-link px-2" title="Dark theme"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-moon"></use></svg><span class="visually-hidden">Dark theme</span></a>

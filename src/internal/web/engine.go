@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -121,13 +122,19 @@ type SettingsView struct {
 	Rows       []SettingRow
 	ConfigDir  string
 	GlobalPath string
+	// ConfigSource names the layer that chose ConfigDir: flag, env, cwd,
+	// executable or embedded (config.Source*).
+	ConfigSource string
 }
 
 // AppEngine is the production Engine over internal/app.
 type AppEngine struct {
-	ConfigDir  string
-	Workspace  string
-	GlobalPath string
+	ConfigDir string
+	// ConfigSource is the layer that chose ConfigDir (config.Source*). The
+	// embedded configs are read-only.
+	ConfigSource string
+	Workspace    string
+	GlobalPath   string
 	// GlobalHome is $XDG_CONFIG_HOME (or ~/.config): where the editor creates
 	// a global config when none exists yet.
 	GlobalHome string
@@ -166,7 +173,9 @@ func (e *AppEngine) Settings() SettingsView {
 	e.mu.Lock()
 	stack, global := e.Stack, e.GlobalPath
 	e.mu.Unlock()
-	return BuildSettingsView(stack.Resolve(nil), e.ConfigDir, global)
+	v := BuildSettingsView(stack.Resolve(nil), e.ConfigDir, global)
+	v.ConfigSource = e.ConfigSource
+	return v
 }
 
 // AuditManifestPack implements Engine.
@@ -305,6 +314,10 @@ func ReadNotes(path string) map[string]string {
 // missing checkout is reported, not fatal: the dashboard still renders.
 func ReadPackStats(ctx context.Context, git *gitx.Git, pack *config.PackConfig) PackStats {
 	var st PackStats
+	if _, err := os.Stat(pack.PackRoot); errors.Is(err, os.ErrNotExist) {
+		return PackStats{Err: "no checkout of " + pack.Name + " at " + pack.PackRoot +
+			"; sync needs a workspace: set ICHAVA_WORKSPACE (or --set workspace=) to the directory holding it"}
+	}
 	root := filepath.Join(pack.PackRoot, "resources", "assets")
 	err := filepath.WalkDir(root, func(_ string, d fs.DirEntry, err error) error {
 		if err != nil {

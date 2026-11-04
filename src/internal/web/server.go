@@ -92,6 +92,9 @@ type Server struct {
 	jobs     *jobs.Registry
 	history  *jobs.Store
 
+	// stop is closed by the "Stop server" action.
+	stop stopper
+
 	// base is cancelled on shutdown, stopping background work.
 	base   context.Context
 	cancel context.CancelFunc
@@ -120,7 +123,7 @@ func New(opts Options) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{opts: opts, pages: pages, assets: assets}
+	s := &Server{opts: opts, pages: pages, assets: assets, stop: stopper{ch: make(chan struct{})}}
 	s.base, s.cancel = context.WithCancel(context.Background())
 	if opts.HistoryDir != "" {
 		s.history = &jobs.Store{Dir: opts.HistoryDir}
@@ -135,7 +138,7 @@ func (s *Server) Handler() http.Handler { return s.handler }
 
 func (s *Server) now() time.Time { return s.opts.Now() }
 
-// Serve answers on ln until ctx is cancelled, then shuts down with a
+// Serve answers on ln until ctx is cancelled or Stop is called, then shuts down with a
 // ten-second grace for requests in flight and cancels background work.
 func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	srv := &http.Server{
@@ -151,6 +154,7 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 		s.cancel()
 		return err
 	case <-ctx.Done():
+	case <-s.stop.ch:
 	}
 	// Cancel the runs first: an open event stream only ends when its job
 	// does, so shutting the server down before them would wait out the grace.

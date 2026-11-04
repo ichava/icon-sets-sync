@@ -11,6 +11,30 @@ make build-local                  # writes build/icon-sets-sync; make build does
 build/icon-sets-sync --config-dir config list-packs
 ```
 
+Run with no arguments, or double-clicked, it opens the web UI in your browser; with a command it runs
+headless, as on CI and servers (see [`serve`](tools/serve.md#flags)).
+
+Double-clicked from inside the checkout, `build/icon-sets-sync` and the `build/dist/` binaries find
+the checkout's `config/` from their own location; a binary copied anywhere else uses the pack configs
+built into it, read-only. After editing `config/`, run `make embed-config` so the built-in copy
+matches; a test fails until it does.
+
+### Build outputs
+
+Everything generated goes under `build/`, which is gitignored; `make clean` removes it.
+
+| Command | Writes |
+|---|---|
+| `make build-local` | `build/icon-sets-sync`, for this machine |
+| `make cross` | `build/dist/{binary}_{os}_{arch}` (`.exe` on Windows) for every release target of both entrypoints, `icon-sets-sync` and `imt`, with macOS as `macos` plus a `macos_universal` binary, and `build/dist/checksums.txt` over them. Nothing else. |
+| `make dist` | the same, plus `build/dist/archives/`: the `.tar.gz`/`.zip` archives, the `.deb`/`.rpm`/`.apk` packages, the source tarball and their own `checksums.txt` |
+
+`cross` and `dist` need GoReleaser v2 and read the target list from `src/.goreleaser.yaml`; they are
+snapshots with publishing, signing and SBOMs skipped, so nothing is released. Measured 2026-11-04,
+`make cross` leaves 38 binaries and `checksums.txt` (568 MB); before it was trimmed it left 86 items
+(1.0 GB), most of them GoReleaser's per-target folders. `bin/icon-sets-sync` is the tracked Composer
+launcher (PHP), not a build output.
+
 Put `build/icon-sets-sync` on your `PATH` to call it from anywhere. To pin a version, check out its
 tag (`git checkout vX.Y.Z`) before building. To run it without keeping a binary:
 
