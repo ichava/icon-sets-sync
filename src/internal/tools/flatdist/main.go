@@ -179,8 +179,9 @@ func goosOf(a artifact) string {
 }
 
 // removeCrossBinaries clears the {binary}_* files a previous `make cross`
-// left in the OS folders, so a target dropped from the config does not linger.
-// The host build, named plain {binary}, stays.
+// left in the OS folders, so a target dropped from the config does not linger,
+// and the macOS app bundle, which carries the universal binary this run
+// replaces; `make app` rebuilds it. The host build, named plain {binary}, stays.
 func removeCrossBinaries(out string) error {
 	entries, err := os.ReadDir(out)
 	if os.IsNotExist(err) {
@@ -197,6 +198,12 @@ func removeCrossBinaries(out string) error {
 			return err
 		}
 		for _, f := range files {
+			if f.IsDir() && f.Name() == buildlayout.AppBundle {
+				if err := os.RemoveAll(filepath.Join(out, e.Name(), f.Name())); err != nil {
+					return err
+				}
+				continue
+			}
 			if !f.IsDir() && strings.HasPrefix(f.Name(), buildlayout.Binary+"_") {
 				if err := os.Remove(filepath.Join(out, e.Name(), f.Name())); err != nil {
 					return err

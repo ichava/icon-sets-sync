@@ -19,7 +19,8 @@ CONCURRENCY ?= 1
 #
 # build/ holds one folder per OS and nothing else (build/macos, build/linux,
 # build/windows, build/freebsd, plus checksums.txt and, after `make dist`,
-# archives/). The host build is build/<host-os>/icon-sets-sync, macOS written
+# archives/). The one folder an OS folder may hold is build/macos/icon-sets-sync.app,
+# after `make app`. The host build is build/<host-os>/icon-sets-sync, macOS written
 # as macos and .exe on Windows. checkbuild fails on anything else.
 HOST_GOOS := $(shell go env GOOS)
 HOST_OS := $(if $(filter darwin,$(HOST_GOOS)),macos,$(HOST_GOOS))
@@ -162,7 +163,27 @@ cross:  ## Build every release target's bare binary into build/<os>/ (needs gore
 	@command -v goreleaser >/dev/null || { echo "goreleaser v2 is required: https://goreleaser.com/install/"; exit 2; }
 	$(GORELEASER_SNAPSHOT) --skip=publish,sign,sbom,nfpm
 	go -C src run ./internal/tools/flatdist -root ..
+	go -C src run ./internal/tools/launchers -desktop ../build/linux
 	@$(CHECK_BUILD) -min 20
+
+# Double-click launchers, built from what cross wrote (src/internal/tools/launchers).
+# macOS opens a bare executable inside Terminal, so it gets an app bundle whose
+# binary is the universal binary itself; Linux gets a .desktop entry (cross
+# writes it); Windows needs neither. Unsigned: see docs/installation.md.
+UNIVERSAL := build/macos/icon-sets-sync_macos_universal
+APP := build/macos/icon-sets-sync.app
+
+.PHONY: app
+app:  ## Build build/macos/icon-sets-sync.app from the universal binary (run make cross first)
+	@test -f $(UNIVERSAL) || { echo "$(UNIVERSAL) is missing; run make cross first"; exit 2; }
+	go -C src run ./internal/tools/launchers -app ../$(APP) -universal ../$(UNIVERSAL) \
+		-version "$$(git describe --tags --always 2>/dev/null || echo 0.0.0)"
+	@$(CHECK_BUILD) -min 8
+
+.PHONY: desktop
+desktop:  ## Write build/linux/icon-sets-sync.desktop and its icon (make cross does this too)
+	go -C src run ./internal/tools/launchers -desktop ../build/linux
+	@$(CHECK_BUILD)
 
 .PHONY: dist
 dist:  ## cross, plus the archives and Linux packages in build/archives (needs goreleaser v2)

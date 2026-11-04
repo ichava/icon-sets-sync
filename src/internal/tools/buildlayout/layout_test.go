@@ -171,3 +171,123 @@ func TestOSToken(t *testing.T) {
 		}
 	}
 }
+
+// bundle adds build/macos/icon-sets-sync.app to root, its binary a copy of
+// the universal binary tree() wrote, as `make app` does.
+func bundle(t *testing.T, root string) string {
+	t.Helper()
+	app := filepath.Join(root, "macos", Binary+".app")
+	if err := os.MkdirAll(filepath.Join(app, "Contents", "MacOS"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(app, "Contents", "Resources"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	uni, err := os.ReadFile(filepath.Join(root, "macos", Binary+"_macos_universal"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for p, body := range map[string][]byte{
+		"Contents/MacOS/" + Binary:               uni,
+		"Contents/Info.plist":                    []byte("<plist/>"),
+		"Contents/Resources/" + Binary + ".icns": []byte("icns"),
+	} {
+		mode := os.FileMode(0o644)
+		if strings.HasPrefix(p, "Contents/MacOS/") {
+			mode = 0o755
+		}
+		if err := os.WriteFile(filepath.Join(app, filepath.FromSlash(p)), body, mode); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return app
+}
+
+// `make app` adds build/macos/icon-sets-sync.app, a folder inside an OS
+// folder that the layout accepts, because macOS runs a bundle and nothing
+// else without a terminal.
+func TestTheAppBundlePasses(t *testing.T) {
+	root := tree(t, append([]string{"linux/icon-sets-sync.desktop", "linux/icon-sets-sync.png"}, good...)...)
+	bundle(t, root)
+	n, problems, err := Check(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(problems) != 0 {
+		t.Fatalf("a good bundle failed: %v", problems)
+	}
+	// The bundle, Contents/, MacOS/, Resources/ and its three files.
+	if want := len(good) + 2 + 5 + 7; n != want {
+		t.Fatalf("inspected %d entries, want %d", n, want)
+	}
+}
+
+// Every way a bundle can be wrong fails, with one problem each.
+func TestABrokenAppBundleFails(t *testing.T) {
+	cases := map[string]func(t *testing.T, root, app string){
+		"a bundle in linux/": func(t *testing.T, root, app string) {
+			if err := os.Rename(app, filepath.Join(root, "linux", Binary+".app")); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"a bundle by another name": func(t *testing.T, root, app string) {
+			if err := os.Rename(app, filepath.Join(root, "macos", "Other.app")); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"no Info.plist": func(t *testing.T, _, app string) {
+			if err := os.Remove(filepath.Join(app, "Contents", "Info.plist")); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"no binary": func(t *testing.T, _, app string) {
+			if err := os.Remove(filepath.Join(app, "Contents", "MacOS", Binary)); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"a binary that is not executable": func(t *testing.T, _, app string) {
+			if err := os.Chmod(filepath.Join(app, "Contents", "MacOS", Binary), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"a binary that is not the universal one (stale after make cross)": func(t *testing.T, _, app string) {
+			if err := os.WriteFile(filepath.Join(app, "Contents", "MacOS", Binary), []byte("older"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"no universal binary beside it": func(t *testing.T, root, _ string) {
+			p := filepath.Join(root, "macos", Binary+"_macos_universal")
+			if err := os.Remove(p); err != nil {
+				t.Fatal(err)
+			}
+			b, _ := os.ReadFile(filepath.Join(root, "checksums.txt"))
+			var keep []string
+			for _, l := range strings.SplitAfter(string(b), "\n") {
+				if !strings.Contains(l, "_macos_universal") {
+					keep = append(keep, l)
+				}
+			}
+			if err := os.WriteFile(filepath.Join(root, "checksums.txt"), []byte(strings.Join(keep, "")), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"a stray file in Contents/MacOS/": func(t *testing.T, _, app string) {
+			if err := os.WriteFile(filepath.Join(app, "Contents", "MacOS", "helper"), []byte("x"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		},
+	}
+	for name, breakIt := range cases {
+		t.Run(name, func(t *testing.T) {
+			root := tree(t, good...)
+			breakIt(t, root, bundle(t, root))
+			_, problems, err := Check(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(problems) != 1 {
+				t.Fatalf("problems = %v, want exactly one", problems)
+			}
+		})
+	}
+}
