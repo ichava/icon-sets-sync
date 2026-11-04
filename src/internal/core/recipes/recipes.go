@@ -239,14 +239,14 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 		Transform(transforms.FindLicences{}).
 		// Twemoji ships a class on every path; it is the one upstream where
 		// stripping it is wanted, so the pack's own styling applies.
-		Transform(transforms.Sanitise{AlsoStripClass: true}).
+		Transform(transforms.Sanitise{AlsoStripClass: true, Force: r.Bool("force")}).
 		Transform(transforms.Categorise{By: "cldr"}).
 		Transform(transforms.Indexer{Targets: []string{"codepoints", "names"}}).
 		Sink(sinks.Filesystem{Root: filesRoot + "/twemoji"}).
 		Sink(sinks.LicenceTexts{Root: licencesRoot + "/twemoji", Set: "twemoji"})
 
 	openmoji := func(name, subdir string) *pipeline.Pipeline {
-		return openmojiPipeline(cfg, cldr, openmojiVersion, name, subdir, filesRoot, licencesRoot+"/"+name, name, "", openmojiGuards{})
+		return openmojiPipeline(cfg, cldr, openmojiVersion, name, subdir, filesRoot, licencesRoot+"/"+name, name, "", openmojiGuards{force: r.Bool("force")})
 	}
 
 	pipelines := []*pipeline.Pipeline{
@@ -276,9 +276,11 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 // their outputs byte-identical rather than merely similar. licence is the SPDX
 // id to guard the licence text with; empty means unguarded.
 //
-// guards is the one place the two callers differ: emoji-sets passes the zero
-// value and keeps its historical behaviour exactly; openmoji-sets opts into
-// never dropping an icon.
+// guards is the one place the two callers differ: emoji-sets passes only
+// --force, which there lifts nothing but Sanitise's stray-text limit (Preserve
+// and RefuseRemovals stay off, so Categorise and Filesystem ignore it), and
+// keeps its historical behaviour; openmoji-sets opts into never dropping an
+// icon.
 func openmojiPipeline(cfg map[string]any, cldr sources.UnicodeCldr, version, name, subdir, filesRoot, licenceRoot, licenceSet, licence string, guards openmojiGuards) *pipeline.Pipeline {
 	return pipeline.Named(fmt.Sprintf("emoji-sets:%s@%s", name, version)).
 		Config(cfg).
@@ -294,7 +296,7 @@ func openmojiPipeline(cfg map[string]any, cldr sources.UnicodeCldr, version, nam
 		}).
 		Transform(transforms.FindLicences{}).
 		Transform(transforms.SubsetTo{Subdir: subdir}).
-		Transform(transforms.Sanitise{}).
+		Transform(transforms.Sanitise{Force: guards.force}).
 		Transform(transforms.Categorise{
 			By: "cldr", Preserve: guards.preserve,
 			MaxUncategorised: guards.maxUncategorised, Force: guards.force,

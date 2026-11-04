@@ -92,8 +92,19 @@ type Sanitise struct {
 	// decision to enforce is then someone's to take deliberately.
 	ReportOnly bool
 
+	// MaxStrayTextFiles is the most files one run may rewrite to drop stray
+	// text (see svg.StrayText); zero means DefaultMaxStrayTextFiles. Force
+	// lets a run past it.
+	MaxStrayTextFiles int
+	Force             bool
+
 	Log *slog.Logger
 }
+
+// DefaultMaxStrayTextFiles bounds how many files one Sanitise may rewrite to
+// drop stray text. OpenMoji 15.1.0 had one such file in 4,000-odd; a release
+// with dozens is malformed, and rewriting it quietly would hide that.
+const DefaultMaxStrayTextFiles = 25
 
 func (Sanitise) Name() string { return "Sanitise" }
 
@@ -113,8 +124,13 @@ func (t Sanitise) Execute(ctx *pipeline.Context) error {
 		log = ctx.Logger()
 	}
 
-	var cleaned, unparsable int
+	var cleaned, unparsable, strayFiles, strayNodes int
 	var violations []string
+	type pendingWrite struct {
+		path string
+		data []byte
+	}
+	var writes []pendingWrite
 
 	for _, path := range files {
 		original, err := os.ReadFile(path)
@@ -137,13 +153,39 @@ func (t Sanitise) Execute(ctx *pipeline.Context) error {
 				filepath.Base(path)+": "+svg.SummariseRemoved(removed))
 		}
 
+		if n := svg.StrayTextCount(removed); n > 0 {
+			strayFiles++
+			strayNodes += n
+			rel, _ := filepath.Rel(root, path)
+			log.Warn("sanitise: dropped stray text", "file", rel, "count", n)
+		}
+
 		if !bytes.Equal(filtered, original) {
 			if !t.ReportOnly {
-				if err := os.WriteFile(path, filtered, 0o644); err != nil {
-					return err
-				}
+				writes = append(writes, pendingWrite{path, filtered})
 			}
 			cleaned++
+		}
+	}
+
+	// Checked before anything is written, so a refused run leaves the tree as
+	// it was fetched. Report-only writes nothing, so it is never refused.
+	maxStray := t.MaxStrayTextFiles
+	if maxStray <= 0 {
+		maxStray = DefaultMaxStrayTextFiles
+	}
+	if !t.ReportOnly && strayFiles > maxStray {
+		msg := fmt.Sprintf("Sanitise: %d files carry stray text under <svg> or <g>, over the %d-file limit; "+
+			"the upstream release is probably malformed", strayFiles, maxStray)
+		if !t.Force {
+			return fmt.Errorf("%s -- check it, or pass --force", msg)
+		}
+		log.Warn(msg + "; continuing because the run is forced")
+	}
+
+	for _, w := range writes {
+		if err := os.WriteFile(w.path, w.data, 0o644); err != nil {
+			return err
 		}
 	}
 
@@ -153,10 +195,12 @@ func (t Sanitise) Execute(ctx *pipeline.Context) error {
 	ctx.Metric("sanitise", map[string]any{
 		"scanned": len(files), "cleaned": cleaned,
 		"unparsable": unparsable, "violations": len(violations),
-		"report_only": t.ReportOnly,
+		"report_only":      t.ReportOnly,
+		"stray_text_files": strayFiles, "stray_text_nodes": strayNodes,
 	})
 	log.Info("sanitise", "scanned", len(files), "would_change", cleaned,
-		"written", !t.ReportOnly, "unparsable", unparsable, "violations", len(violations))
+		"written", !t.ReportOnly, "unparsable", unparsable, "violations", len(violations),
+		"stray_text_files", strayFiles)
 
 	if t.Strict && len(violations) > 0 {
 		return &svg.PolicyViolationError{Violations: violations}

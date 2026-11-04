@@ -410,3 +410,58 @@ func TestCategorisePreserveKeepsBothSidesOfASlugCollision(t *testing.T) {
 		t.Errorf("metrics = %v", m)
 	}
 }
+
+func strayTree(t *testing.T, n int) (*pipeline.Context, string) {
+	t.Helper()
+	files := map[string]string{"clean.svg": `<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>`}
+	for i := 0; i < n; i++ {
+		files[filepath.Join("stray", strings.Repeat("x", i+1)+".svg")] =
+			`<svg xmlns="http://www.w3.org/2000/svg"><g>d<path d="M0 0"/></g></svg>`
+	}
+	return tree(t, files)
+}
+
+func TestSanitiseDropsStrayTextAndCountsIt(t *testing.T) {
+	ctx, root := strayTree(t, 2)
+	if err := (Sanitise{}).Execute(ctx); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(filepath.Join(root, "stray", "x.svg"))
+	if strings.Contains(string(got), ">d<") {
+		t.Errorf("stray text survived: %s", got)
+	}
+	metrics, _ := ctx.Metrics["sanitise"].(map[string]any)
+	if metrics["stray_text_files"] != 2 || metrics["stray_text_nodes"] != 2 {
+		t.Errorf("metrics = %v", metrics)
+	}
+}
+
+// A malformed upstream must not silently rewrite a pack: more than
+// MaxStrayTextFiles files with stray text fails the run, unless forced.
+func TestSanitiseRefusesTooManyStrayTextFiles(t *testing.T) {
+	ctx, root := strayTree(t, DefaultMaxStrayTextFiles+1)
+	before, _ := os.ReadFile(filepath.Join(root, "stray", "x.svg"))
+	err := (Sanitise{}).Execute(ctx)
+	if err == nil || !strings.Contains(err.Error(), "--force") {
+		t.Fatalf("err = %v, want a refusal naming --force", err)
+	}
+	after, _ := os.ReadFile(filepath.Join(root, "stray", "x.svg"))
+	if string(before) != string(after) {
+		t.Error("a refused run must write nothing")
+	}
+
+	ctx, _ = strayTree(t, DefaultMaxStrayTextFiles)
+	if err := (Sanitise{}).Execute(ctx); err != nil {
+		t.Errorf("exactly %d files is within the limit: %v", DefaultMaxStrayTextFiles, err)
+	}
+
+	ctx, _ = strayTree(t, DefaultMaxStrayTextFiles+1)
+	if err := (Sanitise{Force: true}).Execute(ctx); err != nil {
+		t.Errorf("a forced run goes through: %v", err)
+	}
+
+	ctx, _ = strayTree(t, DefaultMaxStrayTextFiles+1)
+	if err := (Sanitise{ReportOnly: true}).Execute(ctx); err != nil {
+		t.Errorf("report-only writes nothing, so it is not refused: %v", err)
+	}
+}

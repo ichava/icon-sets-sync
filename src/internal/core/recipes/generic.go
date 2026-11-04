@@ -51,6 +51,15 @@ func buildGeneric(pack *config.PackConfig, version string, opts Options) (*pipel
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", pack.Pack, err)
 	}
+	// --force lifts Sanitise's stray-text limit, as it lifts openmoji-sets'
+	// guards.
+	force := opts.resolved().Bool("force")
+	for i, t := range declared {
+		if san, ok := t.(transforms.Sanitise); ok {
+			san.Force = force
+			declared[i] = san
+		}
+	}
 	if needsCLDR {
 		// The categoriser reads the taxonomy from the context, so the
 		// taxonomy fetch runs first and the asset source owns fetched_path.
@@ -70,7 +79,7 @@ func buildGeneric(pack *config.PackConfig, version string, opts Options) (*pipel
 		p.Transform(transforms.SubsetTo{Subdir: pack.Source.SourcePath})
 	}
 	if len(declared) == 0 {
-		p.Transform(transforms.Sanitise{})
+		p.Transform(transforms.Sanitise{Force: force})
 	}
 	for _, t := range declared {
 		p.Transform(t)

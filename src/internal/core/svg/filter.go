@@ -71,6 +71,16 @@ func filterElement(p *Policy, el *Node, removed *[]string, alsoStripClass bool) 
 	for i := 0; i < len(el.Children); i++ {
 		child := el.Children[i]
 
+		if child.Kind == TextNode && strayTextParent[el.Local] {
+			if ws, stray := stripStrayText(child.Text); stray {
+				*removed = append(*removed, StrayText)
+				if ws != "" {
+					kept = append(kept, &Node{Kind: TextNode, Text: ws})
+				}
+				continue
+			}
+		}
+
 		if child.Kind != ElementNode {
 			kept = append(kept, child)
 			continue
@@ -118,6 +128,41 @@ func filterElement(p *Policy, el *Node, removed *[]string, alsoStripClass bool) 
 		attrs = append(attrs, a)
 	}
 	el.Attrs = attrs
+}
+
+// strayTextParent are the containers whose character data never renders as
+// intended: text there is an upstream defect, not content. <title>, <desc>,
+// <text> and <tspan> are not on it; their text is the point.
+var strayTextParent = map[string]bool{"svg": true, "g": true}
+
+// stripStrayText reports whether a text run holds anything but XML whitespace
+// and, if so, returns the whitespace to keep in its place: the run's trailing
+// whitespace (the indentation before the next element), or else its leading
+// whitespace. That is the shape of a line deleted by hand.
+func stripStrayText(text string) (string, bool) {
+	const xmlSpace = " \t\r\n"
+	if strings.Trim(text, xmlSpace) == "" {
+		return "", false
+	}
+	if trailing := text[len(strings.TrimRight(text, xmlSpace)):]; trailing != "" {
+		return trailing, true
+	}
+	return text[:len(text)-len(strings.TrimLeft(text, xmlSpace))], true
+}
+
+// StrayText is the entry the removal list carries for each non-whitespace text
+// or CDATA run dropped from directly under <svg> or <g>.
+const StrayText = "#text"
+
+// StrayTextCount is how many stray text runs a removal list records.
+func StrayTextCount(removed []string) int {
+	n := 0
+	for _, r := range removed {
+		if r == StrayText {
+			n++
+		}
+	}
+	return n
 }
 
 // SummariseRemoved collapses a removal list into one sorted, deduplicated line,

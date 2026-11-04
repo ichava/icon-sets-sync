@@ -32,6 +32,7 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ### Added
 
+- **The sanitiser drops stray text under `<svg>` and `<g>`.** OpenMoji 15.1.0's `1F684.svg` carries a stray `d` line directly under `<g>`, which renders; it was removed by hand in icon-sets-openmoji#4, and the next sync would have brought it back. Non-whitespace text and CDATA directly under `<svg>` or `<g>` is now dropped, its indentation kept, and each file is logged with its count (`sanitise: dropped stray text`); the `sanitise` metric gains `stray_text_files` and `stray_text_nodes`. Text in `<title>`, `<desc>`, `<text>` and `<tspan>` is untouched. More than 25 such files in one `sanitise` fails the run before anything is written, unless `--force`; `report_only` is never refused.
 - **Two guards on an `openmoji-sets` refresh, lifted by `--force`.** The run fails when more than 20% of the icons are uncategorised (a taxonomy of the wrong release looks like that), and the file sink refuses, before the wipe, to remove any icon the pack ships today. Both are opt-in options (`Categorise.Preserve`/`MaxUncategorised`, `Filesystem.RefuseRemovals`), off for every other recipe.
 
 ### Documented
