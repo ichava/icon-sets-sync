@@ -332,7 +332,7 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `concurrency` | `1` | `ICHAVA_CONCURRENCY` | no | packs synced at once by `sync-all` |
 | `workspace` | none | `ICHAVA_WORKSPACE` | no | directory a relative `pack_root` resolves against |
 | `allowed_hosts` | none | `ICHAVA_ALLOWED_HOSTS` | no | extra upstream hosts the client may fetch from, comma separated; see [Upstream hosts and https](#upstream-hosts-and-https) |
-| `dry_run` | `false` | `ICHAVA_DRY_RUN` | yes | write files, skip stamp, commit and pull request |
+| `dry_run` | `false` | `ICHAVA_DRY_RUN` | yes | fetch and diff, write nothing into the pack, skip stamp, commit and pull request |
 | `force` | `false` | `ICHAVA_FORCE` | yes | refresh even when current |
 | `git.author` | `ichava-sync-bot <41898282+github-actions[bot]@users.noreply.github.com>` | `ICHAVA_GIT_AUTHOR` | yes | author and committer, `Name <email>` |
 | `git.base` | `main` | `ICHAVA_GIT_BASE` | yes | the pull request's base branch |

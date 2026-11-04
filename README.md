@@ -90,7 +90,7 @@ Refresh one pack, commit it to `chore/sync-upstream-<version>` and open a pull r
 make sync PACK=icon-sets-tabler
 ```
 
-Refresh every pack's files as a dry run, two at a time, against a different base branch:
+Dry-run every pack (fetch and report the diff, write nothing), two at a time, against a different base branch:
 
 ```bash
 ICHAVA_GIT_BASE=develop build/icon-sets-sync --config-dir config sync-all --dry-run --concurrency=2

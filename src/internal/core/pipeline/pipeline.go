@@ -96,6 +96,12 @@ const (
 	ConfigPack       = "pack"
 	ConfigPackRoot   = "pack_root"
 	ConfigOldVersion = "old_version"
+
+	// ConfigDryRun is true on every pipeline a dry run builds. The sinks that
+	// write into the pack checkout (Filesystem, LicenceTexts) read it and
+	// report what they would write instead of writing it, so a dry run leaves
+	// the pack byte-identical, tracked and untracked files alike.
+	ConfigDryRun = "dry_run"
 )
 
 func newContext(name, workingDir string, config map[string]any) *Context {
@@ -143,6 +149,15 @@ func (c *Context) ConfigString(key string) string {
 	v, _ := c.Config[key].(string)
 	return v
 }
+
+// ConfigBool returns a bool-valued config key, or false when absent.
+func (c *Context) ConfigBool(key string) bool {
+	v, _ := c.Config[key].(bool)
+	return v
+}
+
+// DryRun reports whether this run must leave the pack checkout untouched.
+func (c *Context) DryRun() bool { return c.ConfigBool(ConfigDryRun) }
 
 // Metric records a per-stage counter under a namespaced key.
 func (c *Context) Metric(stage string, values map[string]any) {
@@ -309,6 +324,13 @@ func (p *Pipeline) Config(kv map[string]any) *Pipeline {
 		p.config[k] = v
 	}
 	return p
+}
+
+// ConfigValue returns one config key as the stages will see it, so a caller
+// can check what a recipe put there without running the pipeline.
+func (p *Pipeline) ConfigValue(key string) (any, bool) {
+	v, ok := p.config[key]
+	return v, ok
 }
 
 // Logger replaces the logger. The TUI swaps in a handler that routes stage

@@ -74,7 +74,7 @@ sync: build-local  ## Sync upstream for one pack (refresh + commit + PR): PACK=<
 	$(RUN) sync --pack=$(PACK)
 
 .PHONY: sync-all
-sync-all: build-local  ## Sync every pack as a dry run (files only): CONCURRENCY=<n>
+sync-all: build-local  ## Dry-run every pack: fetch and report the diff, write nothing: CONCURRENCY=<n>
 	$(RUN) sync-all --dry-run --concurrency=$(CONCURRENCY)
 
 .PHONY: sync-all-force

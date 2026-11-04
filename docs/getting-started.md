@@ -49,8 +49,9 @@ Fetches the new upstream, runs the pack's recipe, writes the assets, records the
 pack's own `config.json`, commits to `chore/sync-upstream-<version>` and opens a pull request. A
 human reviews the diff and merges; the tool never merges.
 
-- `--dry-run` writes the assets into the pack's working tree and stops there: no version stamp, no
-  commit, no pull request. `--commit` does the opposite, overriding a `dry_run` set anywhere else.
+- `--dry-run` fetches the upstream into a temporary directory, reports what it would add, remove
+  and change, and writes nothing into the pack checkout: no assets, no version stamp, no commit, no
+  pull request. `--commit` does the opposite, overriding a `dry_run` set anywhere else.
 - `--force` refreshes even when the pack is already current.
 - In CI, `icon-sets-sync --json --non-interactive run --pack=<slug>` is the same command: `run` is
   an alias of `sync` and `--non-interactive` of `--no-input`. With `--json`, a pack the licence guard

@@ -119,7 +119,7 @@ var Keys = []Key{
 	{Name: "workspace", Kind: String, Default: "", Env: "ICHAVA_WORKSPACE",
 		Help: "directory holding the pack checkouts: a relative pack_root is resolved against it, and it replaces the /work/<pack> a shipped config names (default: /work if present, else the checkouts beside this repository)"},
 	{Name: "dry_run", Kind: Bool, Default: false, Env: "ICHAVA_DRY_RUN", PackScoped: true,
-		Help: "refresh files but skip the version stamp, commit, push and pull request"},
+		Help: "fetch and diff, but write nothing into the pack and skip the version stamp, commit, push and pull request"},
 	{Name: "force", Kind: Bool, Default: false, Env: "ICHAVA_FORCE", PackScoped: true,
 		Help: "refresh even when the pack is not behind upstream"},
 	{Name: "git.author", Kind: String, Default: DefaultAuthor, Env: "ICHAVA_GIT_AUTHOR", PackScoped: true,

@@ -289,7 +289,7 @@ func resolveState(cmd *cobra.Command) error {
 // addRunFlags binds the flags the refreshing commands share. --force only
 // means something where there is an upstream check to override.
 func addRunFlags(f *pflag.FlagSet, withForce bool) {
-	f.BoolVar(&g.dryRun, "dry-run", false, "refresh files but skip the version stamp, commit and pull request (setting dry_run)")
+	f.BoolVar(&g.dryRun, "dry-run", false, "fetch and report the diff, but write nothing into the pack and skip the version stamp, commit and pull request (setting dry_run)")
 	f.BoolVar(&g.commit, "commit", false, "commit even if a config or ICHAVA_DRY_RUN says dry run")
 	if withForce {
 		f.BoolVar(&g.force, "force", false, "refresh even when not stale (setting force)")

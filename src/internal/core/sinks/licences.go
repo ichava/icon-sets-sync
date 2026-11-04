@@ -170,7 +170,10 @@ func (s LicenceTexts) Execute(ctx *pipeline.Context) error {
 	if len(files) == 0 && s.MissingReason != "" {
 		ctx.Logger().Warn("licence texts: upstream ships none; recorded as missing", "set", s.Set, "reason", s.MissingReason,
 			"hint", "add the text by hand to "+target+" with a "+HandSuppliedMarker+" saying where it came from")
-		ctx.Metric("licence_texts", map[string]any{"set": s.Set, "files": 0, "status": LicenceStatusMissing, "missing": s.MissingReason})
+		ctx.Metric("licence_texts", map[string]any{"set": s.Set, "files": 0, "status": LicenceStatusMissing, "missing": s.MissingReason, "dry_run": ctx.DryRun()})
+		if ctx.DryRun() {
+			return nil
+		}
 		return os.RemoveAll(target)
 	}
 	if len(files) == 0 {
@@ -181,6 +184,15 @@ func (s LicenceTexts) Execute(ctx *pipeline.Context) error {
 		if err := checkLicence(s.Licence, files); err != nil {
 			return fmt.Errorf("LicenceTexts %s: %w", s.Set, err)
 		}
+	}
+
+	if ctx.DryRun() {
+		// Checked like a real run, so a relicensed upstream still fails here,
+		// but the pack's licence directory is not replaced.
+		ctx.Logger().Info("licence texts: dry run, pack left untouched", "set", s.Set, "would_write", baseNames(files), "target", target)
+		ctx.Metric("licence_texts", map[string]any{"set": s.Set, "files": 0, "would_write": len(files),
+			"status": LicenceStatusCopied, "dry_run": true, "target": target})
+		return nil
 	}
 
 	if err := os.RemoveAll(target); err != nil {

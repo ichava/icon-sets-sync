@@ -38,9 +38,11 @@ const (
 
 // Options carries what a recipe needs beyond the pack config.
 type Options struct {
-	// DryRun drops the committing sinks: the version stamp and the git branch.
-	// The filesystem sinks still run, so a dry run shows the real diff in the
-	// pack's working tree.
+	// DryRun drops the committing sinks (the version stamp and the git
+	// branch) and marks every pipeline with pipeline.ConfigDryRun, so the
+	// filesystem and licence sinks report the diff they would make without
+	// writing into the pack checkout. Everything a dry run writes stays in the
+	// pipeline's own temporary working directory.
 	DryRun bool
 
 	// ConfigDir is where a manifest-pack's set manifest lives.
@@ -82,6 +84,11 @@ func Build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.P
 	}
 	for _, p := range built {
 		p.Logger(opts.Logger).Observer(opts.Observer)
+		if opts.DryRun {
+			// One place for every recipe, so a recipe added later cannot
+			// forget it and write into the pack on a dry run.
+			p.Config(map[string]any{pipeline.ConfigDryRun: true})
+		}
 	}
 	return built, nil
 }
