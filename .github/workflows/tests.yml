@@ -5,10 +5,9 @@
 # release that breaks the build, two green PRs that interact) would otherwise
 # stay invisible until an unrelated pull request goes red.
 #
-# The Go job tests the implementation the Docker image runs. The Composer job
-# tests the PHP launcher that installs that implementation's release binary.
-# The Docker job builds the image the pack workflows build, and runs it the way
-# they do, because nothing else exercises the Dockerfile before a merge.
+# The Go job tests the binary the pack workflows build from source
+# (sync-pack.yml). The Composer job tests the PHP launcher that runs that
+# binary.
 
 name: Tests
 
@@ -100,46 +99,6 @@ jobs:
       - name: Pest
         run: vendor/bin/pest --test-directory=php/tests
 
-  docker:
-    name: Docker image
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Build the image the pack workflows build
-        run: docker build --build-arg VERSION=ci -t icon-sets-sync:ci .
-
-      - name: The entrypoint is the Go binary
-        run: |
-          out=$(docker run --rm icon-sets-sync:ci version)
-          echo "$out"
-          [ "$out" = "icon-sets-sync ci" ] || { echo "::error::unexpected version line: $out"; exit 1; }
-
-      # The same mounts sync-upstream.yml uses: the toolkit's config/ over
-      # /app/config. If the image cannot find or validate the configs this
-      # way, every pack's Monday sync fails, so check it here.
-      - name: The shipped configs validate inside the image
-        run: |
-          docker run --rm -v "$PWD/config:/app/config" icon-sets-sync:ci config validate
-
-      - name: The web UI is in the image
-        run: |
-          docker run --rm icon-sets-sync:ci serve --help | grep -q -- '--allow-remote' \
-            || { echo "::error::the image's binary has no serve command"; exit 1; }
-
-      - name: The runtime tools are present
-        run: |
-          docker run --rm --entrypoint sh icon-sets-sync:ci -c \
-            'git --version && gh --version && npm --version && test -L /usr/local/bin/imt'
-
-      - name: The removed Python console script name is not shipped
-        run: |
-          docker run --rm --entrypoint sh icon-sets-sync:ci -c \
-            '! test -e /usr/local/bin/ichava-maintainer-toolkit && ! test -L /usr/local/bin/ichava-maintainer-toolkit' \
-            || { echo "::error::the image still ships /usr/local/bin/ichava-maintainer-toolkit"; exit 1; }
-
   ui-a11y:
     name: Web UI accessibility
     runs-on: ubuntu-latest
@@ -214,9 +173,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
-    # Nothing else reads these files until a tag is pushed. `release.yml` triggers
-    # on `push: tags`, so until now a broken workflow was first observed as a
-    # release that refused to start -- after the decision to release had been made.
+    # Nothing else reads these files until they run. `release.yml` runs only when
+    # dispatched against a tag, so without this a broken workflow is first observed
+    # as a release that refused to start -- after the decision to release was made.
     #
     # A YAML parse is not a substitute. `yaml.safe_load` accepts a duplicate key
     # and silently keeps the last one, which is how a double-applied patch shipped
@@ -239,8 +198,8 @@ jobs:
       GOPRIVATE: github.com/ichava/*
       GONOSUMDB: github.com/ichava/*
 
-    # release.yml only runs on a tag, so without this the first sight of a
-    # broken GoReleaser config, a target that stopped compiling or an archive
+    # release.yml only runs when dispatched against a tag, so without this the
+    # first sight of a broken GoReleaser config, a target that stopped compiling or an archive
     # that lost a file is a tag that published nothing. This builds the whole
     # release matrix the way release.yml does, minus the publish and the
     # keyless signature (no tag, no point), and checks what came out.

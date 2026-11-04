@@ -1,12 +1,12 @@
 # Manual only. icon-sets-sync is published as git source for now: no release binaries,
-# packages, GitHub releases or Docker tags are cut from a tag. Pushing a `vX.Y.Z` tag
+# packages or GitHub releases are cut from a tag. Pushing a `vX.Y.Z` tag
 # records the version and starts nothing. Users clone the repository and build the
 # binary themselves (`make build-local`, see the README).
 #
 # This workflow is kept for the day a binary release is decided on. It runs only when
 # dispatched against a tag with the explicit confirmation input:
 #
-#   gh workflow run release.yml -R ichava/icon-sets-sync --ref vX.Y.Z -f confirm=release-go
+#   gh workflow run release.yml --repo ichava/icon-sets-sync --ref vX.Y.Z -f confirm=release-go
 #
 # Any other value stops the run before anything is built or published. When it does run:
 #
