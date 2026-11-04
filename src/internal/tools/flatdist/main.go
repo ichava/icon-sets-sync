@@ -1,19 +1,21 @@
-// Command flatdist trims GoReleaser's local output to the house layout.
+// Command flatdist copies GoReleaser's local output into the house layout.
 //
 // It is run by `make cross` and `make dist`, after a snapshot, never by a
 // release: the release workflow uploads from GoReleaser's own dist.
 //
-//	make cross   # build/dist/{binary}_{os}_{arch}[.exe] + checksums.txt, nothing else
-//	make dist    # the same, plus build/dist/archives/ (archives, Linux packages,
+//	make cross   # build/{os}/{binary}_{os}_{arch}[.exe] + build/checksums.txt
+//	make dist    # the same, plus build/archives/ (archives, Linux packages,
 //	             # the source tarball) with its own checksums.txt
 //
-// GoReleaser keeps one folder per build target and points its binary-format
-// "archives" at the executables inside them, so a snapshot leaves dozens of
-// per-target folders and metadata files in build/dist and no bare binary at
-// its root. This reads artifacts.json, moves each named artifact to where the
-// layout wants it, writes the checksum files with bare names, and removes
-// everything else. The names are GoReleaser's own (src/.goreleaser.yaml
-// `archives`), so the naming scheme is kept in one place.
+// GoReleaser writes into its scratch dist (src/.goreleaser.yaml `dist:`,
+// .cache/goreleaser), one folder per build target, and points its
+// binary-format "archives" at the executables inside them. This reads
+// artifacts.json, copies each bare binary into build/{os}/ (the OS token, so
+// darwin is macos), writes build/checksums.txt with bare names, and removes
+// the scratch dist. The names are GoReleaser's own (src/.goreleaser.yaml
+// `archives`), so the naming scheme is kept in one place. Nothing of
+// GoReleaser's own (per-target folders, artifacts.json, metadata.json,
+// config.yaml) reaches build/.
 package main
 
 import (
@@ -27,27 +29,31 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/ichava/icon-sets-sync/src/internal/tools/buildlayout"
 )
 
 func main() {
 	var (
 		root     string
 		dist     string
+		out      string
 		archives bool
 	)
 	flag.StringVar(&root, "root", ".", "repository root, which artifacts.json paths are relative to")
-	flag.StringVar(&dist, "dist", "build/dist", "GoReleaser's dist directory, relative to -root")
-	flag.BoolVar(&archives, "archives", false, "also keep the archives and Linux packages, under <dist>/archives")
+	flag.StringVar(&dist, "dist", ".cache/goreleaser", "GoReleaser's scratch dist directory, relative to -root; removed afterwards")
+	flag.StringVar(&out, "out", "build", "the build directory, relative to -root")
+	flag.BoolVar(&archives, "archives", false, "also keep the archives and Linux packages, under <out>/archives")
 	flag.Parse()
 
-	n, a, err := flatten(root, dist, archives)
+	n, a, err := flatten(root, dist, out, archives)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "flatdist:", err)
 		os.Exit(1)
 	}
-	fmt.Printf("flatdist: %d binaries in %s", n, filepath.Join(dist))
+	fmt.Printf("flatdist: %d binaries in %s/{os}/ (verify: cd %s && shasum -a 256 -c checksums.txt)", n, out, out)
 	if archives {
-		fmt.Printf(", %d archives and packages in %s", a, filepath.Join(dist, "archives"))
+		fmt.Printf(", %d archives and packages in %s", a, filepath.Join(out, buildlayout.ArchivesDir))
 	}
 	fmt.Println()
 }
@@ -57,18 +63,19 @@ type artifact struct {
 	Name  string         `json:"name"`
 	Path  string         `json:"path"`
 	Type  string         `json:"type"`
+	Goos  string         `json:"goos"`
 	Extra map[string]any `json:"extra"`
 }
 
 // keptAsArchive is every artifact type `make dist` keeps under archives/.
 var keptAsArchive = map[string]bool{"Archive": true, "Linux Package": true, "Source": true}
 
-// flatten rebuilds dist from what GoReleaser left in it, and returns how many
-// binaries and archives it kept. The old tree is moved aside first, because a
-// bare binary's name (icon-sets-sync_linux_s390x) can be the name of the
-// per-target folder it is read from.
-func flatten(root, dist string, withArchives bool) (int, int, error) {
+// flatten copies what GoReleaser left in dist into out, and returns how many
+// binaries and archives it kept. The host build (build/{os}/icon-sets-sync)
+// is left where it is; earlier cross binaries are replaced.
+func flatten(root, dist, out string, withArchives bool) (int, int, error) {
 	distAbs := filepath.Join(root, dist)
+	outAbs := filepath.Join(root, out)
 	raw, err := os.ReadFile(filepath.Join(distAbs, "artifacts.json"))
 	if err != nil {
 		return 0, 0, fmt.Errorf("%w (run goreleaser first)", err)
@@ -78,68 +85,131 @@ func flatten(root, dist string, withArchives bool) (int, int, error) {
 		return 0, 0, fmt.Errorf("artifacts.json: %w", err)
 	}
 
-	work := distAbs + ".flatdist"
-	if err := os.RemoveAll(work); err != nil {
-		return 0, 0, err
-	}
-	if err := os.Rename(distAbs, work); err != nil {
-		return 0, 0, err
-	}
-	defer func() { _ = os.RemoveAll(work) }()
-	if err := os.MkdirAll(distAbs, 0o755); err != nil {
-		return 0, 0, err
-	}
-	// artifacts.json paths name the dist directory as it was before the move.
-	from := func(p string) string {
-		rel, err := filepath.Rel(filepath.Clean(dist), filepath.Clean(p))
-		if err != nil || strings.HasPrefix(rel, "..") {
-			return filepath.Join(root, p)
-		}
-		return filepath.Join(work, rel)
-	}
-
-	var bins, arcs []string
-	archDir := filepath.Join(distAbs, "archives")
+	type kept struct{ name, path string }
+	var bins, arcs []kept
+	seen := map[string]bool{}
 	for _, a := range all {
-		switch {
-		case a.Type == "Binary" && a.Extra["Format"] == "binary":
-			if err := moveFile(from(a.Path), filepath.Join(distAbs, a.Name)); err != nil {
-				return 0, 0, err
+		isBin := a.Type == "Binary" && a.Extra["Format"] == "binary"
+		isArc := withArchives && keptAsArchive[a.Type]
+		if !isBin && !isArc {
+			continue
+		}
+		if seen[a.Name] {
+			return 0, 0, fmt.Errorf("%s: two artifacts share this name", a.Name)
+		}
+		seen[a.Name] = true
+		if isBin {
+			osDir := buildlayout.OSToken(goosOf(a))
+			if !buildlayout.IsOSDir(osDir) {
+				return 0, 0, fmt.Errorf("%s: cannot tell its OS (goos %q)", a.Name, a.Goos)
 			}
-			bins = append(bins, a.Name)
-		case withArchives && keptAsArchive[a.Type]:
-			if err := os.MkdirAll(archDir, 0o755); err != nil {
-				return 0, 0, err
-			}
-			if err := moveFile(from(a.Path), filepath.Join(archDir, a.Name)); err != nil {
-				return 0, 0, err
-			}
-			arcs = append(arcs, a.Name)
+			bins = append(bins, kept{a.Name, filepath.Join(osDir, a.Name)})
+		} else {
+			arcs = append(arcs, kept{a.Name, filepath.Join(buildlayout.ArchivesDir, a.Name)})
 		}
 	}
 	if len(bins) == 0 {
 		return 0, 0, fmt.Errorf("artifacts.json names no binary-format archive; check src/.goreleaser.yaml's `archives`")
 	}
-	if err := writeChecksums(distAbs, bins); err != nil {
+
+	if err := removeCrossBinaries(outAbs); err != nil {
+		return 0, 0, err
+	}
+	if withArchives {
+		if err := os.RemoveAll(filepath.Join(outAbs, buildlayout.ArchivesDir)); err != nil {
+			return 0, 0, err
+		}
+	}
+	src := map[string]string{}
+	for _, a := range all {
+		src[a.Name] = filepath.Join(root, a.Path)
+	}
+	for _, k := range append(append([]kept{}, bins...), arcs...) {
+		dest := filepath.Join(outAbs, k.path)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			return 0, 0, err
+		}
+		if err := copyFile(src[k.name], dest); err != nil {
+			return 0, 0, err
+		}
+	}
+
+	// build/checksums.txt names each binary by its path inside build/
+	// (macos/icon-sets-sync_macos_arm64), so `cd build && shasum -a 256 -c
+	// checksums.txt` verifies as-is. The release's checksums.txt, which CI
+	// uploads and install scripts and self-update read, keeps bare names;
+	// GoReleaser writes that one, not this tool.
+	paths := func(ks []kept, label func(kept) string) map[string]string {
+		m := map[string]string{}
+		for _, k := range ks {
+			m[label(k)] = filepath.Join(outAbs, k.path)
+		}
+		return m
+	}
+	inBuild := func(k kept) string { return filepath.ToSlash(k.path) }
+	bare := func(k kept) string { return k.name }
+	if err := writeChecksums(filepath.Join(outAbs, "checksums.txt"), paths(bins, inBuild)); err != nil {
 		return 0, 0, err
 	}
 	if len(arcs) > 0 {
-		if err := writeChecksums(archDir, arcs); err != nil {
+		if err := writeChecksums(filepath.Join(outAbs, buildlayout.ArchivesDir, "checksums.txt"), paths(arcs, bare)); err != nil {
 			return 0, 0, err
 		}
+	}
+	if err := os.RemoveAll(distAbs); err != nil {
+		return 0, 0, err
+	}
+	if _, problems, err := buildlayout.Check(outAbs); err != nil {
+		return 0, 0, err
+	} else if len(problems) > 0 {
+		return 0, 0, fmt.Errorf("%s breaks the layout: %s", out, strings.Join(problems, "; "))
 	}
 	return len(bins), len(arcs), nil
 }
 
-// moveFile renames, and copies when a rename cannot (another volume). The
-// mode travels, so a binary stays executable.
-func moveFile(src, dest string) error {
-	if _, err := os.Stat(dest); err == nil {
-		return fmt.Errorf("%s: two artifacts share this name", filepath.Base(dest))
+// goosOf is the artifact's GOOS, read from its name when artifacts.json
+// leaves it out: {binary}_{os}_{arch}, where the OS is already the token.
+func goosOf(a artifact) string {
+	if a.Goos != "" {
+		return a.Goos
 	}
-	if err := os.Rename(src, dest); err == nil {
+	rest := strings.TrimPrefix(a.Name, buildlayout.Binary+"_")
+	goos, _, _ := strings.Cut(rest, "_")
+	return goos
+}
+
+// removeCrossBinaries clears the {binary}_* files a previous `make cross`
+// left in the OS folders, so a target dropped from the config does not linger.
+// The host build, named plain {binary}, stays.
+func removeCrossBinaries(out string) error {
+	entries, err := os.ReadDir(out)
+	if os.IsNotExist(err) {
 		return nil
+	} else if err != nil {
+		return err
 	}
+	for _, e := range entries {
+		if !e.IsDir() || !buildlayout.IsOSDir(e.Name()) {
+			continue
+		}
+		files, err := os.ReadDir(filepath.Join(out, e.Name()))
+		if err != nil {
+			return err
+		}
+		for _, f := range files {
+			if !f.IsDir() && strings.HasPrefix(f.Name(), buildlayout.Binary+"_") {
+				if err := os.Remove(filepath.Join(out, e.Name(), f.Name())); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// copyFile copies src to dest, replacing dest. The mode travels, so a binary
+// stays executable.
+func copyFile(src, dest string) error {
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -149,7 +219,10 @@ func moveFile(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	out, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode())
+	if err := os.Remove(dest); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	out, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode().Perm())
 	if err != nil {
 		return err
 	}
@@ -160,13 +233,18 @@ func moveFile(src, dest string) error {
 	return out.Close()
 }
 
-// writeChecksums writes dir/checksums.txt over names: bare filenames, sorted,
-// in the `sha256sum -c` format, so it verifies from inside dir.
-func writeChecksums(dir string, names []string) error {
+// writeChecksums writes file over the files, keyed by the name each line
+// gives them (a path relative to the checksum file's directory), sorted, in
+// the `sha256sum -c` format.
+func writeChecksums(file string, files map[string]string) error {
+	names := make([]string, 0, len(files))
+	for n := range files {
+		names = append(names, n)
+	}
 	sort.Strings(names)
 	var b strings.Builder
 	for _, n := range names {
-		f, err := os.Open(filepath.Join(dir, n))
+		f, err := os.Open(files[n])
 		if err != nil {
 			return err
 		}
@@ -178,5 +256,5 @@ func writeChecksums(dir string, names []string) error {
 		}
 		fmt.Fprintf(&b, "%s  %s\n", hex.EncodeToString(h.Sum(nil)), n)
 	}
-	return os.WriteFile(filepath.Join(dir, "checksums.txt"), []byte(b.String()), 0o644)
+	return os.WriteFile(file, []byte(b.String()), 0o644)
 }

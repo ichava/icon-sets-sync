@@ -269,8 +269,8 @@ icon-sets-sync check --suggest-kinds            # or: sync --pack=<slug> --sugge
 icon-sets-sync check --suggest-kinds=all
 ```
 
-Scans each pack's checkout and writes `build/kind-suggestions/<pack>.json` (change the directory with
-`--kind-suggestions-dir`), an array of records. **It only suggests.** Nothing writes a kind into
+Scans each pack's checkout and writes `.cache/kind-suggestions/<pack>.json` (change the directory with
+`--kind-suggestions-dir`; it was `build/kind-suggestions/` until build/ became binaries only), an array of records. **It only suggests.** Nothing writes a kind into
 `config.json`; a person copies a record's `accept` block in, which is the acceptance.
 
 A file is measured on its viewBox, size, element count and literal colours. These signals fire:

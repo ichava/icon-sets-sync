@@ -14,8 +14,9 @@ const KindsSVGDir = "resources/assets/svg"
 
 // DefaultKindSuggestionsDir is where `check` and `sync --suggest-kinds` write,
 // relative to the working directory (the repository root, in practice). The
-// repository's .gitignore already covers build/.
-const DefaultKindSuggestionsDir = "build/kind-suggestions"
+// repository's .gitignore already covers .cache/, and `make clean` removes it.
+// Not build/, which holds the binaries and nothing else (checkbuild).
+const DefaultKindSuggestionsDir = ".cache/kind-suggestions"
 
 // KindReport is one pack's row-7 scan.
 type KindReport struct {

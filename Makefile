@@ -1,8 +1,8 @@
 # icon-sets-sync (ichava/icon-sets-sync) -- Makefile.
 #
 # Every target runs on the host: Go 1.26 or later to build, and git, gh and
-# npm on PATH for a sync. The run targets build build/icon-sets-sync first and
-# run it against this checkout's config/. Run `make help`.
+# npm on PATH for a sync. The run targets build build/<os>/icon-sets-sync first
+# and run it against this checkout's config/. Run `make help`.
 
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
@@ -16,7 +16,16 @@ CONCURRENCY ?= 1
 
 # The Go module lives in src/, so every go command names it with -C src. A bare
 # `go test ./...` at the root finds no packages and passes.
-BIN := build/icon-sets-sync
+#
+# build/ holds one folder per OS and nothing else (build/macos, build/linux,
+# build/windows, build/freebsd, plus checksums.txt and, after `make dist`,
+# archives/). The host build is build/<host-os>/icon-sets-sync, macOS written
+# as macos and .exe on Windows. checkbuild fails on anything else.
+HOST_GOOS := $(shell go env GOOS)
+HOST_OS := $(if $(filter darwin,$(HOST_GOOS)),macos,$(HOST_GOOS))
+EXE := $(if $(filter windows,$(HOST_GOOS)),.exe,)
+BIN := build/$(HOST_OS)/icon-sets-sync$(EXE)
+CHECK_BUILD := go -C src run ./internal/tools/checkbuild -dir ../build
 
 # The run targets: the binary build-local writes, reading this checkout's
 # config/. Every shipped config names its pack as /work/<pack>, so /work must
@@ -31,6 +40,7 @@ RUN := $(BIN) --config-dir config
 help:  ## Show this help
 	@printf "\nicon-sets-sync -- sync the Ichava icon packs from upstream\n\n"
 	@printf "Usage: make <target> [PACK=<name>] [CONCURRENCY=<n>]\n\n"
+	@printf "verify: cd build && shasum -a 256 -c checksums.txt   (after make cross)\n\n"
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
 		| awk 'BEGIN{FS=":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@printf "\n"
@@ -48,8 +58,8 @@ pull:  ## Download and verify the Go module dependencies
 	go -C src mod verify
 
 .PHONY: shell
-shell: build-local  ## Open a shell with build/ on PATH and ICHAVA_CONFIG_DIR set to config/
-	PATH="$(CURDIR)/build:$$PATH" ICHAVA_CONFIG_DIR="$(CURDIR)/config" $${SHELL:-bash}
+shell: build-local  ## Open a shell with build/<os>/ on PATH and ICHAVA_CONFIG_DIR set to config/
+	PATH="$(CURDIR)/build/$(HOST_OS):$$PATH" ICHAVA_CONFIG_DIR="$(CURDIR)/config" $${SHELL:-bash}
 
 # ---------------------------------------------------------------------------
 # The actual work
@@ -131,31 +141,39 @@ format:  ## gofmt -w
 .PHONY: build-local
 build-local:  ## Build $(BIN) with the host's Go toolchain
 	go -C src build -trimpath -o ../$(BIN) ./cmd/icon-sets-sync
+	@$(CHECK_BUILD) -min 2
 
 # The target list is src/.goreleaser.yaml's builds, the one place it is kept,
 # so these build exactly the set a release would. A snapshot with publishing,
 # signing and SBOMs skipped, so nothing leaves the machine, and no Go release.
-# flatdist then trims GoReleaser's per-target folders and metadata away:
-#   cross -> build/dist/{binary}_{os}_{arch}[.exe] (macOS as `macos`, plus the
-#            universal binary) and build/dist/checksums.txt, nothing else;
-#   dist  -> the same, plus build/dist/archives/: the .tar.gz/.zip archives,
-#            the deb/rpm/apk packages, the source tarball and their checksums.txt.
+# GoReleaser writes into its scratch dist, .cache/goreleaser (src/.goreleaser.yaml
+# `dist:`); flatdist copies only the bare binaries out and removes the rest:
+#   cross -> build/{os}/{binary}_{os}_{arch}[.exe] (macOS as `macos`, plus the
+#            universal binary) and build/checksums.txt over them, nothing else;
+#            its lines name build/-relative paths (macos/icon-sets-sync_macos_arm64),
+#            so verify: cd build && shasum -a 256 -c checksums.txt
+#   dist  -> the same, plus build/archives/: the .tar.gz/.zip archives, the
+#            deb/rpm/apk packages, the source tarball and their checksums.txt.
 GORELEASER_SNAPSHOT := GOPRIVATE='github.com/ichava/*' GONOSUMDB='github.com/ichava/*' \
 	goreleaser release --snapshot --clean --config src/.goreleaser.yaml
 
 .PHONY: cross
-cross:  ## Build every release target's bare binary into build/dist (needs goreleaser v2)
+cross:  ## Build every release target's bare binary into build/<os>/ (needs goreleaser v2)
 	@command -v goreleaser >/dev/null || { echo "goreleaser v2 is required: https://goreleaser.com/install/"; exit 2; }
 	$(GORELEASER_SNAPSHOT) --skip=publish,sign,sbom,nfpm
 	go -C src run ./internal/tools/flatdist -root ..
-	@dirs="$$(find build/dist -mindepth 1 -type d)"; if [ -n "$$dirs" ]; then \
-		echo "make cross left directories in build/dist, which must hold only binaries and checksums.txt:"; echo "$$dirs"; exit 1; fi
+	@$(CHECK_BUILD) -min 20
 
 .PHONY: dist
-dist:  ## cross, plus the archives and Linux packages in build/dist/archives (needs goreleaser v2)
+dist:  ## cross, plus the archives and Linux packages in build/archives (needs goreleaser v2)
 	@command -v goreleaser >/dev/null || { echo "goreleaser v2 is required: https://goreleaser.com/install/"; exit 2; }
 	$(GORELEASER_SNAPSHOT) --skip=publish,sign,sbom
 	go -C src run ./internal/tools/flatdist -root .. -archives
+	@$(CHECK_BUILD) -min 40
+
+.PHONY: check-build
+check-build:  ## Fail when build/ holds anything but the OS folders, checksums.txt and archives/
+	@$(CHECK_BUILD)
 
 .PHONY: test-local
 test-local:  ## go vet + go test with the host's Go toolchain
@@ -191,7 +209,7 @@ tabler-vendor:  ## Re-vendor exactly what src/internal/web/assets/vendor/TABLER_
 # ---------------------------------------------------------------------------
 
 .PHONY: clean
-clean:  ## Remove generated caches, temp dirs and build/
+clean:  ## Remove generated caches, temp dirs (GoReleaser's .cache/goreleaser too) and build/
 	rm -rf .cache .downloads build
 
 .PHONY: nuke

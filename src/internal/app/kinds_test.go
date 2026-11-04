@@ -108,3 +108,12 @@ func TestSuggestKindsRefusesAnUnsafePackName(t *testing.T) {
 		}
 	}
 }
+
+// build/ holds the binaries and nothing else, so the kind suggestions go to
+// .cache/, which `make clean` also removes.
+func TestKindSuggestionsStayOutOfBuild(t *testing.T) {
+	first := strings.Split(filepath.ToSlash(DefaultKindSuggestionsDir), "/")[0]
+	if first == "build" {
+		t.Fatalf("DefaultKindSuggestionsDir = %s, which checkbuild refuses", DefaultKindSuggestionsDir)
+	}
+}

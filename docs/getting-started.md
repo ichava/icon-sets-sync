@@ -4,7 +4,7 @@ The tool answers one question, *has upstream moved, and can we take it?*, and th
 
 Every command below is `icon-sets-sync <command>`, the binary from
 [Installation](installation.md#build-from-source). Run from a checkout, that is
-`build/icon-sets-sync --config-dir config <command>`, and most commands have a `make` target that
+`build/<os>/icon-sets-sync --config-dir config <command>` (`build/macos/` on a Mac, `.exe` on Windows), and most commands have a `make` target that
 builds the binary first. The pack checkouts must be reachable at `/work/<pack>`; see
 [The `/work` directory](installation.md#the-work-directory).
 
@@ -36,7 +36,7 @@ Resolves each pack's `version_check_url`, compares against what the pack repo re
 what is stale. Writes nothing. Exits 1 when any pack is behind, so it can gate a scheduled job.
 
 `--suggest-kinds` also scans each pack for items that look like illustrations and writes
-`build/kind-suggestions/<pack>.json`; see [Kinds](configuration.md#kinds). It suggests and never
+`.cache/kind-suggestions/<pack>.json`; see [Kinds](configuration.md#kinds). It suggests and never
 changes a kind.
 
 ## Refresh one pack

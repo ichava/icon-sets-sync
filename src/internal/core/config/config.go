@@ -673,8 +673,8 @@ const (
 //  4. ./config, or the repository layout walking up from cwd: SourceCwd;
 //  5. the repository layout walking up from the executable's own directory,
 //     by the same rule (config/packs.json next to src/go.mod, at most
-//     configWalkLimit parents, stopping at .git), so build/icon-sets-sync and
-//     build/dist/icon-sets-sync_macos_* find the checkout: SourceExecutable;
+//     configWalkLimit parents, stopping at .git), so build/macos/icon-sets-sync and
+//     build/macos/icon-sets-sync_macos_* find the checkout: SourceExecutable;
 //  6. the configs embedded in the binary, written to a read-only cache
 //     directory: SourceEmbedded;
 //  7. ./config, so a missing registry reports the path it looked for:

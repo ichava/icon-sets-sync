@@ -46,6 +46,8 @@ src/
     ├── app/              orchestration both front-ends share: loading, checking, syncing
     ├── ui/               TTY detection, colour, status lines, the check table
     ├── version/          build metadata
+    ├── tools/            repository tooling run by make, never shipped: flatdist (GoReleaser's
+    │                     output into build/{os}/), buildlayout + checkbuild (the build/ guard), …
     └── core/
         ├── settings/     the five-layer settings resolution and its key registry
         ├── config/       pack configs, the registry, the embedded JSON Schema
@@ -65,6 +67,20 @@ src/
 
 The CLI and the TUI are two front-ends over `internal/app`, so they cannot sync differently: a sync
 chosen in the menu exits the menu and runs through the same `app.Sync` the `sync` command calls.
+
+## Why `build/` has one folder per OS
+
+`build/` is what a person opens to find a binary, so it holds the binaries and nothing else:
+`build/macos/`, `build/linux/`, `build/windows/`, `build/freebsd/`, `checksums.txt`, and
+`archives/` after `make dist`. GoReleaser's own output (one folder per target, `artifacts.json`,
+`metadata.json`) stays in `.cache/goreleaser/`, and `flatdist` copies the bare binaries out of it.
+The estate rule was decided on 2026-11-04 and replaced the `build/dist/` layout.
+
+Two levels below the root, a binary in `build/<os>/` still finds the checkout's `config/` by walking
+up to `src/go.mod`, inside the config resolver's limit of five parents;
+`TestBuildOSFoldersReachThisCheckout` fails if a deeper layout ever needs more. `checkbuild` fails
+on any other name in `build/` or any folder inside an OS folder, which is why the kind suggestions
+moved to `.cache/kind-suggestions/`.
 
 ## Why the parts are separate
 
