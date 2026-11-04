@@ -78,6 +78,13 @@ func (a Attr) Name() string { return AttributeName(a.Space, a.Local) }
 // common author mistakes: this gate runs before a file is committed, where the
 // right answer to malformed input is to say so rather than guess.
 func Parse(raw []byte, stripComments bool) (*Node, error) {
+	return parse(raw, stripComments, DefaultMaxNodes)
+}
+
+// parse is Parse with an element cap. It stops at the first element over the
+// cap rather than building the tree and counting afterwards.
+func parse(raw []byte, stripComments bool, maxNodes int) (*Node, error) {
+	elements := 0
 	dec := xml.NewDecoder(bytes.NewReader(raw))
 	dec.CharsetReader = charsetReader
 
@@ -95,6 +102,10 @@ func Parse(raw []byte, stripComments bool) (*Node, error) {
 
 		switch t := tok.(type) {
 		case xml.StartElement:
+			elements++
+			if elements > maxNodes {
+				return nil, fmt.Errorf("parsing svg: more than %d elements", maxNodes)
+			}
 			node := &Node{Kind: ElementNode, Space: t.Name.Space, Local: t.Name.Local}
 			for _, a := range t.Attr {
 				node.Attrs = append(node.Attrs, toAttr(a))
