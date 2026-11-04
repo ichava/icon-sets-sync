@@ -146,6 +146,28 @@ are seen as `url(`. Then:
 
 A value that fails is dropped whole, like any other disallowed attribute.
 
+Three presentation attributes have a narrower rule of their own, on top of that guard:
+
+- `display` survives only as bare keywords: `none`, `inline`, `block`, `inline flow-root`. No
+  parens, no `url()`, no escape. OpenMoji hides construction shapes in its subdivision flags with
+  `display="none"`, and stripping it makes them render.
+- `color` takes the CSS guard above.
+- `marker-start`, `marker-mid` and `marker-end` survive only as `none` or `url(#fragment)`.
+
+Inkscape's `sodipodi:docname` is metadata and is stripped.
+
+### Stray text
+
+Text or CDATA that sits directly under `<svg>` or `<g>` is an upstream defect, not content: it
+renders as a stray glyph. OpenMoji 15.1.0's `1F684.svg` (high-speed train) carries a `d` line there.
+`sanitise` drops it, keeps the indentation around it, and logs each file with the number of runs
+removed (`sanitise: dropped stray text file=… count=…`). Text inside `<title>`, `<desc>`, `<text>` and
+`<tspan>` is left alone.
+
+If more than 25 files in one `sanitise` would be rewritten for stray text, the run fails before
+anything is written, so a malformed upstream cannot quietly rewrite a pack. `--force` lets it
+through with a warning. `report_only` writes nothing and is never refused.
+
 A document over 4,500,000 bytes or 30,000 elements is refused before it builds a tree. It is treated like an
 unparseable file: counted and left as it was. The caps are the `MaxBytes` and `MaxNodes` fields on the
 policy, and match react-icon-browser's and core's; the pack SVGs measure at most 1.0 MB and 6,741 elements.

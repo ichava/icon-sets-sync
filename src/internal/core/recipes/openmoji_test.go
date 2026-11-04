@@ -202,10 +202,15 @@ func TestOpenMojiPackNeverDropsAnIconButEmojiIsUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var cat, fs int
+	var cat, fs, san int
 	for _, p := range ob {
 		for _, st := range p.Stages() {
 			switch v := st.(type) {
+			case transforms.Sanitise:
+				san++
+				if !v.Force {
+					t.Errorf("%s: Sanitise = %+v, want forced, so --force lifts the stray-text limit", p.Name(), v)
+				}
 			case transforms.Categorise:
 				cat++
 				if !v.Preserve || v.MaxUncategorised <= 0 || !v.Force {
@@ -219,8 +224,8 @@ func TestOpenMojiPackNeverDropsAnIconButEmojiIsUnchanged(t *testing.T) {
 			}
 		}
 	}
-	if cat != 2 || fs != 2 {
-		t.Fatalf("inspected %d Categorise and %d Filesystem stages, want 2 and 2", cat, fs)
+	if cat != 2 || fs != 2 || san != 2 {
+		t.Fatalf("inspected %d Categorise, %d Filesystem and %d Sanitise stages, want 2 of each", cat, fs, san)
 	}
 }
 

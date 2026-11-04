@@ -38,8 +38,7 @@ result, err := p.Run()
 
 ```text
 src/
-├── cmd/icon-sets-sync/   the binary; calls cli.Execute and nothing else
-├── cmd/imt/              the same program under its short name
+├── cmd/icon-sets-sync/   the binary, the only entrypoint; calls cli.Execute and nothing else
 └── internal/
     ├── cli/              the cobra tree: list-packs, check, sync, sync-all, recipe,
     │                     config validate|print, manifest-pack audit, menu, version

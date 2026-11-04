@@ -60,7 +60,7 @@ needs.
 For a set the name patterns cannot reach, supply the package yourself and let
 the tool answer whether its bytes are the ones already committed:
 
-  imt manifest-pack audit --set phosphor-icons --package @phosphor-icons/core`,
+  icon-sets-sync manifest-pack audit --set phosphor-icons --package @phosphor-icons/core`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// The survey itself is app.AuditManifestPack, which the web UI

@@ -71,7 +71,7 @@ func AuditManifestPack(ctx context.Context, opts AuditOptions) ([]manifestpack.R
 
 	workDir := opts.WorkDir
 	if workDir == "" {
-		workDir, err = os.MkdirTemp("", "imt-manifest-pack-audit-")
+		workDir, err = os.MkdirTemp("", "icon-sets-sync-manifest-pack-audit-")
 		if err != nil {
 			return nil, err
 		}

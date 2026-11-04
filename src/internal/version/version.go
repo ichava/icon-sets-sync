@@ -63,6 +63,3 @@ func Date() string {
 // repository is named after it (ichava/icon-sets-sync, formerly
 // ichava/maintainer-toolkit).
 const Name = "icon-sets-sync"
-
-// ShortName is the alias for interactive use, kept from the first Go release.
-const ShortName = "imt"

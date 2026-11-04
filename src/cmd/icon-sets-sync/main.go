@@ -5,8 +5,8 @@
 // command returned. Everything else lives under internal/, so the CLI and the
 // TUI stay two front-ends over one engine rather than two implementations.
 //
-// This is the primary binary, the one sync-pack.yml builds. cmd/imt builds
-// the same program under its short name.
+// This is the only binary, the one sync-pack.yml builds. The short alias it
+// once shipped beside was retired on 2026-11-04 (TestOnlyOneEntrypoint).
 package main
 
 import (

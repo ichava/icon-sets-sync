@@ -45,7 +45,7 @@ func TestManifestPackAuditRunsAndBundledIsGone(t *testing.T) {
 	}
 
 	help, code := run(t, "manifest-pack", "audit", "--help")
-	if code != ExitOK || !strings.Contains(help, "imt manifest-pack audit --set") {
+	if code != ExitOK || !strings.Contains(help, "icon-sets-sync manifest-pack audit --set") {
 		t.Errorf("manifest-pack audit --help: exit %d\n%s", code, help)
 	}
 

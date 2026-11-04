@@ -20,23 +20,23 @@ project_name: icon-sets-sync
 # Scoop and Winget channels -- ichava has no tap, bucket or winget fork yet.
 dist: build/dist
 
-# Two entrypoints, one program: imt is the short alias of icon-sets-sync and
-# calls the same cli.Execute, so both ship in every archive and package.
+# One entrypoint, icon-sets-sync. The short alias was retired on 2026-11-04;
+# TestGoReleaserBuildsOneBinary fails if a second binary comes back.
 builds:
   - id: icon-sets-sync
     dir: src
     main: ./cmd/icon-sets-sync
     binary: icon-sets-sync
-    env: &env
+    env:
       - CGO_ENABLED=0
-    flags: &flags
+    flags:
       - -trimpath
-    goos: &goos
+    goos:
       - linux
       - darwin
       - windows
       - freebsd
-    goarch: &goarch
+    goarch:
       - amd64
       - arm64
       - arm
@@ -44,10 +44,10 @@ builds:
       - riscv64
       - ppc64le
       - s390x
-    goarm: &goarm
+    goarm:
       - "6"
       - "7"
-    ignore: &ignore
+    ignore:
       # macOS ships amd64 and arm64 only.
       - { goos: darwin, goarch: arm }
       - { goos: darwin, goarch: "386" }
@@ -61,37 +61,21 @@ builds:
       - { goos: windows, goarch: s390x }
       - { goos: freebsd, goarch: ppc64le }
       - { goos: freebsd, goarch: s390x }
-    mod_timestamp: &ts "{{ .CommitTimestamp }}"
+    mod_timestamp: "{{ .CommitTimestamp }}"
     # The variables `icon-sets-sync version` reports, so a release binary
     # names its tag, commit and date.
-    ldflags: &ldflags
+    ldflags:
       - -s -w
       - -X github.com/ichava/icon-sets-sync/src/internal/version.version={{ .Version }}
       - -X github.com/ichava/icon-sets-sync/src/internal/version.commit={{ .Commit }}
       - -X github.com/ichava/icon-sets-sync/src/internal/version.date={{ .CommitDate }}
 
-  - id: imt
-    dir: src
-    main: ./cmd/imt
-    binary: imt
-    env: *env
-    flags: *flags
-    goos: *goos
-    goarch: *goarch
-    goarm: *goarm
-    ignore: *ignore
-    mod_timestamp: *ts
-    ldflags: *ldflags
 
-# A macOS universal (amd64 + arm64) binary for each entrypoint.
+# A macOS universal (amd64 + arm64) binary.
 universal_binaries:
   - id: icon-sets-sync
     ids: [icon-sets-sync]
     name_template: icon-sets-sync
-    replace: false
-  - id: imt
-    ids: [imt]
-    name_template: imt
     replace: false
 
 # One flat, version-less naming scheme, darwin written as macos:
@@ -99,17 +83,17 @@ universal_binaries:
 #   icon-sets-sync_windows_amd64.exe, icon-sets-sync_macos_universal.
 # The tag carries the version.
 archives:
-  # The bare, ready-to-run executables, both entrypoints.
+  # The bare, ready-to-run executables.
   - id: binary
-    ids: [icon-sets-sync, imt]
+    ids: [icon-sets-sync]
     formats: [binary]
     name_template: >-
       {{ .Binary }}_{{- if eq .Os "darwin" }}macos{{ else }}{{ .Os }}{{ end }}_
       {{- if eq .Arch "all" }}universal{{ else if eq .Arch "arm" }}armv{{ .Arm }}{{ else }}{{ .Arch }}{{ end }}
 
-  # One compressed archive per platform, holding both entrypoints.
+  # One compressed archive per platform.
   - id: archive
-    ids: [icon-sets-sync, imt]
+    ids: [icon-sets-sync]
     name_template: >-
       icon-sets-sync_{{- if eq .Os "darwin" }}macos{{ else }}{{ .Os }}{{ end }}_
       {{- if eq .Arch "all" }}universal{{ else if eq .Arch "arm" }}armv{{ .Arm }}{{ else }}{{ .Arch }}{{ end }}
@@ -127,7 +111,7 @@ archives:
 # Native Linux packages; nfpm takes the Linux builds only.
 nfpms:
   - id: icon-sets-sync
-    ids: [icon-sets-sync, imt]
+    ids: [icon-sets-sync]
     package_name: icon-sets-sync
     vendor: Simtabi LLC
     homepage: "https://github.com/ichava/icon-sets-sync"
