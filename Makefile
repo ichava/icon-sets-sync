@@ -144,6 +144,8 @@ cross:  ## Build every release target's bare binary into build/dist (needs gorel
 	@command -v goreleaser >/dev/null || { echo "goreleaser v2 is required: https://goreleaser.com/install/"; exit 2; }
 	$(GORELEASER_SNAPSHOT) --skip=publish,sign,sbom,nfpm
 	go -C src run ./internal/tools/flatdist -root ..
+	@dirs="$$(find build/dist -mindepth 1 -type d)"; if [ -n "$$dirs" ]; then \
+		echo "make cross left directories in build/dist, which must hold only binaries and checksums.txt:"; echo "$$dirs"; exit 1; fi
 
 .PHONY: dist
 dist:  ## cross, plus the archives and Linux packages in build/dist/archives (needs goreleaser v2)

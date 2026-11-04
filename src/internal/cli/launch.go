@@ -89,6 +89,9 @@ func runDefault(cmd *cobra.Command, args []string) error {
 		ui.Info("%s", reason)
 		return cmd.Help()
 	}
+	if handOff(cmd) {
+		return nil
+	}
 	return serveUI(cmd, defaultServeOptions(), false)
 }
 

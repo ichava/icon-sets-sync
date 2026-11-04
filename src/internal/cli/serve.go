@@ -142,7 +142,15 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 	if o.readOnly {
 		_, _ = fmt.Fprintln(out, "read-only: runs and edits are disabled")
 	}
-	_, _ = fmt.Fprintln(out, "press Ctrl-C to stop")
+	allowed, _ := browserAllowed(currentLaunchEnv())
+	openIt := allowed && !o.noOpen && !g.noInput && !g.jsonOut
+	if openIt {
+		// Run from Finder or Explorer this is the Terminal window that came
+		// with it, so say what the window is for.
+		_, _ = fmt.Fprintln(out, "running in your browser; close this window or press Ctrl-C to stop")
+	} else {
+		_, _ = fmt.Fprintln(out, "press Ctrl-C to stop")
+	}
 
 	if o.tokenFile != "" {
 		if err := writeTokenFile(o.tokenFile, url); err != nil {
@@ -150,7 +158,15 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 			return failure(err)
 		}
 	}
-	if allowed, _ := browserAllowed(currentLaunchEnv()); allowed && !o.noOpen && !g.noInput && !g.jsonOut {
+	// Recorded for a second launch to find, on this machine's loopback only,
+	// and removed when this server stops (Ctrl-C, Stop server, a closed window).
+	if web.IsLoopback(host) && !o.allowRemote {
+		if err := writeInstanceState(url); err != nil {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "could not record this server for a second launch to find (%s)\n", err)
+		}
+		defer removeInstanceState(url)
+	}
+	if openIt {
 		if err := serveBrowser(url); err != nil {
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "could not open a browser (%s); open the address above yourself\n", err)
 		}

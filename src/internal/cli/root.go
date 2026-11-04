@@ -105,13 +105,15 @@ func Execute() int {
 	return ExitOK
 }
 
-// InterruptContext returns a context cancelled by the first SIGINT or
-// SIGTERM, so Ctrl-C stops a sync cleanly: the stage in flight sees the
+// InterruptContext returns a context cancelled by the first SIGINT, SIGTERM
+// or SIGHUP, so Ctrl-C stops a sync cleanly: the stage in flight sees the
 // cancel, its subprocess or download is stopped, and no later stage (the
 // commit, the push) runs. After the first signal the default handling is
 // restored, so a second Ctrl-C still kills the process outright.
 func InterruptContext(parent context.Context) (context.Context, context.CancelFunc) {
-	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
+	// SIGHUP is a closed terminal window, which is how a double-clicked
+	// server is usually stopped; it gets the same clean shutdown.
+	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	go func() {
 		<-ctx.Done()
 		stop()
