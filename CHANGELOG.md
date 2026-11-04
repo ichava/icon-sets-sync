@@ -71,6 +71,12 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
   coverage, eggs), keeping a bytecode rule so an old checkout's stale caches stay out of a commit.
   Comments and docs that described the Python, or the image, as part of the current product now
   describe the source build. The `--commit` flag's help no longer cites the Python.
+- **The three Python scripts CI ran.** The Changelog order job and release-please's changelog close
+  are now `src/internal/tools/changelog check` and `close`, with the same messages, exit codes and
+  `GITHUB_OUTPUT` lines; on this CHANGELOG the closed file is byte-identical to the Python's. The web UI
+  accessibility job serves its fixture upstream with `src/internal/tools/staticserve` instead of
+  `python3 -m http.server`. `TestNoWorkflowOrScriptInvokesPython` fails if a workflow or script
+  under `.github/` calls Python again.
 - `TestNoDockerOrPythonSurface` and `TestNoWorkflowBuildsOrPublishesAnImage` fail if a Dockerfile,
   a compose file, a `.dockerignore`, a `.py` file, a Docker workflow, a `docker/` action,
   `docker build`/`run`/`push`, `ghcr.io`, a docker Dependabot ecosystem or a `docker` call in the

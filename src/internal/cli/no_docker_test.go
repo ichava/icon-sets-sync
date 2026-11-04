@@ -156,3 +156,41 @@ func TestReleaseRunsOnlyOnAConfirmedDispatch(t *testing.T) {
 		t.Errorf("the first release step must refuse without confirm=release-go on a tag; it runs:\n%s", first)
 	}
 }
+
+// minGitHubFiles is the number of files under .github/ on 2026-11-04: four
+// workflows, dependabot.yml and scripts/ui-a11y.sh.
+const minGitHubFiles = 6
+
+// pythonCall matches a python or python3 invocation, not the word in prose.
+var pythonCall = regexp.MustCompile(`(?m)(^|[\s;&|(` + "`" + `"'])python[0-9.]*(\s|$)`)
+
+// No workflow or script runs Python: the changelog check and close are
+// src/internal/tools/changelog, and the accessibility job's fixture upstream
+// is src/internal/tools/staticserve.
+func TestNoWorkflowOrScriptInvokesPython(t *testing.T) {
+	read := 0
+	err := filepath.WalkDir(filepath.Join(filepath.FromSlash(repoRoot), ".github"), func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || strings.HasPrefix(d.Name(), ".") {
+			return nil
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		read++
+		if loc := pythonCall.FindIndex(raw); loc != nil {
+			line := 1 + strings.Count(string(raw[:loc[0]]), "\n")
+			t.Errorf("%s:%d invokes Python; use a Go tool under src/internal/tools", path, line)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walking .github: %v", err)
+	}
+	if read < minGitHubFiles {
+		t.Fatalf("read %d files under .github, want at least %d", read, minGitHubFiles)
+	}
+}
