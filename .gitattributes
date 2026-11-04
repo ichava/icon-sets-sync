@@ -1,0 +1,26 @@
+# Force LF for scripts so Windows clones do not break the shebang.
+*.sh    text eol=lf
+*.py    text eol=lf
+
+*.json  text
+*.yml   text
+*.yaml  text
+
+# Keep the sdist lean.
+/.github        export-ignore
+/tests          export-ignore
+/.editorconfig  export-ignore
+/.gitattributes export-ignore
+/CONTRIBUTING.md export-ignore
+
+# The web UI's vendored Tabler build: minified third-party files, rewritten
+# only by `make tabler-update` / `make tabler-vendor` and checked against
+# MANIFEST.sha256 by a test. Not reviewed line by line.
+/src/internal/web/assets/vendor/tabler/** -diff linguist-vendored
+/src/internal/web/assets/vendor/tabler-icons.svg -diff linguist-vendored
+/src/internal/web/testdata/golden/** linguist-generated
+
+# The Composer launcher keeps LF so its shebang works from a Windows clone.
+bin/icon-sets-sync text eol=lf
+/phpunit.xml.dist export-ignore
+/php/tests       export-ignore

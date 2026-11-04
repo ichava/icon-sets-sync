@@ -1,0 +1,48 @@
+{
+  "_note": "One of the 20 sets of ichava/icon-sets-extras, each refreshed by its own config into files/<set>/ and licenses/<set>/, with its version recorded at upstream.sets.<set>.current_version in the pack's config.json. public/icons/svg/{outline,filled}/<category>/<name>.svg flattened to <slug>-outline/-filled, the stem slugged before the suffix (`!.svg` is committed as `-filled.svg`). The 24px redraws are not vendored. Its LICENSE splits icons (CC0) from website code (MIT), so it is pinned by SHA-256. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 1,552 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-extras.health-icons",
+  "pack": "ichava/icon-sets-extras",
+  "pack_root": "/work/icon-sets-extras",
+  "current_version": "3.1.0",
+  "version_keys": [
+    "upstream.sets.health-icons.current_version"
+  ],
+  "version_check_url": "https://registry.npmjs.org/healthicons/latest",
+  "licence_sha256": "d36196c6c2b0a983415778adddf81bfe63c51f408e707a36fa2b029d65e92d06",
+  "licence_set": "health-icons",
+  "source": {
+    "type": "npm",
+    "package": "healthicons",
+    "source_path": "public/icons/svg"
+  },
+  "transforms": [
+    {
+      "type": "flatten-variants",
+      "variants": [
+        {
+          "path": "outline",
+          "suffix": "-outline"
+        },
+        {
+          "path": "filled",
+          "suffix": "-filled"
+        }
+      ],
+      "slug": true
+    },
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files/health-icons"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-health-icons-{version}"
+    }
+  ]
+}

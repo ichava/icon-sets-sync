@@ -1,0 +1,34 @@
+{
+  "_note": "GitHub archive FortAwesome/Font-Awesome at the release tag (no `v` prefix), narrowed to svgs/: only the Free solid, regular and brands folders, no Pro files, no kit code. Sanitise runs strict and report-only: Font Awesome's licence asks that the `<!--! Font Awesome Free ... -->` attribution comment stay in every file, and removing it is the policy's only change to these files, so report-only keeps upstream bytes while strict still fails the run on a real violation. The licence is Font Awesome's own text, pinned by SHA-256. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 2,883 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-font-awesome-free",
+  "pack": "ichava/icon-sets-font-awesome-free",
+  "pack_root": "/work/icon-sets-font-awesome-free",
+  "current_version": "7.3.1",
+  "version_check_url": "https://api.github.com/repos/FortAwesome/Font-Awesome/releases/latest",
+  "licence_sha256": "20c6f40715a567c97b80f6944beb8bb325835cab47ea7dcab89ee3b8e077eced",
+  "source": {
+    "type": "github-archive",
+    "owner": "FortAwesome",
+    "repo": "Font-Awesome",
+    "archive_url": "https://github.com/FortAwesome/Font-Awesome/archive/refs/tags/{version}.zip",
+    "source_path": "svgs"
+  },
+  "transforms": [
+    {
+      "type": "sanitise",
+      "strict": true,
+      "report_only": true
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

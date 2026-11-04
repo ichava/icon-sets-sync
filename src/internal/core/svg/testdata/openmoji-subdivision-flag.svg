@@ -1,0 +1,11 @@
+<svg id="emoji" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" sodipodi:docname="1F3F4-E0067-E0062-E0065-E006E-E0067-E007F.svg">
+  <g id="color">
+    <rect x="5" y="17" width="62" height="38" fill="#fff"/>
+    <rect x="5" y="32" width="62" height="8" fill="#d22f27"/>
+    <rect x="32" y="17" width="8" height="38" fill="#d22f27"/>
+    <path id="construction" display="none" fill="none" stroke="#000" d="M5 17h62v38H5z"/>
+  </g>
+  <g id="line">
+    <rect x="5" y="17" width="62" height="38" fill="none" stroke="#000" stroke-width="2" color="#000" marker-end="url(#arrow)"/>
+  </g>
+</svg>

@@ -1,0 +1,44 @@
+{{define "content"}}{{with .Data}}
+{{template "page_header" "Runs"}}
+<form method="get" action="/jobs" class="row g-2 align-items-end mb-3">
+  <div class="col-auto">
+    <label class="form-label" for="filter-pack">Pack</label>
+    <select class="form-select" id="filter-pack" name="pack">
+      <option value="">all packs</option>
+      {{range .Packs}}<option value="{{.}}"{{if eq . $.Data.Pack}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+  </div>
+  <div class="col-auto">
+    <label class="form-label" for="filter-outcome">Outcome</label>
+    <select class="form-select" id="filter-outcome" name="outcome">
+      <option value="">any</option>
+      {{range outcomes}}<option value="{{.}}"{{if eq . $.Data.Outcome}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+  </div>
+  <div class="col-auto"><button type="submit" class="btn btn-outline-primary">{{icon "search"}}<span class="ms-1">Filter</span></button></div>
+</form>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <caption class="visually-hidden">Runs, newest first</caption>
+      <thead><tr><th scope="col">Started</th><th scope="col">Kind</th><th scope="col">Packs</th><th scope="col">Mode</th><th scope="col">Outcome</th><th scope="col">Duration</th><th scope="col"><span class="visually-hidden">Log</span></th></tr></thead>
+      <tbody>
+        {{range .Runs}}
+        <tr>
+          <td><a href="/jobs/{{.ID}}"><time datetime="{{iso .Started}}">{{when .Started}}</time></a></td>
+          <td>{{.Kind}}</td>
+          <td>{{range $i, $p := .Packs}}{{if $i}}, {{end}}<code>{{$p}}</code>{{end}}</td>
+          <td>{{if .DryRun}}dry run{{else}}real{{end}}</td>
+          <td><span class="badge {{runClass .Status}}">{{.Status}}</span>{{if .Err}}<div class="text-secondary small">{{.Err}}</div>{{end}}</td>
+          <td>{{.Duration $.Data.Now}}</td>
+          <td><a href="/jobs/{{.ID}}/log.jsonl">{{icon "download"}}<span class="visually-hidden">Download the log of the run started {{when .Started}}</span></a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="7" class="text-secondary">No runs{{if or .Pack .Outcome}} match this filter{{end}}.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{if not .HistoryEnabled}}<div class="card-footer text-secondary small">History is kept in memory only; it is lost when the server stops.</div>{{end}}
+</div>
+{{end}}{{end}}

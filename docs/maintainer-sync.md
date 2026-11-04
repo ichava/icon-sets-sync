@@ -1,0 +1,173 @@
+# Icon-pack maintainer sync
+
+*How we (the package maintainers) keep vendored SVG assets in step
+with the upstream sources we mirror.*
+
+This is the **maintainer-side** counterpart to
+[Upstream tracking](upstream-tracking.md).
+The tracker tells host apps "this pack is N versions behind." This
+document explains how *we* close that gap and ship a new release.
+
+## Why a separate workflow
+
+End users install our packs into `vendor/`. Composer regenerates that
+directory on every install, so any changes a user makes there are
+discarded the next time they `composer install`. **Only the package
+maintainer can persist asset refreshes**, by:
+
+1. Refreshing the bundled SVGs in the package repo.
+2. Tagging a new release.
+3. Letting Packagist + `composer update` fan the change out.
+
+So every refresh is a maintainer-side commit, not a runtime command.
+The legacy `ichava:update*` Artisan commands shipped in core 1.0.x
+have been removed in 1.1.0; they ran in the host app where they
+couldn't persist. The new model runs in the pack repo's CI.
+
+## Pipeline (cron → PR → tag → fan-out)
+
+```mermaid
+flowchart LR
+    cron["Weekly cron<br/>(GitHub Actions)"]
+        --> orch["icon-sets-sync run<br/>(built from source)"]
+    orch -->|reads| cfg["pack/config.json:upstream"]
+    orch -->|polls| upstream["npm / GitHub /<br/>Packagist / git tags"]
+    upstream --> idem{Newer<br/>version?}
+    idem -- no --> done["Exit 0,<br/>nothing to do"]
+    idem -- yes --> fetch["Fetch + extract<br/>per strategy"]
+    fetch --> recipe["Recipe<br/>(generic / twemoji-sets / manifest-pack)"]
+    recipe --> bump["Bump current_version<br/>+ CHANGELOG"]
+    bump --> pr["Open PR<br/>chore(upstream): bump <pack> to vX.Y.Z"]
+    pr --> human["Human reviews diff<br/>+ merges"]
+    human --> tag["Tag vX.Y.Z<br/>(release.yml)"]
+    tag --> packagist["Packagist webhook"]
+    packagist --> users["composer update<br/>fans out to users"]
+```
+
+Three patterns from established ecosystems shape the design (see the
+research notes inline in commit `feat(scripts): sync orchestrator`):
+
+| Pattern | Borrowed from | Why |
+|---|---|---|
+| Cron-driven, batched-per-pack refresh | `@iconify/json` | Same upstream-fan-in problem at much larger scale; pattern proven across 100+ icon sets. |
+| Human-gated PR, then tag-triggered release | `tailwindlabs/heroicons` | Composer ecosystem; we don't want auto-tags pushing untested asset diffs to thousands of installs. |
+| Idempotent "if tag exists, skip" guard | `tabler/tabler-icons` | Cron firing twice on the same upstream version must be a no-op. |
+
+## Components
+
+### 1. The toolkit (`ichava/icon-sets-sync`)
+
+A standalone Go binary, `icon-sets-sync`, built from source wherever it runs: on a maintainer's
+machine with `make build-local`, and on the runner by `sync-pack.yml`. It:
+
+- Reads each pack's config from its own `config/<slug>.json`
+  (registry: `config/packs.json`).
+- Polls each upstream's `version_check_url` (npm / GitHub / Packagist
+  / URL) via `internal/core/checker`.
+- Compares against the version the pack repo records. If equal, exits 0
+  with no commits. If the latest version cannot be resolved, exits 1.
+- If newer, runs the matching recipe (composed `Pipeline` of one
+  Source + zero-or-more Transforms + one-or-more Sinks). See the
+  pipeline in [Architecture](architecture.md).
+- Records the new version in the pack repo's own
+  `resources/assets/svg/config.json`, commits to
+  `chore/sync-upstream-<version>`, pushes, and opens a PR via
+  `gh pr create`.
+
+Strategies recognised (the source's `type`):
+
+| `type` | What it does | Used by |
+|---|---|---|
+| `npm` | `npm pack {package}@{version}` then extract `package/{source_path}/*.svg` via the `NpmTarball` source | icon-sets-flag, icon-sets-tabler |
+| `github-archive` | Downloads `{archive_url}` (interpolated), extracts the matching subdir via the `GithubArchive` source | OpenMoji (icon-sets-openmoji) |
+| `github-release` / `github-tag` | Same but resolves the version through the releases/tags API | (any pack without an npm mirror) |
+| `recipe` (config key) | Hand off to a named recipe in `internal/core/recipes` -- used when a pack composes multiple sources / custom taxonomies (icon-sets-twemoji categorises Twemoji by the Unicode CLDR taxonomy) | icon-sets-twemoji, the aggregator pack; icon-sets-openmoji |
+| `url` | Custom JSON endpoint; `source.version_field` is a dot-path | escape hatch for non-registry vendors |
+
+### 2. Per-pack recipes (in the toolkit, not the pack)
+
+Most packs don't need a custom recipe -- the `generic` recipe builds
+the pipeline from the pack config's source, transforms and sinks. Packs
+that mix sources (icon-sets-twemoji) or aggregate many upstreams get a
+dedicated recipe in `internal/core/recipes`,
+chosen by the config's `recipe` key.
+
+### 3. Workflow template
+
+**The reusable workflow `.github/workflows/sync-pack.yml`** (`on: workflow_call`) is the CI mode
+of the same engine the web UI drives. A pack's own workflow keeps the triggers (a weekly `schedule`
+plus `workflow_dispatch`, never `push`) and calls it with the pack slug and a pinned toolkit ref:
+
+```yaml
+jobs:
+  sync:
+    uses: ichava/icon-sets-sync/.github/workflows/sync-pack.yml@vX.Y.Z
+    with:
+      pack: ${{ github.event.repository.name }}
+      toolkit-ref: vX.Y.Z
+      refresh-app-client-id: ${{ vars.REFRESH_APP_CLIENT_ID }}
+    secrets:
+      refresh-app-private-key: ${{ secrets.REFRESH_APP_PRIVATE_KEY }}
+```
+
+It refuses a `toolkit-ref` that is not a `vX.Y.Z` tag or a full commit SHA, builds the binary from
+source with `GOPRIVATE`/`GONOSUMDB` set (there is no release asset), and runs
+`icon-sets-sync --json --non-interactive run --pack <slug>`. The pull request is opened with a
+Refresh Bot token limited to `contents` and `pull-requests` write, so its own CI runs. **A licence
+change opens an issue and fails the job; it never opens a pull request.** Linux only, 30-minute
+timeout, superseded runs cancelled. `src/internal/cli/workflow_test.go` holds the file to all of that.
+
+The caller needs `permissions: contents: read, issues: write`. On the runner the workflow checks
+out the pack and this repository at `toolkit-ref`, builds `icon-sets-sync` with `setup-go` and
+`go -C .icon-sets-sync/src build`, links `/work` to the directory holding the checkout (the
+shipped configs name each pack as `/work/<pack>`), and runs the sync against
+`.icon-sets-sync/config`. No image is pulled and no release asset is downloaded.
+
+The caller's cron fires on Mondays at 06:45 UTC; the 45-past-the-hour offset is borrowed from
+Homebrew's autobump cron to dodge the on-the-hour GitHub Actions load spike. The full caller is in
+the header of `sync-pack.yml`.
+
+### 4. Notification path
+
+End users learn about new versions via `composer outdated`. We do not
+add user-facing alerts beyond:
+
+- The `IconPackUpdateAvailable` Laravel event (informational; the
+  host app subscribes if it wants a Slack / email / dashboard signal).
+- The `php artisan ichava::ichava-core.check-updates` CLI (informational
+  same).
+
+Composer + Packagist already handles the "your dependency has a new
+version" case well: duplicating that with maintainer-side webhooks
+would be scope creep without user demand.
+
+## End-user vs maintainer cheat sheet
+
+| Concern | End user does | Maintainer does |
+|---|---|---|
+| Discover that pack X is behind | `php artisan ichava::ichava-core.check-updates` (informational only) | (irrelevant -- maintainer's CI does it automatically) |
+| Pull in new SVGs | `composer update ichava/<pack>` after we've tagged | Cron + sync orchestrator + PR + tag |
+| Subscribe to update events | `Listener` for `IconPackUpdateAvailable` in `EventServiceProvider` | n/a |
+| Override an icon locally | Drop a custom SVG in the host app's storage path; configure resolver | n/a |
+| Pin to an old version | `composer require ichava/<pack>:1.2.3` | n/a |
+| Refresh assets | (cannot -- vendor/ is regenerated) | Run sync orchestrator manually with `--force` if needed |
+
+## Failure modes
+
+| Failure | Behaviour |
+|---|---|
+| Upstream unreachable (network, 5xx) | The fetch is retried; if the latest version still cannot be resolved, `sync` exits 1 naming the pack, the run fails red, and no PR is opened. Other packs in the run still go first. |
+| Upstream version unparseable | Same as above: exit 1, never a silent skip. |
+| Recipe script returns non-zero | Orchestrator commits nothing, exits non-zero, CI run fails red, GitHub Actions notifies the maintainer. |
+| Refreshed assets fail downstream tests on the PR | The PR sits unmerged; maintainer fixes the recipe and re-runs `workflow_dispatch`. |
+| `gh pr create` rejected (already exists) | Orchestrator detects the existing PR and skips. Idempotent. |
+| Upstream licence no longer matches the pack's declared `licence` | The sync stops before the licence texts are touched and exits 1. `--json` marks the pack `licence_changed: true`; `sync-pack.yml` opens an issue instead of a pull request. |
+
+## See also
+
+- [Upstream tracking](upstream-tracking.md) -- the host-app side of the story
+- [`architecture.md`](https://github.com/ichava/core/blob/main/docs/architecture.md) -- where this slots into the package topology
+
+---
+
+[← Docs index](../README.md#documentation)

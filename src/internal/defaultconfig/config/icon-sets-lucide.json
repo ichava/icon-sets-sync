@@ -1,0 +1,32 @@
+{
+  "_note": "lucide-static's icons/ (2,020 icons and 293 alias files) straight into files/. The default sanitise strips each file's `<!-- @license ... -->` comment, as the pack vendors them; the ISC and Feather MIT notices travel in ATTRIBUTION.md and licenses/lucide/LICENSE. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 2,313 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-lucide",
+  "pack": "ichava/icon-sets-lucide",
+  "pack_root": "/work/icon-sets-lucide",
+  "current_version": "1.68.0",
+  "version_check_url": "https://registry.npmjs.org/lucide-static/latest",
+  "licence": "ISC",
+  "licence_sha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",
+  "licence_set": "lucide",
+  "source": {
+    "type": "npm",
+    "package": "lucide-static",
+    "source_path": "icons"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

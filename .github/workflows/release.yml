@@ -1,0 +1,177 @@
+# Manual only. icon-sets-sync is published as git source for now: no release binaries,
+# packages or GitHub releases are cut from a tag. Pushing a `vX.Y.Z` tag
+# records the version and starts nothing. Users clone the repository and build the
+# binary themselves (`make build-local`, see the README).
+#
+# This workflow is kept for the day a binary release is decided on. It runs only when
+# dispatched against a tag with the explicit confirmation input:
+#
+#   gh workflow run release.yml --repo ichava/icon-sets-sync --ref vX.Y.Z -f confirm=release-go
+#
+# Any other value stops the run before anything is built or published. When it does run:
+#
+#   - GoReleaser cross-compiles icon-sets-sync for the
+#     whole matrix, builds the bare binaries, the .tar.gz/.zip archives, the
+#     deb/rpm/apk packages and a reproducible source tarball, an SPDX SBOM per
+#     archive, and checksums.txt over all of it (config: src/.goreleaser.yaml);
+#   - cosign signs checksums.txt keylessly through Sigstore;
+#   - attest-build-provenance signs a build-provenance attestation for every
+#     artifact listed in checksums.txt.
+#
+# The release body is the tagged version's CHANGELOG section, never generated
+# notes alone.
+
+name: Release
+
+on:
+  # No `push: tags` trigger: a tag is git only until a binary release is decided on.
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type release-go to publish binaries for the tag this run is dispatched against'
+        required: true
+        default: 'no'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Never cancel a release in flight. A half-published release is worse than a
+  # queued one.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Our own modules come from git, never through the public proxy, so a CI
+    # build never feeds proxy.golang.org or sum.golang.org a tag.
+    env:
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
+    permissions:
+      contents: write      # create the release, upload assets, push the src/ alias tag
+      id-token: write      # Sigstore keyless identity, for cosign and the attestation
+      attestations: write  # store the build-provenance attestation
+
+    steps:
+      # Binary releases are off until the maintainers decide otherwise. Refuse
+      # without the explicit confirmation, and refuse on anything but a tag.
+      - name: Require the explicit release confirmation
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          set -euo pipefail
+          if [ "$CONFIRM" != "release-go" ]; then
+            echo "::error::Binary releases are off. Dispatch with -f confirm=release-go only when a release has been decided on."
+            exit 1
+          fi
+          if [ "$REF_TYPE" != "tag" ]; then
+            echo "::error::Dispatch this workflow against a vX.Y.Z tag (--ref vX.Y.Z)."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # GoReleaser reads the tag and the history
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+
+      # syft generates GoReleaser's per-archive SBOMs.
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      # Fail closed. A tag whose version has no CHANGELOG section is a tag on the
+      # wrong commit or a release nobody wrote notes for; stop rather than publish
+      # generated notes. Written outside the checkout: GoReleaser refuses to
+      # release from a dirty tree, and an untracked notes file is one.
+      - name: Extract the changelog section
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found = 1; next }
+            found && /^## \[/        { exit }
+            found                    { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/section.md"
+          # A pre-release tag (vX.Y.Z-rc.N) is a test build: GoReleaser marks it a
+          # pre-release (`prerelease: auto`) and it needs no CHANGELOG section of its
+          # own. A final tag still fails closed below.
+          if [ -z "$(tr -d '[:space:]' < "$RUNNER_TEMP/section.md")" ] && [[ "$VERSION" == *-* ]]; then
+            echo "Pre-release build ${GITHUB_REF_NAME}, for testing. It is not a release; the notes ship with the final v${VERSION%%-*} tag." > "$RUNNER_TEMP/section.md"
+          fi
+          if [ -z "$(tr -d '[:space:]' < "$RUNNER_TEMP/section.md")" ]; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section. Refusing to publish $GITHUB_REF_NAME."
+            exit 1
+          fi
+          {
+            cat "$RUNNER_TEMP/section.md"
+            echo ''
+            echo "**Full changelog:** https://github.com/ichava/icon-sets-sync/blob/main/CHANGELOG.md"
+          } > "$RUNNER_TEMP/release_notes.md"
+
+      # Go resolves this module (github.com/ichava/icon-sets-sync/src) through a
+      # tag named after its subdirectory, src/vX.Y.Z, and ignores vX.Y.Z. OSS
+      # GoReleaser rejects the prefixed tag as non-semver, so the release runs
+      # off vX.Y.Z and mirrors src/vX.Y.Z onto the same commit here, where it
+      # cannot be forgotten. src/... matches neither trigger above, so pushing
+      # it starts no second run.
+      #
+      # Before GoReleaser rather than after: `go install` builds from source and
+      # needs no assets, so the alias on a release that later failed is still
+      # self-consistent, while a release without its alias is not installable
+      # at all. A re-run finds the tag already there and leaves it alone --
+      # a src/ tag is permanent once the Go proxy has fetched it, so this step
+      # never moves one.
+      - name: Mirror the tag Go resolves the module through
+        run: |
+          set -euo pipefail
+          alias_tag="src/${GITHUB_REF_NAME}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${alias_tag}" >/dev/null; then
+            echo "${alias_tag} already exists on the remote"
+          else
+            git tag "${alias_tag}" "${GITHUB_REF_NAME}^{commit}"
+            git push origin "refs/tags/${alias_tag}"
+            echo "pushed ${alias_tag}"
+          fi
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          version: '~> v2'
+          args: release --clean --config src/.goreleaser.yaml --release-notes=${{ runner.temp }}/release_notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Fail closed on an empty release body. v0.1.0 and v0.1.1 shipped with a
+      # blank body because `changelog.disable: true` made GoReleaser drop
+      # --release-notes; nothing in the run noticed. Read the published release
+      # back and require at least the changelog section we passed in.
+      - name: Verify the published release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          want=$(tr -d '[:space:]' < "$RUNNER_TEMP/section.md" | wc -c)
+          got=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq '.body' | tr -d '[:space:]' | wc -c)
+          echo "section=${want} body=${got} (non-space characters)"
+          if [ "$got" -lt "$want" ]; then
+            echo "::error::The ${GITHUB_REF_NAME} release body is shorter than its CHANGELOG section (${got} < ${want})."
+            exit 1
+          fi
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-checksums: .cache/goreleaser/checksums.txt
