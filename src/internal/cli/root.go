@@ -161,7 +161,7 @@ Run with no arguments in a terminal for the interactive menu.`,
 	}
 
 	pf := root.PersistentFlags()
-	pf.StringVar(&g.configDir, "config-dir", "", "where pack configs live (setting config_dir; default: config/ beside the binary, else ./config)")
+	pf.StringVar(&g.configDir, "config-dir", "", "where pack configs live (setting config_dir; default: config/ beside the binary, else ./config, else the repository's own config/)")
 	pf.StringVar(&g.privateDir, "private-config-dir", "", "directory of private pack configs merged over --config-dir (setting private_config_dir; default: none)")
 	pf.StringVar(&g.globalConfig, "global-config", "", "global config file (default: $XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml})")
 	pf.StringArrayVar(&g.sets, "set", nil, "set any setting, as key=value (repeatable; see `config print`)")
@@ -315,6 +315,8 @@ func setupLogging(level string) {
 
 // configDir resolves the directory to read pack configs from.
 func configDir() string {
+	// config_dir already folds the flag and ICHAVA_CONFIG_DIR; the resolver
+	// adds the working-directory and repository-layout fallbacks.
 	if dir := state.run.String("config_dir"); dir != "" {
 		return dir
 	}

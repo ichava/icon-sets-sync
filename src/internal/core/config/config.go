@@ -12,9 +12,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
@@ -210,6 +212,10 @@ type PackConfig struct {
 
 	// File is where the config was loaded from. Not part of the document.
 	File string `json:"-"`
+
+	// PackRootOrigin says where PackRoot came from (the pack config, the
+	// workspace setting, or a sibling checkout). Not part of the document.
+	PackRootOrigin string `json:"-"`
 }
 
 // DefaultVersionFile and DefaultVersionKeys mirror the Python defaults. No
@@ -226,26 +232,98 @@ type PacksRegistry struct {
 	Packs []string `json:"packs"`
 }
 
-// DefaultConfigDir resolves the directory the pack configs live in.
-//
-// ICHAVA_CONFIG_DIR wins (ICHAVA_DEV_CONFIG_DIR is its older name), for a
-// config directory kept somewhere else. Otherwise it is `config/` beside the
-// executable, falling back to ./config -- the earlier implementation derived
-// this from the source file's location, which has no equivalent in a compiled
-// binary.
+// DefaultConfigDir resolves the directory the pack configs live in, from the
+// process environment, working directory and executable. See ResolveConfigDir.
 func DefaultConfigDir() string {
+	cwd, _ := os.Getwd()
+	exeDir := ""
+	if exe, err := os.Executable(); err == nil {
+		exeDir = filepath.Dir(exe)
+	}
+	return ResolveConfigDir("", os.Getenv, cwd, exeDir)
+}
+
+// configWalkLimit is how many parent directories the repository-layout search
+// climbs from the working directory.
+const configWalkLimit = 5
+
+// lastLogged remembers the directory last announced, so the many callers that
+// resolve the default do not repeat the line.
+var lastLogged atomic.Value
+
+// ResolveConfigDir is the one place the config directory is decided, for every
+// command and the web UI. In order:
+//
+//  1. explicit, the --config-dir flag (callers pass "" when it was not given);
+//  2. ICHAVA_CONFIG_DIR (ICHAVA_DEV_CONFIG_DIR is its older name);
+//  3. `config/` beside the executable, when that directory exists;
+//  4. ./config when it holds packs.json;
+//  5. this repository's own layout: starting at cwd and climbing at most
+//     configWalkLimit parents (see FindToolkitRoot), so
+//     `go -C src run ...` finds the registry at the repository root;
+//  6. ./config, so a missing registry reports the path it looked for.
+func ResolveConfigDir(explicit string, getenv func(string) string, cwd, exeDir string) string {
+	if explicit != "" {
+		return explicit
+	}
 	for _, env := range []string{"ICHAVA_CONFIG_DIR", "ICHAVA_DEV_CONFIG_DIR"} {
-		if dir := os.Getenv(env); dir != "" {
+		if dir := getenv(env); dir != "" {
 			return dir
 		}
 	}
-	if exe, err := os.Executable(); err == nil {
-		candidate := filepath.Join(filepath.Dir(exe), "config")
+	if exeDir != "" {
+		candidate := filepath.Join(exeDir, "config")
 		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
 			return candidate
 		}
 	}
+	if cwd != "" {
+		if isFile(filepath.Join(cwd, "config", "packs.json")) {
+			return "config"
+		}
+		if root := FindToolkitRoot(cwd); root != "" {
+			found := filepath.Join(root, "config")
+			if lastLogged.Load() != found {
+				lastLogged.Store(found)
+				slog.Info("using the repository's config directory", "dir", found,
+					"hint", "set ICHAVA_CONFIG_DIR or pass --config-dir to choose another")
+			}
+			return found
+		}
+	}
 	return "config"
+}
+
+// FindToolkitRoot returns this repository's root: starting at start and
+// climbing at most configWalkLimit parents, stopping after a directory holding
+// .git, the first directory with config/packs.json next to src/go.mod. It
+// returns "" when there is none.
+func FindToolkitRoot(start string) string {
+	dir := start
+	for i := 0; i <= configWalkLimit && dir != ""; i++ {
+		if isFile(filepath.Join(dir, "config", "packs.json")) && isFile(filepath.Join(dir, "src", "go.mod")) {
+			return dir
+		}
+		if pathExists(filepath.Join(dir, ".git")) {
+			return ""
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+	return ""
+}
+
+func isFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func pathExists(path string) bool {
+	_, err := os.Lstat(path)
+	return err == nil
 }
 
 // stripCommentKeys drops top-level keys beginning with an underscore, and the
@@ -388,7 +466,8 @@ func LoadRegistry(configDir string) (*PacksRegistry, error) {
 	}
 	registryFile, err := docfile.Find(configDir, "packs")
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("missing pack registry: %s", filepath.Join(configDir, "packs.json"))
+		return nil, fmt.Errorf("missing pack registry: %s (set ICHAVA_CONFIG_DIR or pass --config-dir to the directory holding packs.json)",
+			filepath.Join(configDir, "packs.json"))
 	}
 	if err != nil {
 		return nil, err

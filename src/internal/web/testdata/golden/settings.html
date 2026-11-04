@@ -71,7 +71,7 @@
           <tbody>
             
             <tr>
-              <th scope="row"><code>config_dir</code><div class="text-secondary small fw-normal">directory holding packs.json and the pack configs (default: config/ beside the binary, else ./config)</div></th>
+              <th scope="row"><code>config_dir</code><div class="text-secondary small fw-normal">directory holding packs.json and the pack configs (default: config/ beside the binary, else ./config when it holds packs.json, else the config/ of the repository around the working directory, up to 5 levels)</div></th>
               <td><code class="text-break">–</code></td>
               <td><span class="badge badge-muted">default</span></td>
             </tr>
@@ -101,7 +101,7 @@
             </tr>
             
             <tr>
-              <th scope="row"><code>workspace</code><div class="text-secondary small fw-normal">directory a relative pack_root is resolved against</div></th>
+              <th scope="row"><code>workspace</code><div class="text-secondary small fw-normal">directory holding the pack checkouts: a relative pack_root is resolved against it, and it replaces the /work/&lt;pack&gt; a shipped config names (default: /work if present, else the checkouts beside this repository)</div></th>
               <td><code class="text-break">–</code></td>
               <td><span class="badge badge-muted">default</span></td>
             </tr>
