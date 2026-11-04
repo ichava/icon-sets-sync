@@ -101,6 +101,13 @@ jobs:
           ref: ${{ steps.pr.outputs.branch }}
           token: ${{ steps.app.outputs.token }}
 
+      - name: Set up Go
+        if: steps.pr.outputs.branch != ''
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache: false
+
       # Idempotent: a branch already carrying the version's section is left alone. release-please
       # rebuilds its branch from main whenever the release changes, which drops this commit, and the
       # next run puts it back. An empty [Unreleased] fails here, because a release with no notes
@@ -108,44 +115,11 @@ jobs:
       - name: Close the changelog under the release version
         id: close
         if: steps.pr.outputs.branch != ''
-        run: |
-          set -euo pipefail
-          python3 - CHANGELOG.md .release-please-manifest.json <<'PYEOF'
-          import datetime, json, os, re, sys
-
-          changelog, manifest = sys.argv[1], sys.argv[2]
-          version = json.load(open(manifest, encoding='utf-8'))['.']
-          text = open(changelog, encoding='utf-8').read()
-          out = os.environ['GITHUB_OUTPUT']
-
-          def emit(changed):
-              with open(out, 'a', encoding='utf-8') as fh:
-                  fh.write(f'version={version}\nchanged={changed}\n')
-
-          if re.search(r'^## \[' + re.escape(version) + r'\]', text, re.M):
-              print(f'{changelog} already has a [{version}] section')
-              emit('false'); sys.exit(0)
-
-          heads = list(re.finditer(r'^## \[Unreleased\][^\n]*\n', text, re.M))
-          if len(heads) != 1:
-              print(f'::error::{changelog} has {len(heads)} [Unreleased] headings; expected exactly 1.')
-              sys.exit(1)
-
-          start = heads[0].end()
-          nxt = re.search(r'^## \[', text[start:], re.M)
-          body = text[start:start + nxt.start()] if nxt else text[start:]
-          if not body.strip():
-              print(f'::error::[Unreleased] in {changelog} is empty. Write the notes for {version} '
-                    'on main, then re-run this workflow.')
-              sys.exit(1)
-
-          today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
-          closed = f'## [Unreleased]\n\n## [{version}] - {today}\n'
-          text = text[:heads[0].start()] + closed + text[start:]
-          open(changelog, 'w', encoding='utf-8').write(text)
-          print(f'closed [Unreleased] as [{version}] - {today}')
-          emit('true')
-          PYEOF
+        # src/internal/tools/changelog: appends version= and changed= to $GITHUB_OUTPUT.
+        env:
+          GOPRIVATE: github.com/ichava/*
+          GONOSUMDB: github.com/ichava/*
+        run: go -C src run ./internal/tools/changelog close ../CHANGELOG.md ../.release-please-manifest.json
 
       - name: Commit and push the closed changelog
         if: steps.close.outputs.changed == 'true'

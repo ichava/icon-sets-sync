@@ -21,9 +21,15 @@ git -C "$work/icon-sets-a11y" init -q -b main
 git -C "$work/icon-sets-a11y" -c user.name=ci -c user.email=ci@example.invalid add -A
 git -C "$work/icon-sets-a11y" -c user.name=ci -c user.email=ci@example.invalid commit -q -m fixture
 
-# The fixture's upstream: version_check_url points here.
-python3 -m http.server 8765 --bind 127.0.0.1 --directory "$fixture/upstream" >"$work/upstream.log" 2>&1 &
+# The fixture's upstream: version_check_url points here. Served by the
+# repository's own src/internal/tools/staticserve, built like the binary.
+go -C src build -o "$work/staticserve" ./internal/tools/staticserve
+"$work/staticserve" -addr 127.0.0.1:8765 -dir "$fixture/upstream" >"$work/upstream.log" 2>&1 &
 upstream=$!
+for _ in $(seq 1 50); do
+  curl -fsS -o /dev/null http://127.0.0.1:8765/latest.json 2>/dev/null && break
+  sleep 0.2
+done
 
 XDG_STATE_HOME="$work/state" XDG_CONFIG_HOME="$work/xdg" "$BIN" \
   --config-dir "$fixture/config" --set "workspace=$work" \

@@ -249,10 +249,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     name: Changelog order
+    env:
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
 
       # A misordered CHANGELOG still releases correctly, because release.yml
       # finds a section by heading rather than by position -- so nothing else
@@ -260,54 +269,9 @@ jobs:
       # [Unreleased] below [0.2.7], and icon-sets-emoji had [0.2.6] filed
       # between [0.1.1] and [0.1.0]. Closing [Unreleased] in place would have
       # filed the new version underneath an older one.
+      #
+      # It also refuses a duplicate heading: release.yml extracts exactly one
+      # section per version, so a second [Unreleased] strands half the notes.
+      # The check is src/internal/tools/changelog, unit-tested with the suite.
       - name: Check CHANGELOG section order
-        run: |
-          python3 - CHANGELOG.md <<'PYEOF'
-          import collections
-          import re, sys
-
-          path = sys.argv[1]
-          try:
-              text = open(path, encoding='utf-8').read()
-          except FileNotFoundError:
-              print(f'::error::{path} not found'); sys.exit(1)
-
-          heads = re.findall(r'^## \[([^\]]+)\]', text, re.M)
-          if not heads:
-              print(f'::error::{path} has no "## [version]" headings'); sys.exit(1)
-
-          def order_key(v):
-              nums = [int(n) for n in re.findall(r'\d+', v)[:3]]
-              return tuple(nums + [0] * (3 - len(nums)))
-
-          problems = []
-          # Duplicates first. Ordering says nothing about how many [Unreleased]
-          # headings there are, and release.yml extracts exactly one section by
-          # version heading: a second [Unreleased] means the next release
-          # publishes part of its notes and strands the rest under a heading no
-          # version will ever match. Four had accumulated here before anyone
-          # looked, and three other repos in the ecosystem had the same.
-          seen = [h for h, n in collections.Counter(heads).items() if n > 1]
-          if seen:
-              problems.append(
-                  'duplicate section headings: ' + ', '.join(f'[{h}]' for h in seen)
-                  + '. Each branch must add to the existing section, not prepend its own.')
-
-          if 'Unreleased' in heads and heads[0] != 'Unreleased':
-              problems.append(
-                  f'[Unreleased] is section {heads.index("Unreleased") + 1}, not the first. '
-                  'Closing it in place would file the new version below an older one.')
-
-          versions = [h for h in heads if h != 'Unreleased']
-          for older, newer in zip(versions, versions[1:]):
-              if order_key(older) < order_key(newer):
-                  problems.append(f'[{older}] is listed above [{newer}], but is the lower version.')
-
-          if problems:
-              print(f'::error::{path} sections are out of order:')
-              for p in problems:
-                  print(f'::error::  {p}')
-              sys.exit(1)
-
-          print(f'{path}: {len(heads)} sections, correctly ordered')
-          PYEOF
+        run: go -C src run ./internal/tools/changelog check ../CHANGELOG.md
