@@ -75,18 +75,15 @@ Finished runs are kept as JSON Lines in `$XDG_STATE_HOME/icon-sets-sync/runs/` (
 saved from the editor goes to `$XDG_CONFIG_HOME/icon-sets-sync/config.json` (else `~/.config`) and
 applies to the next run without a restart.
 
-## Docker
-
-Loopback inside a container cannot be reached from the host, so in Docker the UI listens on every
-interface inside the container and is published on the host's loopback only:
+## From a checkout
 
 ```bash
-make ui        # docker compose --profile ui up ui
+make ui        # builds build/icon-sets-sync, then serve --port 7878 against config/
+make serve     # go run, on the first free port from 7878
 ```
 
-The `ui` service runs `serve --addr 0.0.0.0 --port 7878 --allow-remote` and publishes
-`127.0.0.1:7878`; open the address it logs. The compose file mounts `config/` read-only, so the
-editor opens read-only and says why. Run history is kept in a named volume.
+`make ui` pins port 7878 and fails if it is taken; `make serve` moves to the next free port. Both
+listen on `127.0.0.1` only. Open the address it logs.
 
 ## Updating Tabler
 

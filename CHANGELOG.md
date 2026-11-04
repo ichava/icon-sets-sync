@@ -21,8 +21,16 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 - **The author and contact address is `ichava@simtabi.com`** (W-11, Sim 2026-11-03), replacing the community address `opensource@simtabi.com` wherever this repository named it. Vulnerability reports still go to `security@simtabi.com`. The test that guards the address expects `ichava@` now.
 - **The SVG policy's `_always_blocked_comment` describes the parked brand logos.** The five raster-wrapping brand logos it called "render blank" are now parked outside their pack's registered assets (OQ-018), so the comment says so. Only that underscore-prefixed comment changed; the policy is identical. The copies in icon-sets-sync and react-icon-browser are re-synced to the new digest (`950214c5828531987ecfa72f1055ab3491c3c664336eaca657cc04907400d390`).
 - Binary releases are off until the maintainers decide on one. A version tag is git only:
-  `release.yml` is manual and needs `-f confirm=release-go`, and `docker.yml` no longer publishes on
-  a tag. The README and docs install from source (`make build-local`).
+  `release.yml` is manual and needs `-f confirm=release-go`. The README and docs install from source
+  (`make build-local`).
+- **Every Makefile target runs on the host, without Docker.** Each target keeps its name. The run
+  targets (`menu`, `check`, `check-pack`, `sync`, `sync-all`, `sync-all-force`, `build-emoji`,
+  `validate`, `config-print`) build `build/icon-sets-sync` and run it against `config/`; `build` is
+  `build-local`; `pull` downloads and verifies the Go modules; `shell` opens a host shell with
+  `build/` on `PATH`; `ui` serves on 127.0.0.1:7878; `nuke` is `clean` plus Go's test cache;
+  `test`, `test-go`, `lint` and `format` use the host's Go, and `lint` adds golangci-lint, for issues
+  new since `main`, when it is installed. The shipped configs still name each pack `/work/<pack>`;
+  see `docs/installation.md` for the `/work` link on Linux and macOS.
 
 ### Added
 
@@ -47,6 +55,27 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 - A golden test pins that a sync preserves `package.kind`, `categories.*.kind`, `items` and `kinds.rules` byte for byte.
 - `ICHAVA_ICON_SETS_SYNC_BIN`: the Composer launcher runs a binary you built from source instead of
   downloading a release. Without it, and with no release published, the launcher says how to build one.
+
+### Removed
+
+- **The Docker surface.** No pack has run the image since `sync-pack.yml` began building the binary
+  from source, so it is gone:
+  - `Dockerfile`, `.dockerignore` and `docker-compose.yml`;
+  - `.github/workflows/docker.yml`, which published `ghcr.io/ichava/icon-sets-sync` on every push to
+    `main`. Images already in GHCR are untouched;
+  - the Tests workflow's `Docker image` job;
+  - the `docker` ecosystem in `.github/dependabot.yml`;
+  - the Makefile's `docker compose` and `golang` container invocations (the targets stay, see
+    *Changed*).
+- **The Python leftovers.** The `.gitignore` Python section (virtualenvs, pytest, mypy, ruff,
+  coverage, eggs), keeping a bytecode rule so an old checkout's stale caches stay out of a commit.
+  Comments and docs that described the Python, or the image, as part of the current product now
+  describe the source build. The `--commit` flag's help no longer cites the Python.
+- `TestNoDockerOrPythonSurface` and `TestNoWorkflowBuildsOrPublishesAnImage` fail if a Dockerfile,
+  a compose file, a `.dockerignore`, a `.py` file, a Docker workflow, a `docker/` action,
+  `docker build`/`run`/`push`, `ghcr.io`, a docker Dependabot ecosystem or a `docker` call in the
+  Makefile comes back. `TestReleaseRunsOnlyOnAConfirmedDispatch` holds `release.yml` to
+  `workflow_dispatch` with a required `confirm`.
 
 ### Fixed
 

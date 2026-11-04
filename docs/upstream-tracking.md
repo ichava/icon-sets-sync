@@ -89,8 +89,8 @@ A private pack that does track an upstream keeps its sync configuration out
 of this repository. Its pack config, and any set manifest its recipe reads,
 live in the pack's own repository and are passed to the sync at run time
 with `--private-config-dir` or `ICHAVA_PRIVATE_CONFIG_DIR`, merged over the
-public `config/`. The pack's `sync-upstream.yml` mounts that directory into
-the container and sets the variable; see
+public `config/`. The pack's workflow passes that directory to
+`sync-pack.yml` as its `private-config-dir` input; see
 [configuration](configuration.md#private-packs).
 
 ## Notification hook

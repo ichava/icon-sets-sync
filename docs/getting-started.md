@@ -2,8 +2,11 @@
 
 The tool answers one question, *has upstream moved, and can we take it?*, and then does the taking.
 
-Every command below is `icon-sets-sync <command>`. Under Docker that is
-`docker compose run --rm ichava-maintainer-toolkit <command>`, and most have a `make` target.
+Every command below is `icon-sets-sync <command>`, the binary from
+[Installation](installation.md#build-from-source). Run from a checkout, that is
+`build/icon-sets-sync --config-dir config <command>`, and most commands have a `make` target that
+builds the binary first. The pack checkouts must be reachable at `/work/<pack>`; see
+[The `/work` directory](installation.md#the-work-directory).
 
 ## Validate the configs
 
@@ -55,9 +58,9 @@ human reviews the diff and merges; the tool never merges.
   [Maintainer sync](maintainer-sync.md#3-workflow-template).
 
 **`sync` fails loudly.** It exits 1 when a pack's latest upstream version cannot be resolved (a dead
-registry, a renamed package), and when a pack declares no sinks outside a dry run. The Python
-printed a warning and exited 0 in both cases, so a broken upstream looked exactly like an up-to-date
-pack. Other packs in the same run still go first.
+registry, a renamed package), and when a pack declares no sinks outside a dry run. Exiting 0 with a
+warning would make a broken upstream look exactly like an up-to-date pack. Other packs in the same
+run still go first.
 
 ## Refresh every pack
 
@@ -83,17 +86,17 @@ The merged settings for that pack and the layer each value came from. See
 icon-sets-sync menu
 ```
 
-The default Docker command in a terminal: check all packs or one, sync one pack (it asks first), sync
+The default command in a terminal (`make menu`): check all packs or one, sync one pack (it asks first), sync
 every pack as a dry run, list the packs. A sync chosen in the menu runs after the menu closes, through
 the same code as `sync`. Without a terminal, `menu` prints help instead of waiting for input that will
 never come.
 
 ## What happens next
 
-The pull request lands in the pack repository. **It arrives with no CI checks**: a pull request
-opened with `GITHUB_TOKEN` does not trigger workflows, by design, so the pack's `sync-upstream.yml`
-runs the suite itself and posts a `Sync verification` commit status. Merging to `main` runs the
-pack's suite normally.
+The pull request lands in the pack repository. Opened from `sync-pack.yml`, it is opened with a
+Refresh Bot token, so the pack's own CI runs on it; a pull request opened with `GITHUB_TOKEN` would
+start no workflows. Opened from your machine, it carries your `gh` credentials and CI runs the same
+way. A human reviews the diff and merges.
 
 ---
 

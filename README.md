@@ -3,7 +3,7 @@
 [![Tests](https://github.com/ichava/icon-sets-sync/actions/workflows/tests.yml/badge.svg)](https://github.com/ichava/icon-sets-sync/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Two badges, not four: this ships as a Docker image, a Go binary and a Composer package that is not on
+Two badges, not four: this ships as Go source you build and a Composer package that is not on
 Packagist yet, so there is no registry version to show, and static analysis (`gofmt`, `go vet`) runs
 inside the Tests workflow.
 
@@ -11,8 +11,8 @@ inside the Tests workflow.
 > each upstream, refreshes the vendored SVGs, records the version in the pack and opens a pull
 > request.
 
-Go 1.26 or later to build from source; Docker for everything else. The repository was
-`ichava/maintainer-toolkit` until 2026-10-21; GitHub redirects the old URL.
+Go 1.26 or later to build from source, and `git`, `gh` and `npm` on `PATH` to sync. The repository
+was `ichava/maintainer-toolkit` until 2026-10-21; GitHub redirects the old URL.
 
 ## Install
 
@@ -23,15 +23,16 @@ the binary with Go 1.26 or later:
 ```bash
 git clone https://github.com/ichava/icon-sets-sync.git
 cd icon-sets-sync
-make build-local          # writes build/icon-sets-sync
+make build-local          # writes build/icon-sets-sync (make build does the same)
 ```
 
-To run the syncs the way the packs' workflows do, build the Docker image (the Go binary plus git, gh
-and npm) from a checkout that sits beside the pack repositories:
+Or run it straight from the checkout without keeping a binary:
 
 ```bash
-make build
+go -C src run ./cmd/icon-sets-sync version
 ```
+
+To pin a version, check out its tag (`git checkout vX.Y.Z`) before building.
 
 From a PHP project, through Composer (once the package is on Packagist; until then, add this
 repository as a `vcs` repository), point the launcher at the binary you built:
@@ -49,18 +50,25 @@ to build one.
 commits that predate the single-commit publication, and it keeps the first copy of a tag for good,
 so `go install …@v0.1.0` would serve that older code and `@latest` the older v0.1.2.
 
-The original Python implementation was removed before the re-based 0.1.0; see
+An earlier implementation was removed before the re-based 0.1.0, and the Docker image after it; see
 [Architecture](docs/architecture.md#why-go-and-what-happened-to-the-python).
 
 ## Quick start guide and usage
 
 ### Getting started
 
-The image mounts the parent of this checkout at `/work`, so the pack repositories must be its
-siblings (`../icon-sets-tabler`, `../icon-sets-flag`, ...): every shipped config names its pack as
-`/work/<pack>`. A sync that commits needs `GH_TOKEN` in the environment, with permission to push a
-branch and open a pull request in the pack repositories. Nothing else is required; there are no
-config files to publish and no settings you must set.
+Every shipped config names its pack as `/work/<pack>`, so `/work` must be the directory that holds
+the pack checkouts (`icon-sets-tabler`, `icon-sets-flag`, ...), usually the parent of this one. On
+Linux that is one symlink, the same one `sync-pack.yml` makes on the runner; on macOS, see
+[Installation](docs/installation.md#the-work-directory):
+
+```bash
+sudo ln -sfn "$(dirname "$PWD")" /work
+```
+
+A sync that commits needs `GH_TOKEN` in the environment, with permission to push a branch and open a
+pull request in the pack repositories. Nothing else is required; there are no config files to
+publish and no settings you must set.
 
 Check the configs once:
 
@@ -85,13 +93,13 @@ make sync PACK=icon-sets-tabler
 Refresh every pack's files as a dry run, two at a time, against a different base branch:
 
 ```bash
-ICHAVA_GIT_BASE=develop docker compose run --rm ichava-maintainer-toolkit sync-all --dry-run --concurrency=2
+ICHAVA_GIT_BASE=develop build/icon-sets-sync --config-dir config sync-all --dry-run --concurrency=2
 ```
 
 Or do the same from a browser, dry run first:
 
 ```bash
-go -C src run ./cmd/icon-sets-sync serve   # prints http://127.0.0.1:7878/?token=...
+make ui   # prints http://127.0.0.1:7878/?token=...
 ```
 
 The full walkthrough is in [Getting started](docs/getting-started.md), and everything else is under
@@ -101,7 +109,7 @@ The full walkthrough is in [Getting started](docs/getting-started.md), and every
 
 ### Guides
 
-- [Installation](docs/installation.md) -- the Docker image, `go build`, and what the image contains
+- [Installation](docs/installation.md) -- building from source, the `/work` directory, and what a sync needs
 - [Getting started](docs/getting-started.md) -- check, sync, dry runs and what lands afterwards
 - [Configuration](docs/configuration.md) -- pack configs, the schema, settings and their precedence
 - [Architecture](docs/architecture.md) -- the pipeline, the recipes, and why the version lives in the pack

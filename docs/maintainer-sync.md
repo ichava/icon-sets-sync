@@ -4,7 +4,7 @@
 with the upstream sources we mirror.*
 
 This is the **maintainer-side** counterpart to
-[`icon-pack-upstream-tracking.md`](upstream-tracking.md).
+[Upstream tracking](upstream-tracking.md).
 The tracker tells host apps "this pack is N versions behind." This
 document explains how *we* close that gap and ship a new release.
 
@@ -29,7 +29,7 @@ couldn't persist. The new model runs in the pack repo's CI.
 ```mermaid
 flowchart LR
     cron["Weekly cron<br/>(GitHub Actions)"]
-        --> orch["icon-sets-sync sync<br/>(Docker image)"]
+        --> orch["icon-sets-sync run<br/>(built from source)"]
     orch -->|reads| cfg["pack/config.json:upstream"]
     orch -->|polls| upstream["npm / GitHub /<br/>Packagist / git tags"]
     upstream --> idem{Newer<br/>version?}
@@ -57,8 +57,8 @@ research notes inline in commit `feat(scripts): sync orchestrator`):
 
 ### 1. The toolkit (`ichava/icon-sets-sync`)
 
-A standalone Docker-first Go binary, `icon-sets-sync`, one per ecosystem. (The Python package it
-replaced was removed before the re-based 0.1.0.) It:
+A standalone Go binary, `icon-sets-sync`, built from source wherever it runs: on a maintainer's
+machine with `make build-local`, and on the runner by `sync-pack.yml`. It:
 
 - Reads each pack's config from its own `config/<slug>.json`
   (registry: `config/packs.json`).
@@ -68,7 +68,7 @@ replaced was removed before the re-based 0.1.0.) It:
   with no commits. If the latest version cannot be resolved, exits 1.
 - If newer, runs the matching recipe (composed `Pipeline` of one
   Source + zero-or-more Transforms + one-or-more Sinks). See the
-  fluent API in the toolkit's `README.md`.
+  pipeline in [Architecture](architecture.md).
 - Records the new version in the pack repo's own
   `resources/assets/svg/config.json`, commits to
   `chore/sync-upstream-<version>`, pushes, and opens a PR via
@@ -117,16 +117,15 @@ Refresh Bot token limited to `contents` and `pull-requests` write, so its own CI
 change opens an issue and fails the job; it never opens a pull request.** Linux only, 30-minute
 timeout, superseded runs cancelled. `src/internal/cli/workflow_test.go` holds the file to all of that.
 
-The caller needs `permissions: contents: read, issues: write`. The pack repositories still carry
-their own copies, described next, until they move to calling this one.
+The caller needs `permissions: contents: read, issues: write`. On the runner the workflow checks
+out the pack and this repository at `toolkit-ref`, builds `icon-sets-sync` with `setup-go` and
+`go -C .icon-sets-sync/src build`, links `/work` to the directory holding the checkout (the
+shipped configs name each pack as `/work/<pack>`), and runs the sync against
+`.icon-sets-sync/config`. No image is pulled and no release asset is downloaded.
 
-A drop-in `.github/workflows/sync-upstream.yml` each pack ships. It
-checks out the toolkit repo, runs the toolkit's Docker image, and
-opens a PR when upstream has moved. The canonical template lives in
-the toolkit at `templates/sync-upstream.yml` (search the
-`icon-sets-sync` repo for the latest). Cron fires on Mondays 06:45
-UTC; the 45-past-the-hour offset is borrowed from Homebrew's autobump
-cron to dodge the on-the-hour GitHub Actions load spike.
+The caller's cron fires on Mondays at 06:45 UTC; the 45-past-the-hour offset is borrowed from
+Homebrew's autobump cron to dodge the on-the-hour GitHub Actions load spike. The full caller is in
+the header of `sync-pack.yml`.
 
 ### 4. Notification path
 
@@ -157,8 +156,8 @@ would be scope creep without user demand.
 
 | Failure | Behaviour |
 |---|---|
-| Upstream unreachable (network, 5xx) | Orchestrator exits 0 with a `WARN` log line; cron retries next week. No PR opened. |
-| Upstream version unparseable | Same as above. |
+| Upstream unreachable (network, 5xx) | The fetch is retried; if the latest version still cannot be resolved, `sync` exits 1 naming the pack, the run fails red, and no PR is opened. Other packs in the run still go first. |
+| Upstream version unparseable | Same as above: exit 1, never a silent skip. |
 | Recipe script returns non-zero | Orchestrator commits nothing, exits non-zero, CI run fails red, GitHub Actions notifies the maintainer. |
 | Refreshed assets fail downstream tests on the PR | The PR sits unmerged; maintainer fixes the recipe and re-runs `workflow_dispatch`. |
 | `gh pr create` rejected (already exists) | Orchestrator detects the existing PR and skips. Idempotent. |
@@ -166,7 +165,7 @@ would be scope creep without user demand.
 
 ## See also
 
-- [`icon-pack-upstream-tracking.md`](upstream-tracking.md) -- the host-app side of the story
+- [Upstream tracking](upstream-tracking.md) -- the host-app side of the story
 - [`architecture.md`](https://github.com/ichava/core/blob/main/docs/architecture.md) -- where this slots into the package topology
 
 ---

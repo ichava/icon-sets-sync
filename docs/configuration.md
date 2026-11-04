@@ -114,7 +114,7 @@ the copy and the repository file differ. Point an editor at the repository file 
 | `npm` | `npm pack <package>@<version>` | needs `package` |
 | `github-archive`, `github-release`, `github-tag` | the tagged archive | `archive_url` (with `{version}`), or `owner` and `repo`, which builds `.../archive/refs/tags/v{version}.zip` |
 | `url` | nothing | version discovery only: `version_field` is a dot-path into the `version_check_url` response, default `version` |
-| `script` | nothing | declared by the Python schema and never implemented; kept so old configs load |
+| `script` | nothing | declared by the earlier implementation's schema and never implemented; kept so old configs load |
 
 `source_path` narrows the fetched tree to a subdirectory before the transforms run.
 
@@ -378,7 +378,7 @@ and the layer each came from; with `--pack`, the loaded pack config and the reci
 
 `current_version` in this repository is a fallback for a pack that has no vendored record yet. It
 used to be the source of truth, and that made the sync non-convergent: the bump was written through
-the `/app/config` mount, the runner's throwaway checkout, and never committed, so every scheduled
+this repository's `config/`, the runner's throwaway checkout, and never committed, so every scheduled
 run re-detected the same release and re-opened the same pull request. The version stamp now writes
 into the pack repo, before the `git-branch` sink commits.
 

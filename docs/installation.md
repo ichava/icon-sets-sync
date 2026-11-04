@@ -1,66 +1,69 @@
 # Installation
 
-Two ways to get `icon-sets-sync`: the Docker image, which is what CI runs, or a Go build.
+`icon-sets-sync` is built from source: releases are on hold, so there is no binary to download.
 
-## The Docker image
-
-```bash
-docker build -t icon-sets-sync:local .
-```
-
-The build is two stages. A `golang:1.26-trixie` stage compiles a static binary from the module in
-`src/`; a `debian:trixie-slim` stage carries it with the tools it shells out to:
-
-| Tool | Why |
-|---|---|
-| `git` | branch, commit and push in the pack repositories |
-| `gh` | open the pull request |
-| `nodejs`, `npm` | `npm pack <package>@<version>`, the npm source strategy |
-| `ca-certificates` | TLS to the registries, GitHub and unicode.org |
-
-The binary is `/usr/local/bin/icon-sets-sync` and is the `ENTRYPOINT`. `imt` is a symlink to it.
-The shipped `config/` is copied to `/app/config` and
-`ICHAVA_CONFIG_DIR` points there.
-
-The pack workflows build from a checkout of this repository rather than pulling the published image,
-because the GHCR package is private and another repository's `GITHUB_TOKEN` cannot pull it.
-
-## Run it
+## Build from source
 
 ```bash
-docker run --rm -v "$PWD/..:/work" icon-sets-sync:local list-packs
-```
-
-`/work` must be the directory that **contains** the pack repositories, not a pack itself: each
-shipped config's `pack_root` is `/work/<pack>`.
-
-This is the invocation every pack's `sync-upstream.yml` uses (the packs check this repository out into `.icon-sets-sync`):
-
-```bash
-docker run --rm \
-  -v "$PWD/..:/work" \
-  -v "$PWD/.icon-sets-sync/config:/app/config" \
-  -e GH_TOKEN \
-  icon-sets-sync:local sync --pack="$PACK_SLUG"
-```
-
-## A Go build
-
-```bash
-go -C src build -o ../build/icon-sets-sync ./cmd/icon-sets-sync
+git clone https://github.com/ichava/icon-sets-sync.git
+cd icon-sets-sync
+make build-local                  # writes build/icon-sets-sync; make build does the same
 build/icon-sets-sync --config-dir config list-packs
+```
+
+Put `build/icon-sets-sync` on your `PATH` to call it from anywhere. To pin a version, check out its
+tag (`git checkout vX.Y.Z`) before building. To run it without keeping a binary:
+
+```bash
+go -C src run ./cmd/icon-sets-sync version
 ```
 
 The module lives in `src/`, so every `go` command names it with `-C src`; a bare `go build ./...` at
 the repository root finds no packages. `cmd/imt` builds the same program under its short name.
 
-A local build needs `git`, `gh` and `npm` on `PATH` to sync. For a real sync prefer the image: it is
-what CI runs, and a laptop with a different `npm` or `gh` is a different tool.
+`go install` is not an install path: the Go module proxy holds copies of the early `src/v0.1.x` tags
+taken from commits before the single-commit publication, so it would serve older code. See
+[Release](release.md#where-this-package-is).
+
+Releases are on hold until the maintainers decide on one. Archives, Linux packages and checksums
+from a release would come from `release.yml`, dispatched by hand; none has been published. See
+[Release](release.md#binary-releases-are-off).
+
+## What a sync needs
+
+| Tool | Why |
+|---|---|
+| `git` | branch, commit and push in the pack repositories |
+| `gh` | open the pull request |
+| `npm` | `npm pack <package>@<version>`, the npm source strategy |
+
+A `GH_TOKEN` with permission to push a branch and open a pull request in the pack repositories, for
+any sync that commits. `check`, `list-packs` and `config validate` need only the binary.
+
+## The `/work` directory
+
+Every shipped config names its pack as `/work/<pack>` (`pack_root`), so `/work` must be the
+directory that **contains** the pack checkouts, not a pack itself. That is the layout
+`sync-pack.yml` makes on the runner, with the same symlink. On Linux:
+
+```bash
+sudo ln -sfn ~/src/ichava /work   # the directory holding icon-sets-tabler, icon-sets-flag, ...
+```
+
+On macOS the root volume is read-only, so the link is declared in `/etc/synthetic.conf` and created
+at the next boot. The two columns are separated by a tab, and the target has no leading slash:
+
+```text
+work	Users/you/src/ichava
+```
+
+Without `/work`, keep your own pack configs with a relative `pack_root` and point the `workspace`
+setting (`ICHAVA_WORKSPACE`) at the directory holding the packs; see
+[Configuration](configuration.md#settings).
 
 ## Requirements
 
-Docker, or Go 1.26+. A `GH_TOKEN` with permission to push a branch and open a pull request in the
-pack repositories, for any sync that commits.
+Go 1.26 or later to build. `git`, `gh` and `npm` on `PATH` to sync.
 
 ---
 

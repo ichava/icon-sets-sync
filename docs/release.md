@@ -14,21 +14,25 @@ older code, and that is why the docs never offer `go install`. `TestDocsOfferNoG
 `ichava/maintainer-toolkit` sections (v0.1.0 to v0.1.3, 2026-08-31 to 2026-09-22) are kept in
 `CHANGELOG.md` under *Archived history*.
 
-The Docker image is published to GHCR and is **private**, which is why the pack workflows build from
-a checkout of this repository rather than pulling it: another repository's `GITHUB_TOKEN` cannot pull
-a private package.
+There is no container image. The pack workflows call `sync-pack.yml`, which builds the binary from
+source at a pinned tag or commit; see [Maintainer sync](maintainer-sync.md#3-workflow-template).
 
 ## Binary releases are off
 
 **No binary release is published until the maintainers decide on one.** A `vX.Y.Z` tag is git only:
 it records the version and starts nothing. Users build from source (`make build-local`, see the
-README). `release.yml` is manual and refuses to run without an explicit confirmation, and
-`docker.yml` no longer publishes on a tag. When a binary release is decided on, dispatch it against
-an existing tag:
+README). `release.yml` is manual: its only trigger is `workflow_dispatch`, and its first step
+refuses to run unless `confirm` is `release-go` and the run was dispatched against a tag.
+`TestReleaseRunsOnlyOnAConfirmedDispatch` fails if it gains another trigger or loses the
+confirmation. When a binary release is decided on, dispatch it against a tag that already exists on
+GitHub, from any directory:
 
 ```bash
-gh workflow run release.yml -R ichava/icon-sets-sync --ref vX.Y.Z -f confirm=release-go
+gh workflow run release.yml --repo ichava/icon-sets-sync --ref vX.Y.Z -f confirm=release-go
 ```
+
+That command publishes for real, so run it only for a version the maintainers approved. Pushing the
+tag alone publishes nothing.
 
 To build the whole matrix on your own machine without publishing anything, run `make cross`
 (GoReleaser v2 on `PATH`). It reads the same `src/.goreleaser.yaml` and writes the flat
@@ -40,8 +44,8 @@ release. Its tags (`v0.1.0`, `src/v0.1.0`) are final and stay where they are.
 
 ## Cutting a release
 
-1. `go -C src vet ./...`, `go -C src test -count=1 ./...` and `gofmt -l src` (empty). `make test-go`
-   runs the first two in a container. The suite covers config loading and the schema, the settings
+1. `go -C src vet ./...`, `go -C src test -count=1 ./...` and `gofmt -l src` (empty). `make test`
+   runs the first two and `make lint` the formatting check. The suite covers config loading and the schema, the settings
    precedence, the checker's version comparison, the pipeline, the recipes, git and gh invocation,
    the sync orchestration, and the vendored-version contract.
 2. Write the notes in `CHANGELOG.md`'s one `## [Unreleased]` section, on `main`, through the pull
@@ -58,12 +62,11 @@ Never edit the release pull request by hand: release-please rebuilds its branch 
 it did not write. Change the notes on `main` instead.
 
 When a binary release is decided on, `release.yml` is dispatched by hand against the tag (above).
-It and `docker.yml` publish:
+It publishes binaries only, no container image:
 
 | Workflow | Publishes |
 |---|---|
 | `release.yml` | the GitHub release: bare binaries for both entrypoints (`icon-sets-sync`, `imt`), `.tar.gz`/`.zip` archives, `.deb`/`.rpm`/`.apk`, a source tarball, an SPDX SBOM per archive, `checksums.txt`, its keyless cosign signature `checksums.txt.sigstore.json`, and a build-provenance attestation for every artifact |
-| `docker.yml` | the GHCR image |
 
 A dispatched `release.yml` also pushes `src/vX.Y.Z` on the same commit before GoReleaser runs. The Go module is
 `github.com/ichava/icon-sets-sync/src`, and Go resolves a subdirectory module only through a tag
@@ -79,8 +82,7 @@ them with `make tabler-update` before a release, never by hand.
 
 The release config is `src/.goreleaser.yaml`, run from the repository root. The Tests workflow
 builds the whole release set on every pull request (`goreleaser release --snapshot`, no publish, no
-signature) and asserts what came out, and its Docker job builds the image the way the pack
-workflows do. Locally:
+signature) and asserts what came out. Locally:
 
 ```bash
 goreleaser check --config src/.goreleaser.yaml
