@@ -25,6 +25,9 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /config/{name}", s.handleConfigEdit)
 	// Validation writes nothing, so a read-only server keeps it.
 	mux.HandleFunc("POST /config/{name}/validate", s.handleConfigValidate)
+	mux.HandleFunc("GET "+HealthPath, s.handleHealth)
+	// Stopping the server changes no file, so a read-only server keeps it.
+	mux.HandleFunc("POST "+StopPath, s.handleStop)
 
 	if !s.opts.ReadOnly {
 		s.writeRoutes(mux)
