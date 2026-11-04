@@ -8,6 +8,8 @@ package recipes
 import (
 	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
@@ -237,7 +239,7 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 		Sink(sinks.LicenceTexts{Root: licencesRoot + "/twemoji", Set: "twemoji"})
 
 	openmoji := func(name, subdir string) *pipeline.Pipeline {
-		return openmojiPipeline(cfg, cldr, openmojiVersion, name, subdir, filesRoot, licencesRoot+"/"+name, name, "")
+		return openmojiPipeline(cfg, cldr, openmojiVersion, name, subdir, filesRoot, licencesRoot+"/"+name, name, "", openmojiGuards{})
 	}
 
 	pipelines := []*pipeline.Pipeline{
@@ -266,7 +268,11 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 // copies) and openmoji-sets (the new pack) both call it, which is what keeps
 // their outputs byte-identical rather than merely similar. licence is the SPDX
 // id to guard the licence text with; empty means unguarded.
-func openmojiPipeline(cfg map[string]any, cldr sources.UnicodeCldr, version, name, subdir, filesRoot, licenceRoot, licenceSet, licence string) *pipeline.Pipeline {
+//
+// guards is the one place the two callers differ: emoji-sets passes the zero
+// value and keeps its historical behaviour exactly; openmoji-sets opts into
+// never dropping an icon.
+func openmojiPipeline(cfg map[string]any, cldr sources.UnicodeCldr, version, name, subdir, filesRoot, licenceRoot, licenceSet, licence string, guards openmojiGuards) *pipeline.Pipeline {
 	return pipeline.Named(fmt.Sprintf("emoji-sets:%s@%s", name, version)).
 		Config(cfg).
 		Source(sources.Compound{
@@ -282,9 +288,41 @@ func openmojiPipeline(cfg map[string]any, cldr sources.UnicodeCldr, version, nam
 		Transform(transforms.FindLicences{}).
 		Transform(transforms.SubsetTo{Subdir: subdir}).
 		Transform(transforms.Sanitise{}).
-		Transform(transforms.Categorise{By: "cldr"}).
-		Sink(sinks.Filesystem{Root: filesRoot + "/" + name}).
+		Transform(transforms.Categorise{
+			By: "cldr", Preserve: guards.preserve,
+			MaxUncategorised: guards.maxUncategorised, Force: guards.force,
+		}).
+		Sink(sinks.Filesystem{Root: filesRoot + "/" + name, RefuseRemovals: guards.preserve, Force: guards.force}).
 		Sink(sinks.LicenceTexts{Root: licenceRoot, Set: licenceSet, Licence: licence})
+}
+
+// openmojiGuards are the opt-in protections against silently losing icons.
+type openmojiGuards struct {
+	preserve         bool
+	maxUncategorised float64
+	force            bool
+}
+
+// maxUncategorisedShare is the largest share of an OpenMoji release that may
+// match no taxonomy entry. Measured on 17.0.0 against the matching Unicode 17.0
+// taxonomy: 551 of 4,495 (12%), all OpenMoji extras and the nine component
+// glyphs. A taxonomy a release behind adds the new emoji and lands near 16%.
+const maxUncategorisedShare = 0.20
+
+// unicodeVersionFor derives the Unicode emoji release an OpenMoji release
+// follows: OpenMoji versions its major.minor after Unicode ("17.0.0" is Unicode
+// 17.0). Empty when the tag is not of that shape.
+func unicodeVersionFor(openmoji string) string {
+	parts := strings.Split(openmoji, ".")
+	if len(parts) < 2 {
+		return ""
+	}
+	for _, p := range parts[:2] {
+		if _, err := strconv.Atoi(p); err != nil {
+			return ""
+		}
+	}
+	return parts[0] + "." + parts[1]
 }
 
 // buildOpenMojiSets composes ichava/icon-sets-openmoji: the colour and black
@@ -298,13 +336,22 @@ func buildOpenMojiSets(pack *config.PackConfig, version string, opts Options) ([
 	}
 	r := opts.resolved()
 	cfg := packConfig(pack)
-	cldr := sources.UnicodeCldr{UnicodeVersion: r.String("emoji.unicode_version")}
+	unicodeVersion := r.String("emoji.unicode_version")
+	if r.Origin("emoji.unicode_version") == settings.LayerDefault {
+		// Not chosen by anyone: follow the release. Categorising OpenMoji 17
+		// against the 16.0 taxonomy left its 163 Unicode 17 emoji uncategorised.
+		if derived := unicodeVersionFor(version); derived != "" {
+			unicodeVersion = derived
+		}
+	}
+	cldr := sources.UnicodeCldr{UnicodeVersion: unicodeVersion}
+	guards := openmojiGuards{preserve: true, maxUncategorised: maxUncategorisedShare, force: r.Bool("force")}
 	filesRoot := pack.PackRoot + "/resources/assets/svg/files"
 	licenceRoot := pack.PackRoot + "/resources/assets/svg/licenses/openmoji"
 
 	pipelines := []*pipeline.Pipeline{
-		openmojiPipeline(cfg, cldr, version, "openmoji-color", "color/svg", filesRoot, licenceRoot, "openmoji", pack.Licence),
-		openmojiPipeline(cfg, cldr, version, "openmoji-black", "black/svg", filesRoot, licenceRoot, "openmoji", pack.Licence),
+		openmojiPipeline(cfg, cldr, version, "openmoji-color", "color/svg", filesRoot, licenceRoot, "openmoji", pack.Licence, guards),
+		openmojiPipeline(cfg, cldr, version, "openmoji-black", "black/svg", filesRoot, licenceRoot, "openmoji", pack.Licence, guards),
 	}
 	if !opts.DryRun {
 		pipelines = append(pipelines,

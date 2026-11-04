@@ -15,6 +15,19 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 - **`npm pack` runs with `--ignore-scripts` (S7)**, in both places it is called, so a git or local spec cannot run a `prepare` script on the runner.
 - S1, the CSS `url()` bypass, was already closed in this section's first entry; no further change was needed here.
 
+### Fixed
+
+- **An OpenMoji refresh no longer drops icons that match no taxonomy entry.** A dry run of `icon-sets-openmoji` from 15.1.0 to 17.0.0 logged `categorise copied=3574 missing=921`: those 921 of 4,495 SVGs were deleted from the refreshed tree, not filed anywhere. They were 207 emoji OpenMoji names without the emoji-presentation selector (`2600.svg`, the sun, against `2600 FE0F` in `emoji-test.txt`), 542 OpenMoji extras, 163 Unicode 17 emoji the 16.0 taxonomy does not know, and 9 component glyphs. Only the first group was a pre-existing loss in the shipped pack (it holds neither the sun nor the wastebasket today). `openmoji-sets` now matches a name regardless of `FE0F`, keeps every other icon as `uncategorised/<upstream-name>.svg` with a warning and an `uncategorised` count, and keeps both icons when two emoji slug to one name (`keycap: #` and `keycap: *` overwrote each other). Measured on 17.0.0: 3,944 categorised, 551 uncategorised, 0 dropped. The deprecated `emoji-sets` recipe is unchanged and a test pins it.
+- **The taxonomy follows the OpenMoji release.** `openmoji-sets` derives `emoji.unicode_version` from the release (17.0.0 uses 17.0) unless it is set explicitly. Unicode 17.0 publishes `emoji-test.txt` under `Public/17.0.0/emoji/`, where the old `Public/emoji/17.0/` path answers 404, so the URL follows that layout from 17.0; 16.0 and earlier are unchanged.
+
+### Added
+
+- **Two guards on an `openmoji-sets` refresh, lifted by `--force`.** The run fails when more than 20% of the icons are uncategorised (a taxonomy of the wrong release looks like that), and the file sink refuses, before the wipe, to remove any icon the pack ships today. Both are opt-in options (`Categorise.Preserve`/`MaxUncategorised`, `Filesystem.RefuseRemovals`), off for every other recipe.
+
+### Documented
+
+- **The SVG sanitiser's `violations=1284 would_change=4495` is explained** in this entry, not changed: `would_change` counts every file because the serialiser drops the trailing newline; `violations` counts files with something removed, and all 1,284 lose the root `version="1.1"` attribute. 13 files also lose `display="none"` (hidden construction shapes in subdivision flags would render), 3 `color`, and 1 each `docname` and `marker-end`. The `display` removal is a rendering-fidelity question for the maintainers; no policy changed here.
+
 ### Changed
 
 - **Documentation links point at each repository's own `docs/`** (Sim, 2026-11-03: "all ichava repos have docs in their respective repos. thats by design"). Links to `opensource.simtabi.com/documentation/ichava/...` and the `opensource.simtabi.com/products/ichava/...` homepage, which answer 404 for every ichava page, now go to the matching `docs/*.md` on GitHub, or to the repository itself. Each target was checked to exist on that repository's `main`. The manifest's `homepage` and `support.docs` follow.

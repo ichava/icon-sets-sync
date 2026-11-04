@@ -302,3 +302,111 @@ func TestIndexerNeedsRecords(t *testing.T) {
 		t.Fatal("expected an error naming the missing cldr_records")
 	}
 }
+
+// OpenMoji names a file for its codepoints with the emoji-presentation selector
+// left off for ~200 emoji (2600.svg, not 2600-fe0f.svg), while emoji-test.txt
+// lists them fully qualified. Matched exactly they found no category and were
+// silently dropped -- the sun, the wastebasket, every arrow.
+func TestCategorisePreserveMatchesAnEmojiWhoseSelectorIsLeftOff(t *testing.T) {
+	ctx, root := tree(t, map[string]string{"1F600.svg": "<svg/>", "263A.svg": "<svg/>"})
+	ctx.SetString(pipeline.KeyCLDRText, cldrSample)
+
+	if err := (Categorise{By: "cldr", Preserve: true}).Execute(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "smileys-emotion", "smiling-face.svg")); err != nil {
+		t.Errorf("263A.svg did not reach its category: %v", err)
+	}
+	m, _ := ctx.Metrics["categorise"].(map[string]any)
+	if m["copied"] != 2 || m["missing"] != 0 || m["uncategorised"] != 0 {
+		t.Errorf("metrics = %v", m)
+	}
+}
+
+// TestCategorisePreserveKeepsUnmatchedIcons: an icon with no taxonomy entry
+// (an OpenMoji extra, or an emoji newer than the taxonomy) is kept in an
+// explicit bucket, under its upstream name, and counted -- never dropped.
+func TestCategorisePreserveKeepsUnmatchedIcons(t *testing.T) {
+	ctx, root := tree(t, map[string]string{
+		"1F600.svg": "<svg/>", "1F436.svg": "<svg/>", "263A-FE0F.svg": "<svg/>",
+		"E380.svg": "<svg/>",
+	})
+	ctx.SetString(pipeline.KeyCLDRText, cldrSample)
+
+	if err := (Categorise{By: "cldr", Preserve: true, MaxUncategorised: 0.5}).Execute(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, UncategorisedDir, "e380.svg")); err != nil {
+		t.Errorf("the unmatched icon was not kept: %v", err)
+	}
+	m, _ := ctx.Metrics["categorise"].(map[string]any)
+	if m["copied"] != 3 || m["uncategorised"] != 1 {
+		t.Errorf("metrics = %v, want copied=3 uncategorised=1", m)
+	}
+}
+
+func TestCategorisePreserveRefusesAnImplausibleUncategorisedShare(t *testing.T) {
+	files := map[string]string{"1F600.svg": "<svg/>", "A1.svg": "<svg/>", "A2.svg": "<svg/>", "A3.svg": "<svg/>"}
+
+	ctx, _ := tree(t, files)
+	ctx.SetString(pipeline.KeyCLDRText, cldrSample)
+	if err := (Categorise{By: "cldr", Preserve: true, MaxUncategorised: 0.5}).Execute(ctx); err == nil {
+		t.Fatal("75% uncategorised must fail the run: the taxonomy is probably the wrong release")
+	}
+
+	// Forced, it goes through, and still keeps everything.
+	ctx, root := tree(t, files)
+	ctx.SetString(pipeline.KeyCLDRText, cldrSample)
+	if err := (Categorise{By: "cldr", Preserve: true, MaxUncategorised: 0.5, Force: true}).Execute(ctx); err != nil {
+		t.Fatalf("a forced run must pass: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, UncategorisedDir, "a3.svg")); err != nil {
+		t.Errorf("forced run lost an icon: %v", err)
+	}
+}
+
+// TestCategoriseWithoutPreserveIsUnchanged pins the emoji pack's behaviour:
+// exact match only, and an unmatched icon is dropped and counted as missing.
+func TestCategoriseWithoutPreserveIsUnchanged(t *testing.T) {
+	ctx, root := tree(t, map[string]string{"1F600.svg": "<svg/>", "263A.svg": "<svg/>", "E380.svg": "<svg/>"})
+	ctx.SetString(pipeline.KeyCLDRText, cldrSample)
+
+	if err := (Categorise{By: "cldr"}).Execute(ctx); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := ctx.Metrics["categorise"].(map[string]any)
+	if m["copied"] != 1 || m["missing"] != 2 {
+		t.Errorf("metrics = %v, want copied=1 missing=2", m)
+	}
+	if _, ok := m["uncategorised"]; ok {
+		t.Error("the legacy metric shape gained a key")
+	}
+	if _, err := os.Stat(filepath.Join(root, UncategorisedDir)); err == nil {
+		t.Error("the legacy path created an uncategorised bucket")
+	}
+}
+
+// Two emoji can slug to one name ("keycap: #" and "keycap: *"). Renaming the
+// second over the first dropped an icon without a word.
+func TestCategorisePreserveKeepsBothSidesOfASlugCollision(t *testing.T) {
+	ctx, root := tree(t, map[string]string{"0023-FE0F-20E3.svg": "<svg id='hash'/>", "002A-FE0F-20E3.svg": "<svg id='star'/>"})
+	ctx.SetString(pipeline.KeyCLDRText, `# group: Symbols
+
+0023 FE0F 20E3 ; fully-qualified # # E0.6 keycap
+002A FE0F 20E3 ; fully-qualified # * E2.0 keycap
+`)
+	if err := (Categorise{By: "cldr", Preserve: true}).Execute(ctx); err != nil {
+		t.Fatal(err)
+	}
+	kept, err := os.ReadFile(filepath.Join(root, "symbols", "keycap.svg"))
+	if err != nil || !strings.Contains(string(kept), "star") {
+		t.Errorf("the later emoji should keep the name, as before: %q %v", kept, err)
+	}
+	if _, err := os.Stat(filepath.Join(root, UncategorisedDir, "0023-fe0f-20e3.svg")); err != nil {
+		t.Errorf("the displaced icon was dropped: %v", err)
+	}
+	m, _ := ctx.Metrics["categorise"].(map[string]any)
+	if m["copied"] != 1 || m["uncategorised"] != 1 {
+		t.Errorf("metrics = %v", m)
+	}
+}

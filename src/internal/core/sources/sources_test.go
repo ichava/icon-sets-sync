@@ -329,3 +329,18 @@ func TestNpmTarballPassesIgnoreScripts(t *testing.T) {
 		t.Fatalf("npm pack ran without --ignore-scripts; args:\n%s", got)
 	}
 }
+
+// Unicode moved emoji-test.txt for releases from 17.0: the old layout has no
+// 17.0 directory (404), the new one lives under the full version.
+func TestUnicodeCldrURLFollowsUnicodesLayout(t *testing.T) {
+	for _, tc := range []struct{ version, want string }{
+		{"15.1", "https://unicode.org/Public/emoji/15.1/emoji-test.txt"},
+		{"16.0", "https://unicode.org/Public/emoji/16.0/emoji-test.txt"},
+		{"17.0", "https://unicode.org/Public/17.0.0/emoji/emoji-test.txt"},
+		{"18.0", "https://unicode.org/Public/18.0.0/emoji/emoji-test.txt"},
+	} {
+		if got := (UnicodeCldr{UnicodeVersion: tc.version}).URL(); got != tc.want {
+			t.Errorf("URL(%s) = %s, want %s", tc.version, got, tc.want)
+		}
+	}
+}
