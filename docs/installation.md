@@ -14,6 +14,11 @@ build/icon-sets-sync --config-dir config list-packs
 Run with no arguments, or double-clicked, it opens the web UI in your browser; with a command it runs
 headless, as on CI and servers (see [`serve`](tools/serve.md#flags)).
 
+Double-clicked from inside the checkout, `build/icon-sets-sync` and the `build/dist/` binaries find
+the checkout's `config/` from their own location; a binary copied anywhere else uses the pack configs
+built into it, read-only. After editing `config/`, run `make embed-config` so the built-in copy
+matches; a test fails until it does.
+
 ### Build outputs
 
 Everything generated goes under `build/`, which is gitignored; `make clean` removes it.

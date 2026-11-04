@@ -50,6 +50,32 @@ command is headless and never opens a browser.
 **Port.** With no `--port`, `serve` tries 7878 and, when another process holds it, the next port up,
 up to 20 ports, and prints the address it actually bound. `--port 7878` (or `--addr 127.0.0.1:7878`)
 means that port: if it is taken, `serve` fails instead of moving. `--port 0` lets the system pick.
+Running the binary with no arguments behaves like plain `serve`, so a busy 7878 moves too.
+
+**One server at a time.** A running server records its address in `serve.json` in the state
+directory (`$XDG_STATE_HOME/icon-sets-sync`, else `~/.local/state/icon-sets-sync`;
+`%LocalAppData%\icon-sets-sync` on Windows), mode `0600` because the address carries the token. A
+second no-argument launch checks that server over the loopback (`GET /healthz` with the token in a
+request header) and, if it answers, opens the browser at it, prints one line and exits 0, starting no
+second server. A record whose server no longer answers is removed.
+
+**Stopping.** Every page has **Stop server**, a same-origin form post with the page's CSRF token,
+kept under `--read-only` because it changes nothing on disk. It, Ctrl-C and closing the Terminal
+window all shut the server down gracefully and remove `serve.json`.
+
+**The Terminal window.** A command-line binary opened from Finder or Explorer always gets a terminal
+window; that is the operating system, not this tool. The window prints the address, the config
+directory it found and "running in your browser; close this window or press Ctrl-C to stop". A
+hand-off to a running server prints one line and the window can be closed.
+
+**Which configs.** The startup line `config: <dir> (<source>)` and the Settings page name where the
+pack configs came from: `flag` (`--config-dir`), `env` (`ICHAVA_CONFIG_DIR`), `cwd` (found walking up
+from the working directory), `executable` (`config/` beside the binary, or found walking up from the
+binary's own directory, which is how a double-clicked `build/icon-sets-sync` or
+`build/dist/icon-sets-sync_macos_universal` finds its checkout) or `embedded` (the configs built into
+the binary, used outside any checkout). Embedded configs are read-only in the Config page; pass
+`--config-dir` to edit a checkout's. Without a checkout of a pack, its page says a sync needs a
+workspace (`ICHAVA_WORKSPACE`).
 
 ## Signing in
 
