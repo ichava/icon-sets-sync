@@ -23,7 +23,7 @@ func TestPackRootFromTheExecutable(t *testing.T) {
 	home := t.TempDir()
 	ci := filepath.Join(t.TempDir(), "work")
 
-	for _, exe := range []string{filepath.Join(toolkit, "build"), filepath.Join(toolkit, "build", "dist")} {
+	for _, exe := range []string{filepath.Join(toolkit, "build"), filepath.Join(toolkit, "build", "dist"), filepath.Join(toolkit, "build", "macos"), filepath.Join(toolkit, "build", "windows")} {
 		p := &config.PackConfig{Name: "icon-sets-tabler", PackRoot: filepath.Join(ci, "icon-sets-tabler")}
 		applyWorkspaceIn(p, "", home, exe, ci)
 		if want := filepath.Join(base, "icon-sets-tabler"); p.PackRoot != want {
