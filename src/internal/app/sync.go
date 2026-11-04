@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
 )
 
 // PackSettings resolves one pack's settings over the run-wide stack.
@@ -67,6 +69,13 @@ type Outcome struct {
 
 // Failed reports whether the outcome should make the run exit non-zero.
 func (o Outcome) Failed() bool { return o.Status == StatusFailed || o.Status == StatusUnresolved }
+
+// LicenceChanged reports whether the outcome failed because the upstream's
+// licence no longer matches the licence the pack declares. The outcome's own
+// error is flattened to text, so the pipeline result's error is checked too.
+func (o Outcome) LicenceChanged() bool {
+	return errors.Is(o.Err, sinks.ErrLicenceChanged) || errors.Is(o.Result.Err, sinks.ErrLicenceChanged)
+}
 
 // AnyFailed reports whether any outcome failed.
 func AnyFailed(outcomes []Outcome) bool {
