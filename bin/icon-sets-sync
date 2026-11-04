@@ -1,6 +1,8 @@
 #!/usr/bin/env php
 <?php
 
+// The tracked Composer launcher (PHP), not a build output: binaries go to build/.
+
 declare(strict_types=1);
 
 // Composer's bin proxy sets this; fall back to the two layouts that matter: this

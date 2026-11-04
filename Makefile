@@ -129,15 +129,27 @@ build-local:  ## Build $(BIN) with the host's Go toolchain
 	go -C src build -trimpath -o ../$(BIN) ./cmd/icon-sets-sync
 
 # The target list is src/.goreleaser.yaml's builds, the one place it is kept,
-# so this builds exactly the set a release would, into build/dist/: the flat
-# {binary}_{os}_{arch} executables (macOS as `macos`, plus the universal
-# binary), the archives and the Linux packages. A snapshot with publishing,
-# signing and SBOMs skipped, so nothing leaves the machine.
+# so these build exactly the set a release would. A snapshot with publishing,
+# signing and SBOMs skipped, so nothing leaves the machine, and no Go release.
+# flatdist then trims GoReleaser's per-target folders and metadata away:
+#   cross -> build/dist/{binary}_{os}_{arch}[.exe] (macOS as `macos`, plus the
+#            universal binary) and build/dist/checksums.txt, nothing else;
+#   dist  -> the same, plus build/dist/archives/: the .tar.gz/.zip archives,
+#            the deb/rpm/apk packages, the source tarball and their checksums.txt.
+GORELEASER_SNAPSHOT := GOPRIVATE='github.com/ichava/*' GONOSUMDB='github.com/ichava/*' \
+	goreleaser release --snapshot --clean --config src/.goreleaser.yaml
+
 .PHONY: cross
-cross:  ## Build every release target locally into build/dist (needs goreleaser v2)
+cross:  ## Build every release target's bare binary into build/dist (needs goreleaser v2)
 	@command -v goreleaser >/dev/null || { echo "goreleaser v2 is required: https://goreleaser.com/install/"; exit 2; }
-	GOPRIVATE='github.com/ichava/*' GONOSUMDB='github.com/ichava/*' \
-		goreleaser release --snapshot --clean --config src/.goreleaser.yaml --skip=publish,sign,sbom
+	$(GORELEASER_SNAPSHOT) --skip=publish,sign,sbom,nfpm
+	go -C src run ./internal/tools/flatdist -root ..
+
+.PHONY: dist
+dist:  ## cross, plus the archives and Linux packages in build/dist/archives (needs goreleaser v2)
+	@command -v goreleaser >/dev/null || { echo "goreleaser v2 is required: https://goreleaser.com/install/"; exit 2; }
+	$(GORELEASER_SNAPSHOT) --skip=publish,sign,sbom
+	go -C src run ./internal/tools/flatdist -root .. -archives
 
 .PHONY: test-local
 test-local:  ## go vet + go test with the host's Go toolchain

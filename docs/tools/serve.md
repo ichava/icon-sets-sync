@@ -28,10 +28,24 @@ as you type.
 | `--allow-remote` | off | allow a non-loopback `--addr`; plain HTTP, so prefer an SSH tunnel |
 | `--allow-host` | none | an extra `Host` header to accept behind a proxy (repeatable) |
 | `--read-only` | off | serve no route that runs a sync or saves a file |
-| `--no-open` | off | do not open a browser (it only opens one when attached to a terminal anyway) |
+| `--no-open` | off | do not open a browser; `ICHAVA_NO_BROWSER=1` does the same |
 | `--token-file` | none | also write the sign-in address to this file, mode `0600` |
 
 The global flags (`--config-dir`, `--set`, `--global-config`, `-v`) apply as for every command.
+
+**Browser.** `serve` opens the default browser at the printed, tokenised address (`open` on macOS,
+`xdg-open` on Linux and the BSDs, `rundll32 url.dll,FileProtocolHandler` on Windows), and so does
+running the binary with no arguments at all, which is what a double-click in Finder or Explorer does.
+It never opens one:
+
+- when `CI` is set;
+- when `ICHAVA_NO_BROWSER=1`, or `--no-open` is passed;
+- when stdin or stdout is not a terminal (a pipe, a service, a scheduled job);
+- on Linux and the BSDs when neither `DISPLAY` nor `WAYLAND_DISPLAY` is set (an SSH session, a server).
+
+In those cases no arguments prints the help and exits 0, and `serve` just prints the address. If the
+browser cannot be started, the address is still printed and the server carries on. Every other
+command is headless and never opens a browser.
 
 **Port.** With no `--port`, `serve` tries 7878 and, when another process holds it, the next port up,
 up to 20 ports, and prints the address it actually bound. `--port 7878` (or `--addr 127.0.0.1:7878`)

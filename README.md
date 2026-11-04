@@ -78,6 +78,11 @@ make validate
 
 ### Usage
 
+Double-click the binary (or run `build/icon-sets-sync` with no arguments) to open the web UI in your
+browser. Pass a command for CLI and CI use: a command never opens a browser, and with no terminal,
+with `CI` set, or on Linux without a display, no arguments prints the help instead. The terminal menu
+that no arguments used to open is `icon-sets-sync menu` (`make menu`).
+
 See which packs are behind upstream, without writing anything:
 
 ```bash
