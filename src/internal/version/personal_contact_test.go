@@ -15,8 +15,9 @@ import (
 // github-actions bot's noreply address, not a personal GitHub login.
 var personalContact = regexp.MustCompile(`(?i)imani@|manyara|imanimanyara`)
 
-// minPersonalContactFiles is the number of files the guard read on
-// 2026-10-30 (.goreleaser.yaml, README.md, Dockerfile and 9 under docs/).
+// minPersonalContactFiles is a floor on the files the guard reads: on
+// 2026-10-30 that was .goreleaser.yaml, README.md, a Dockerfile since removed
+// and 9 under docs/, before the Go sources joined the walk.
 // A walk that stops matching must fail rather than pass over nothing.
 const minPersonalContactFiles = 12
 
@@ -25,7 +26,6 @@ func TestNoPersonalContactShips(t *testing.T) {
 	files := []string{
 		filepath.Join(root, "src", ".goreleaser.yaml"),
 		filepath.Join(root, "README.md"),
-		filepath.Join(root, "Dockerfile"),
 	}
 	// The Go sources too: the bot's default commit author lives in code
 	// (gitx, settings), and that is where a personal login sat until 2026-10-30.
