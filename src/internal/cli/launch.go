@@ -89,7 +89,7 @@ func runDefault(cmd *cobra.Command, args []string) error {
 		ui.Info("%s", reason)
 		return cmd.Help()
 	}
-	return serveUI(cmd, defaultServeOptions(), true)
+	return serveUI(cmd, defaultServeOptions(), false)
 }
 
 func anyFlagSet(fs *pflag.FlagSet) bool {

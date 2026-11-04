@@ -210,3 +210,34 @@ func TestServeOpensTheBrowserUnlessToldNot(t *testing.T) {
 		})
 	}
 }
+
+// A double-click on a machine where something already holds 7878 must take the
+// next free port, as `serve` with no --port does, not fail with "omit --port".
+func TestNoArgsFallsBackFromABusyPort(t *testing.T) {
+	isolate(t)
+	t.Setenv("ICHAVA_CONFIG_DIR", filepath.Join("..", "..", "..", "config"))
+	opened := withLaunch(t, fakeEnv("darwin", true, nil))
+	fakeListen(t, 7878)
+	serveBrowser = func(url string) error { *opened = append(*opened, url); return nil }
+	out, code := runRoot(t)
+	if code != ExitOK {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+	if !strings.Contains(out, "port 7878 is in use; listening on 7879 instead") {
+		t.Fatalf("no fallback:\n%s", out)
+	}
+	if m := printedURL.FindStringSubmatch(out); m == nil || m[1] != "7879" || len(*opened) != 1 {
+		t.Fatalf("printed %v, opened %v:\n%s", m, *opened, out)
+	}
+}
+
+// An explicit --port still pins it.
+func TestServePinnedPortStillFails(t *testing.T) {
+	isolate(t)
+	withLaunch(t, fakeEnv("darwin", true, nil))
+	fakeListen(t, 7878)
+	out, code := runRoot(t, "--config-dir", filepath.Join("..", "..", "..", "config"), "serve", "--port", "7878")
+	if code != ExitFailure || !strings.Contains(out, "port 7878 is already in use") {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+}
