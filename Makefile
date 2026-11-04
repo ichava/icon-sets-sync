@@ -40,6 +40,7 @@ RUN := $(BIN) --config-dir config
 help:  ## Show this help
 	@printf "\nicon-sets-sync -- sync the Ichava icon packs from upstream\n\n"
 	@printf "Usage: make <target> [PACK=<name>] [CONCURRENCY=<n>]\n\n"
+	@printf "verify: cd build && shasum -a 256 -c checksums.txt   (after make cross)\n\n"
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
 		| awk 'BEGIN{FS=":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@printf "\n"
@@ -149,6 +150,8 @@ build-local:  ## Build $(BIN) with the host's Go toolchain
 # `dist:`); flatdist copies only the bare binaries out and removes the rest:
 #   cross -> build/{os}/{binary}_{os}_{arch}[.exe] (macOS as `macos`, plus the
 #            universal binary) and build/checksums.txt over them, nothing else;
+#            its lines name build/-relative paths (macos/icon-sets-sync_macos_arm64),
+#            so verify: cd build && shasum -a 256 -c checksums.txt
 #   dist  -> the same, plus build/archives/: the .tar.gz/.zip archives, the
 #            deb/rpm/apk packages, the source tarball and their checksums.txt.
 GORELEASER_SNAPSHOT := GOPRIVATE='github.com/ichava/*' GONOSUMDB='github.com/ichava/*' \

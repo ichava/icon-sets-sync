@@ -65,6 +65,13 @@ func goreleaserTree(t *testing.T) string {
 	return root
 }
 
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 func write(t *testing.T, p, body string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -93,9 +100,11 @@ func listDir(t *testing.T, dir string) []string {
 	return out
 }
 
-// checkSums verifies a checksums.txt whose bare names live in the given
-// folders, and that it covers exactly the {binary}_* files in them.
-func checkSums(t *testing.T, file string, dirs ...string) {
+// checkSums verifies a checksums.txt whose names live in the given folders,
+// and that it covers exactly the {binary}_* files in them. relative says the
+// names are paths from the checksum file's directory (build/checksums.txt);
+// otherwise they are bare (archives/checksums.txt).
+func checkSums(t *testing.T, file string, relative bool, dirs ...string) {
 	t.Helper()
 	raw, err := os.ReadFile(file)
 	if err != nil {
@@ -106,14 +115,18 @@ func checkSums(t *testing.T, file string, dirs ...string) {
 	for _, d := range dirs {
 		for _, n := range listDir(t, d) {
 			if strings.HasPrefix(n, "icon-sets-sync_") {
-				where[n] = filepath.Join(d, n)
+				key := n
+				if relative {
+					key = filepath.Base(d) + "/" + n
+				}
+				where[key] = filepath.Join(d, n)
 			}
 		}
 	}
 	for _, line := range lines {
 		sum, name, ok := strings.Cut(line, "  ")
-		if !ok || strings.ContainsAny(name, "/\\") {
-			t.Fatalf("not a bare-name checksum line: %q", line)
+		if !ok || strings.Contains(name, "\\") || strings.Count(name, "/") != boolInt(relative) {
+			t.Fatalf("not a checksum line of the expected shape: %q", line)
 		}
 		b, err := os.ReadFile(where[name])
 		if err != nil {
@@ -167,7 +180,7 @@ func TestCrossWritesOneFolderPerOS(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, scratch)); !os.IsNotExist(err) {
 		t.Errorf("the scratch dist was left behind: %v", err)
 	}
-	checkSums(t, filepath.Join(build, "checksums.txt"),
+	checkSums(t, filepath.Join(build, "checksums.txt"), true,
 		filepath.Join(build, "macos"), filepath.Join(build, "linux"),
 		filepath.Join(build, "windows"), filepath.Join(build, "freebsd"))
 }
@@ -190,7 +203,7 @@ func TestDistGroupsTheArchives(t *testing.T) {
 	if got := listDir(t, filepath.Join(build, "archives")); !reflect.DeepEqual(got, want) {
 		t.Fatalf("archives = %v\nwant %v", got, want)
 	}
-	checkSums(t, filepath.Join(build, "archives", "checksums.txt"), filepath.Join(build, "archives"))
+	checkSums(t, filepath.Join(build, "archives", "checksums.txt"), false, filepath.Join(build, "archives"))
 }
 
 // No binary-format archive means the config changed under this tool: fail

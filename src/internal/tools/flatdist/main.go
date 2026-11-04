@@ -51,7 +51,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "flatdist:", err)
 		os.Exit(1)
 	}
-	fmt.Printf("flatdist: %d binaries in %s/{os}/", n, out)
+	fmt.Printf("flatdist: %d binaries in %s/{os}/ (verify: cd %s && shasum -a 256 -c checksums.txt)", n, out, out)
 	if archives {
 		fmt.Printf(", %d archives and packages in %s", a, filepath.Join(out, buildlayout.ArchivesDir))
 	}
@@ -134,18 +134,25 @@ func flatten(root, dist, out string, withArchives bool) (int, int, error) {
 		}
 	}
 
-	paths := func(ks []kept) map[string]string {
+	// build/checksums.txt names each binary by its path inside build/
+	// (macos/icon-sets-sync_macos_arm64), so `cd build && shasum -a 256 -c
+	// checksums.txt` verifies as-is. The release's checksums.txt, which CI
+	// uploads and install scripts and self-update read, keeps bare names;
+	// GoReleaser writes that one, not this tool.
+	paths := func(ks []kept, label func(kept) string) map[string]string {
 		m := map[string]string{}
 		for _, k := range ks {
-			m[k.name] = filepath.Join(outAbs, k.path)
+			m[label(k)] = filepath.Join(outAbs, k.path)
 		}
 		return m
 	}
-	if err := writeChecksums(filepath.Join(outAbs, "checksums.txt"), paths(bins)); err != nil {
+	inBuild := func(k kept) string { return filepath.ToSlash(k.path) }
+	bare := func(k kept) string { return k.name }
+	if err := writeChecksums(filepath.Join(outAbs, "checksums.txt"), paths(bins, inBuild)); err != nil {
 		return 0, 0, err
 	}
 	if len(arcs) > 0 {
-		if err := writeChecksums(filepath.Join(outAbs, buildlayout.ArchivesDir, "checksums.txt"), paths(arcs)); err != nil {
+		if err := writeChecksums(filepath.Join(outAbs, buildlayout.ArchivesDir, "checksums.txt"), paths(arcs, bare)); err != nil {
 			return 0, 0, err
 		}
 	}
@@ -226,9 +233,9 @@ func copyFile(src, dest string) error {
 	return out.Close()
 }
 
-// writeChecksums writes file over the named files: bare filenames, sorted, in
-// the `sha256sum -c` format. A name is unique across OS folders because it
-// carries its OS, so the bare name is enough to find it.
+// writeChecksums writes file over the files, keyed by the name each line
+// gives them (a path relative to the checksum file's directory), sorted, in
+// the `sha256sum -c` format.
 func writeChecksums(file string, files map[string]string) error {
 	names := make([]string, 0, len(files))
 	for n := range files {

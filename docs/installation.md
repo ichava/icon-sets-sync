@@ -25,7 +25,7 @@ matches; a test fails until it does.
 
 ```text
 build/
-  checksums.txt   bare-name SHA-256 over every cross binary below
+  checksums.txt   SHA-256 over every cross binary below, as macos/icon-sets-sync_macos_arm64 …
   macos/          icon-sets-sync (the host build)  icon-sets-sync_macos_amd64  _arm64  _universal
   linux/          icon-sets-sync_linux_<arch> …
   windows/        icon-sets-sync_windows_<arch>.exe …
@@ -48,11 +48,13 @@ fails if `build/` holds anything else or an OS folder holds a folder. Measured 2
 alias, and 86 items (1.0 GB) before it was trimmed, most of them GoReleaser's per-target folders. `bin/icon-sets-sync` is the tracked Composer
 launcher (PHP), not a build output.
 
-To verify the cross binaries, rewrite each bare name to its OS folder and check from `build/`:
+`build/checksums.txt` names each cross binary by its path inside `build/`
+(`macos/icon-sets-sync_macos_arm64`), so it verifies as-is (`sha256sum -c` on Linux):
 
-```bash
-cd build && sed -E 's#  (icon-sets-sync_([a-z]+)_)#  \2/\1#' checksums.txt | shasum -a 256 -c
-```
+verify: cd build && shasum -a 256 -c checksums.txt
+
+The release's `checksums.txt`, which CI uploads beside the assets, keeps bare names, because install
+scripts and self-update look assets up by name.
 
 Put `build/<os>/` on your `PATH` (`make shell` does it for one shell) to call it from anywhere. To pin a version, check out its
 tag (`git checkout vX.Y.Z`) before building. To run it without keeping a binary:
