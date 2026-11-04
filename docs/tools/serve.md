@@ -40,7 +40,8 @@ It never opens one:
 
 - when `CI` is set;
 - when `ICHAVA_NO_BROWSER=1`, or `--no-open` is passed;
-- when stdin or stdout is not a terminal (a pipe, a service, a scheduled job);
+- when stdin or stdout is not a terminal (a pipe, a service, a scheduled job), unless a desktop
+  started it: the macOS app, or `ICHAVA_DESKTOP_LAUNCH=1`, which the Linux `.desktop` entry sets;
 - on Linux and the BSDs when neither `DISPLAY` nor `WAYLAND_DISPLAY` is set (an SSH session, a server).
 
 In those cases no arguments prints the help and exits 0, and `serve` just prints the address. If the
@@ -63,10 +64,22 @@ second server. A record whose server no longer answers is removed.
 kept under `--read-only` because it changes nothing on disk. It, Ctrl-C and closing the Terminal
 window all shut the server down gracefully and remove `serve.json`.
 
-**The Terminal window.** A command-line binary opened from Finder or Explorer always gets a terminal
-window; that is the operating system, not this tool. The window prints the address, the config
-directory it found and "running in your browser; close this window or press Ctrl-C to stop". A
-hand-off to a running server prints one line and the window can be closed.
+**No window.** Started without a terminal, no arguments hands the server to a detached `serve` and
+exits, so nothing stays on screen but the browser:
+
+- **macOS:** `build/macos/icon-sets-sync.app` (`make app`). Finder opens a bare executable inside
+  Terminal and no process can prevent that, so the app bundle is the way to start it windowless. The
+  app quits at once, so the next double-click runs again and hands off to the running server.
+- **Windows:** the bare `.exe`. A double-click in Explorer gives it a console of its own; it detects
+  that, restarts as `serve` with no console, and the window closes within a second. From `cmd` or
+  PowerShell it shares the shell's console and runs in the foreground as always.
+- **Linux:** the `.desktop` entry, `Terminal=false`. It serves in the foreground with no terminal.
+
+The detached server writes its output to `serve.log` beside `serve.json`, mode `0600`. If the detached
+start fails, it serves in the foreground instead. Stop it with **Stop server**. The bare binary
+double-clicked on macOS still opens in a Terminal window, which prints the address and "running in
+your browser; close this window or press Ctrl-C to stop". See
+[Double-click launchers](../installation.md#double-click-launchers).
 
 **Which configs.** The startup line `config: <dir> (<source>)` and the Settings page name where the
 pack configs came from: `flag` (`--config-dir`), `env` (`ICHAVA_CONFIG_DIR`), `cwd` (found walking up

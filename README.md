@@ -78,10 +78,20 @@ make validate
 
 ### Usage
 
-Double-click the binary (or run `build/macos/icon-sets-sync`, `build/linux/…` or `build/windows/….exe` with no arguments) to open the web UI in your
-browser. Pass a command for CLI and CI use: a command never opens a browser, and with no terminal,
-with `CI` set, or on Linux without a display, no arguments prints the help instead. The terminal menu
-that no arguments used to open is `icon-sets-sync menu` (`make menu`).
+Double-click to open the web UI in your browser, with no terminal window left behind:
+
+- **macOS:** `make cross && make app`, then double-click `build/macos/icon-sets-sync.app` (unsigned:
+  right-click → Open the first time).
+- **Windows:** double-click `icon-sets-sync_windows_<arch>.exe`; its console window closes within a
+  second and the server runs in the background.
+- **Linux:** install `build/linux/icon-sets-sync.desktop` (written by `make cross` or `make desktop`)
+  and start it from the desktop's launcher.
+
+Stop it with **Stop server** on any page. The CLI is unchanged: pass a command for CLI and CI use (a
+command never opens a browser), and with no terminal, with `CI` set, or on Linux without a display, no
+arguments prints the help instead. The binary inside the bundle is the same CLI
+(`icon-sets-sync.app/Contents/MacOS/icon-sets-sync check`). The terminal menu is
+`icon-sets-sync menu` (`make menu`).
 
 See which packs are behind upstream, without writing anything:
 

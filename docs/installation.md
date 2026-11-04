@@ -27,7 +27,8 @@ matches; a test fails until it does.
 build/
   checksums.txt   SHA-256 over every cross binary below, as macos/icon-sets-sync_macos_arm64 …
   macos/          icon-sets-sync (the host build)  icon-sets-sync_macos_amd64  _arm64  _universal
-  linux/          icon-sets-sync_linux_<arch> …
+                  icon-sets-sync.app (after `make app`)
+  linux/          icon-sets-sync_linux_<arch> …  icon-sets-sync.desktop  icon-sets-sync.png
   windows/        icon-sets-sync_windows_<arch>.exe …
   freebsd/        icon-sets-sync_freebsd_<arch> …
   archives/       only after `make dist`
@@ -38,6 +39,8 @@ build/
 | `make build-local` | `build/<os>/icon-sets-sync` for this machine (`build/macos/` on a Mac, `.exe` on Windows) |
 | `make cross` | `build/{os}/{binary}_{os}_{arch}` (`.exe` on Windows) for every release target of `icon-sets-sync`, with macOS as `macos` plus a `macos_universal` binary, and `build/checksums.txt` over them. Nothing else. |
 | `make dist` | the same, plus `build/archives/`: the `.tar.gz`/`.zip` archives, the `.deb`/`.rpm`/`.apk` packages, the source tarball and their own `checksums.txt` |
+| `make app` | `build/macos/icon-sets-sync.app`, from the universal binary `make cross` wrote (see [Double-click launchers](#double-click-launchers)) |
+| `make desktop` | `build/linux/icon-sets-sync.desktop` and `icon-sets-sync.png`; `make cross` runs it too |
 
 `cross` and `dist` need GoReleaser v2 and read the target list from `src/.goreleaser.yaml`; they are
 snapshots with publishing, signing and SBOMs skipped, so nothing is released. GoReleaser writes into a
@@ -55,6 +58,74 @@ verify: cd build && shasum -a 256 -c checksums.txt
 
 The release's `checksums.txt`, which CI uploads beside the assets, keeps bare names, because install
 scripts and self-update look assets up by name.
+
+`build/macos/icon-sets-sync.app` is the one folder an OS folder may hold. It is not listed in
+`checksums.txt` itself: the guard requires its `Contents/MacOS/icon-sets-sync` to be byte for byte the
+`macos/icon-sets-sync_macos_universal` that `checksums.txt` lists and verifies, with `Info.plist`
+present and the binary executable. `make cross` removes the bundle, because it replaces the binary
+the bundle carries; run `make app` again after it.
+
+### Double-click launchers
+
+Each OS allows a different amount, measured 2026-11-04:
+
+| OS | Single binary, no console? | What ships |
+|---|---|---|
+| Windows | **Yes.** Explorer gives a double-clicked console program a console of its own (`GetConsoleProcessList` returns 1, and the parent is not a shell). The binary detects that, starts `serve` again with `DETACHED_PROCESS`, and exits, so the window closes within a second. From `cmd` or PowerShell the console is shared, the count is 2 or more, and it is the ordinary CLI. | nothing extra |
+| macOS | **No.** Finder hands a bare executable to Terminal, which opens a window and runs it there; the window belongs to Terminal, so nothing the process does (detaching, exiting) removes it. Only an app bundle is started by LaunchServices without Terminal. | `build/macos/icon-sets-sync.app` |
+| Linux | **No, but a launcher needs no wrapper.** A file manager runs a bare executable in a terminal or not at all, depending on the desktop; a `.desktop` entry with `Terminal=false` runs it with none. | `build/linux/icon-sets-sync.desktop` |
+
+**macOS app.** `make cross && make app` writes:
+
+```text
+build/macos/icon-sets-sync.app/Contents/
+  Info.plist                          LSUIElement: no Dock icon and no menu bar
+  MacOS/icon-sets-sync                the universal binary itself, unchanged
+  Resources/icon-sets-sync.icns
+```
+
+Double-clicked (or `open build/macos/icon-sets-sync.app`), the binary sees it runs from
+`Contents/MacOS/`, starts `serve` detached, which opens your browser, and exits at once. There is no
+Dock icon; stop the server with **Stop server** in the UI. Because the app has already quit, a second
+double-click starts it again, finds the running server through `serve.json` and opens the browser
+there instead of starting another. The server's output goes to `serve.log` beside `serve.json`
+(mode `0600`; it holds the sign-in address).
+
+The binary in the bundle is still the full CLI. Put it on `PATH` with a symlink:
+
+```bash
+ln -s "$PWD/build/macos/icon-sets-sync.app/Contents/MacOS/icon-sets-sync" /usr/local/bin/icon-sets-sync
+icon-sets-sync check
+```
+
+Run through the symlink from a terminal, it behaves as any terminal run: no arguments opens the UI in
+the foreground.
+
+**Unsigned.** The app is neither signed nor notarised, which needs the owner's Apple Developer ID.
+Gatekeeper warns on first launch of a downloaded copy: right-click → **Open**, then **Open** (or allow
+it in System Settings → Privacy & Security). With a Developer ID the commands would be:
+
+```bash
+codesign --force --options runtime --timestamp \
+  --sign "Developer ID Application: Simtabi LLC (TEAMID)" build/macos/icon-sets-sync.app
+ditto -c -k --keepParent build/macos/icon-sets-sync.app icon-sets-sync.zip
+xcrun notarytool submit icon-sets-sync.zip --keychain-profile <profile> --wait
+xcrun stapler staple build/macos/icon-sets-sync.app
+```
+
+Signing changes the bundle's binary, so the guard's byte-for-byte check against the universal binary
+would then fail by design; sign a copy, outside `build/`.
+
+**Linux entry.** Install the entry and its icon for your user, with `icon-sets-sync` on `PATH`:
+
+```bash
+install -Dm644 build/linux/icon-sets-sync.desktop ~/.local/share/applications/icon-sets-sync.desktop
+install -Dm644 build/linux/icon-sets-sync.png ~/.local/share/icons/hicolor/256x256/apps/icon-sets-sync.png
+```
+
+It runs `env ICHAVA_DESKTOP_LAUNCH=1 icon-sets-sync`. `ICHAVA_DESKTOP_LAUNCH=1` says a person at a
+desktop started it, so it opens the browser though it has no terminal; edit `Exec=` to an absolute
+path if the binary is not on `PATH`.
 
 Put `build/<os>/` on your `PATH` (`make shell` does it for one shell) to call it from anywhere. To pin a version, check out its
 tag (`git checkout vX.Y.Z`) before building. To run it without keeping a binary:
