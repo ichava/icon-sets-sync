@@ -2,7 +2,7 @@
 // status output, and the check table.
 //
 // The primary caller of this binary is a GitHub Actions runner, not a person:
-// five packs' sync-upstream.yml run it inside Docker every Monday. So
+// the packs' scheduled workflows run it every Monday. So
 // non-interactive behaviour is the default case rather than a degraded one --
 // no prompts unless stdin is a terminal, no ANSI into a log file, and a
 // non-zero exit whenever something failed.

@@ -21,7 +21,7 @@ const GlobalConfigEnv = "ICHAVA_GLOBAL_CONFIG"
 // ~/.config when XDG_CONFIG_HOME is unset -- on macOS too, per the house rule
 // that config lives where a person expects to find it. Returns "" with no
 // error when there is none: the file is optional, and a fresh machine or a CI
-// container has none.
+// runner has none.
 func GlobalConfigPath(lookup func(string) (string, bool)) (string, error) {
 	if explicit, ok := lookup(GlobalConfigEnv); ok && explicit != "" {
 		return explicit, nil

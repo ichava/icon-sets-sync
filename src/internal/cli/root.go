@@ -24,7 +24,7 @@ import (
 
 // Exit codes. These are a contract, not an implementation detail: `check`
 // exiting 1 on a stale pack is what makes it usable as a CI gate, and Click
-// used 2 for a usage error, which anything wrapping the Python binary may
+// used 2 for a usage error, which anything wrapping the earlier binary may
 // already depend on.
 const (
 	ExitOK      = 0
@@ -290,7 +290,7 @@ func resolveState(cmd *cobra.Command) error {
 // means something where there is an upstream check to override.
 func addRunFlags(f *pflag.FlagSet, withForce bool) {
 	f.BoolVar(&g.dryRun, "dry-run", false, "refresh files but skip the version stamp, commit and pull request (setting dry_run)")
-	f.BoolVar(&g.commit, "commit", false, "commit even if a config or ICHAVA_DRY_RUN says dry run (the Python's --commit)")
+	f.BoolVar(&g.commit, "commit", false, "commit even if a config or ICHAVA_DRY_RUN says dry run")
 	if withForce {
 		f.BoolVar(&g.force, "force", false, "refresh even when not stale (setting force)")
 	}
@@ -329,8 +329,8 @@ func newVersionCommand() *cobra.Command {
 		Short: "Print version and exit",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// The Docker smoke test calls this; keep the "<name> <version>"
-			// shape on the first line.
+			// Scripts and the Composer launcher read this; keep the
+			// "<name> <version>" shape on the first line.
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "%s %s\n", version.Name, version.Version())
 			if g.verbose {

@@ -228,10 +228,11 @@ type PacksRegistry struct {
 
 // DefaultConfigDir resolves the directory the pack configs live in.
 //
-// ICHAVA_CONFIG_DIR wins (ICHAVA_DEV_CONFIG_DIR is its older name), which is
-// how the Docker image points at the bind-mounted /app/config. Otherwise it is `config/` beside the executable,
-// falling back to ./config -- Python derived this from the source file's
-// location, which has no equivalent in a compiled binary.
+// ICHAVA_CONFIG_DIR wins (ICHAVA_DEV_CONFIG_DIR is its older name), for a
+// config directory kept somewhere else. Otherwise it is `config/` beside the
+// executable, falling back to ./config -- the earlier implementation derived
+// this from the source file's location, which has no equivalent in a compiled
+// binary.
 func DefaultConfigDir() string {
 	for _, env := range []string{"ICHAVA_CONFIG_DIR", "ICHAVA_DEV_CONFIG_DIR"} {
 		if dir := os.Getenv(env); dir != "" {

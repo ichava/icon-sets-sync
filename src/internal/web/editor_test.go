@@ -181,7 +181,7 @@ func TestReadOnlyEditor(t *testing.T) {
 	}
 }
 
-// A read-only directory -- the Docker image mounts config/ :ro -- is found by
+// A read-only directory -- a mount of config/ :ro, say -- is found by
 // trying to write, and the editor says so instead of failing on save.
 func TestAReadOnlyDirectoryIsDetected(t *testing.T) {
 	if runtime.GOOS == "windows" || os.Geteuid() == 0 {

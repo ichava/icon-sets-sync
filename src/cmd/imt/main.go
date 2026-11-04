@@ -1,8 +1,8 @@
 // Command imt is the short alias of icon-sets-sync, kept for interactive use
 // and for anyone who installed it before the primary binary was renamed.
 //
-// It is the same program -- cli.Execute -- so the two cannot diverge. Install
-// either; the Docker image ships both.
+// It is the same program -- cli.Execute -- so the two cannot diverge. Build
+// either; a release archive ships both.
 package main
 
 import (

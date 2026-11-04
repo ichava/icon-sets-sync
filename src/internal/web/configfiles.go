@@ -137,7 +137,8 @@ func (e *AppEngine) ReadConfig(name string) (ConfigDoc, error) {
 
 // writeProbe reports why a directory cannot be written, or "". It creates and
 // removes a file rather than reading permission bits, because a read-only
-// bind mount (the Docker image mounts config/ :ro) has writable-looking bits.
+// mount (a container or network share mounting config/ :ro) has
+// writable-looking bits.
 func writeProbe(dir string) string {
 	if _, err := os.Stat(dir); errors.Is(err, os.ErrNotExist) {
 		// A new global config: its directory is created on save.

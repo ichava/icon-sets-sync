@@ -57,7 +57,7 @@ func Date() string {
 	return ""
 }
 
-// Name is the primary binary name, and the one the Docker ENTRYPOINT uses.
+// Name is the primary binary name, the one sync-pack.yml builds and runs.
 //
 // It names what the tool does -- sync icon sets from upstream -- and the
 // repository is named after it (ichava/icon-sets-sync, formerly
