@@ -1,8 +1,8 @@
 # icon-sets-sync (ichava/icon-sets-sync) -- Makefile.
 #
-# The run targets shell out to docker compose, so the host needs nothing but
-# Docker. The dev targets run Go in a throwaway container for the same reason; `build-local` and `test-local`
-# use a Go toolchain on the host when you have one. Run `make help`.
+# Every target runs on the host: Go 1.26 or later to build, and git, gh and
+# npm on PATH for a sync. The run targets build build/icon-sets-sync first and
+# run it against this checkout's config/. Run `make help`.
 
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
@@ -14,16 +14,14 @@ PACK ?=
 # Packs synced at once by sync-all.
 CONCURRENCY ?= 1
 
-DC := docker compose
-RUN := $(DC) run --rm
-SERVICE := ichava-maintainer-toolkit
-
 # The Go module lives in src/, so every go command names it with -C src. A bare
 # `go test ./...` at the root finds no packages and passes.
-GO_IMAGE := golang:1.26-trixie
-GO_RUN := docker run --rm -v "$(CURDIR):/repo" -w /repo $(GO_IMAGE)
-
 BIN := build/icon-sets-sync
+
+# The run targets: the binary build-local writes, reading this checkout's
+# config/. Every shipped config names its pack as /work/<pack>, so /work must
+# be the directory holding the pack checkouts (see docs/installation.md).
+RUN := $(BIN) --config-dir config
 
 # ---------------------------------------------------------------------------
 # Help (auto-generated from `## ` comments after target names)
@@ -38,62 +36,62 @@ help:  ## Show this help
 	@printf "\n"
 
 # ---------------------------------------------------------------------------
-# Image lifecycle
+# Build
 # ---------------------------------------------------------------------------
 
 .PHONY: build
-build:  ## Build the docker image (run once + after source or Dockerfile changes)
-	$(DC) build
+build: build-local  ## Build $(BIN) (the same as build-local)
 
 .PHONY: pull
-pull:  ## Pull the latest base images
-	$(DC) pull
+pull:  ## Download and verify the Go module dependencies
+	go -C src mod download
+	go -C src mod verify
 
 .PHONY: shell
-shell:  ## Drop into a bash shell inside the container
-	$(RUN) --entrypoint bash $(SERVICE)
+shell: build-local  ## Open a shell with build/ on PATH and ICHAVA_CONFIG_DIR set to config/
+	PATH="$(CURDIR)/build:$$PATH" ICHAVA_CONFIG_DIR="$(CURDIR)/config" $${SHELL:-bash}
 
 # ---------------------------------------------------------------------------
 # The actual work
 # ---------------------------------------------------------------------------
 
 .PHONY: menu
-menu:  ## Open the interactive menu (default action)
-	$(RUN) $(SERVICE) menu
+menu: build-local  ## Open the interactive menu (default action)
+	$(RUN) menu
 
 .PHONY: check
-check:  ## Check upstream status for every configured pack (no writes)
-	$(RUN) $(SERVICE) check
+check: build-local  ## Check upstream status for every configured pack (no writes)
+	$(RUN) check
 
 .PHONY: check-pack
-check-pack:  ## Check upstream status for one pack: PACK=<name>
+check-pack: build-local  ## Check upstream status for one pack: PACK=<name>
 	@if [ -z "$(PACK)" ]; then echo "PACK= is required (e.g. make check-pack PACK=icon-sets-emoji)"; exit 2; fi
-	$(RUN) $(SERVICE) check --pack=$(PACK)
+	$(RUN) check --pack=$(PACK)
 
 .PHONY: sync
-sync:  ## Sync upstream for one pack (refresh + commit + PR): PACK=<name>
+sync: build-local  ## Sync upstream for one pack (refresh + commit + PR): PACK=<name>
 	@if [ -z "$(PACK)" ]; then echo "PACK= is required (e.g. make sync PACK=icon-sets-emoji)"; exit 2; fi
-	$(RUN) $(SERVICE) sync --pack=$(PACK)
+	$(RUN) sync --pack=$(PACK)
 
 .PHONY: sync-all
-sync-all:  ## Sync every pack as a dry run (files only): CONCURRENCY=<n>
-	$(RUN) $(SERVICE) sync-all --dry-run --concurrency=$(CONCURRENCY)
+sync-all: build-local  ## Sync every pack as a dry run (files only): CONCURRENCY=<n>
+	$(RUN) sync-all --dry-run --concurrency=$(CONCURRENCY)
 
 .PHONY: sync-all-force
-sync-all-force:  ## Sync every pack for real (commits + PRs). Be careful.
-	$(RUN) $(SERVICE) sync-all --concurrency=$(CONCURRENCY)
+sync-all-force: build-local  ## Sync every pack for real (commits + PRs). Be careful.
+	$(RUN) sync-all --concurrency=$(CONCURRENCY)
 
 .PHONY: build-emoji
-build-emoji:  ## Run the icon-sets-emoji recipe (Twemoji + OpenMoji + Unicode taxonomy)
-	$(RUN) $(SERVICE) recipe icon-sets-emoji
+build-emoji: build-local  ## Run the icon-sets-emoji recipe (Twemoji + OpenMoji + Unicode taxonomy)
+	$(RUN) recipe icon-sets-emoji
 
 .PHONY: validate
-validate:  ## Validate every pack config against config/schema/pack.schema.json
-	$(RUN) $(SERVICE) config validate
+validate: build-local  ## Validate every pack config against config/schema/pack.schema.json
+	$(RUN) config validate
 
 .PHONY: config-print
-config-print:  ## Print the effective settings and where each came from [PACK=<name>]
-	$(RUN) $(SERVICE) config print --origins $(if $(PACK),--pack=$(PACK),)
+config-print: build-local  ## Print the effective settings and where each came from [PACK=<name>]
+	$(RUN) config print --origins $(if $(PACK),--pack=$(PACK),)
 
 # ---------------------------------------------------------------------------
 # Dev workflow
@@ -103,16 +101,25 @@ config-print:  ## Print the effective settings and where each came from [PACK=<n
 test: test-go  ## Run the Go suite
 
 .PHONY: test-go
-test-go:  ## Go: vet + test, in a golang container
-	$(GO_RUN) sh -c 'go -C src vet ./... && go -C src test -count=1 ./...'
+test-go:  ## Go: vet + test with the host's Go toolchain
+	go -C src vet ./...
+	go -C src test -count=1 ./...
 
+# golangci-lint runs when it is installed and is skipped with a note when it is
+# not, so `make lint` needs nothing beyond Go. CI runs gofmt and vet.
 .PHONY: lint
-lint:  ## gofmt check + go vet
-	$(GO_RUN) sh -c 'test -z "$$(gofmt -l src)" || { gofmt -l src; exit 1; }; go -C src vet ./...'
+lint:  ## gofmt check + go vet, and golangci-lint when it is installed
+	@test -z "$$(gofmt -l src)" || { echo "gofmt would reformat:"; gofmt -l src; exit 1; }
+	go -C src vet ./...
+	@if command -v golangci-lint >/dev/null; then \
+		echo "golangci-lint run ./..."; cd src && golangci-lint run ./...; \
+	else \
+		echo "golangci-lint is not installed; skipped (https://golangci-lint.run/welcome/install/)"; \
+	fi
 
 .PHONY: format
 format:  ## gofmt -w
-	$(GO_RUN) gofmt -w src
+	gofmt -w src
 
 .PHONY: build-local
 build-local:  ## Build $(BIN) with the host's Go toolchain
@@ -143,8 +150,8 @@ serve:  ## Run the web UI (icon-sets-sync serve) with the host's Go toolchain
 	go -C src run ./cmd/icon-sets-sync serve
 
 .PHONY: ui
-ui:  ## Run the web UI in Docker on http://127.0.0.1:7878 (the address it logs has the token)
-	$(DC) --profile ui up ui
+ui: build-local  ## Run the web UI on http://127.0.0.1:7878 (the address it logs has the token)
+	$(RUN) serve --port 7878
 
 .PHONY: tabler-check
 tabler-check:  ## Say whether a newer Tabler or Tabler Icons release is out (writes nothing)
@@ -167,5 +174,5 @@ clean:  ## Remove generated caches, temp dirs and build/
 	rm -rf .cache .downloads build
 
 .PHONY: nuke
-nuke:  ## Drop the docker volumes (npm cache). Forces a cold rebuild.
-	$(DC) down -v
+nuke: clean  ## clean, plus Go's cached test results. Forces a cold test run.
+	go -C src clean -testcache
