@@ -145,9 +145,9 @@ are seen as `url(`. Then:
 
 A value that fails is dropped whole, like any other disallowed attribute.
 
-A document over 8 MiB or 50,000 elements is refused before it builds a tree. It is treated like an
+A document over 4,500,000 bytes or 30,000 elements is refused before it builds a tree. It is treated like an
 unparseable file: counted and left as it was. The caps are the `MaxBytes` and `MaxNodes` fields on the
-policy; the pack SVGs measure at most 1.0 MB and 6,741 elements.
+policy, and match react-icon-browser's and core's; the pack SVGs measure at most 1.0 MB and 6,741 elements.
 
 ## Sinks
 

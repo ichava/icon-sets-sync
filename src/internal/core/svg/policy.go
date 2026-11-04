@@ -21,10 +21,14 @@ import (
 
 // Default caps. Measured 2026-11-04 over every .svg under icon-sets-*/: the
 // largest file is 1,053,328 bytes and the largest has 6,741 elements, so these
-// are about 8x and 7x the observed maximum.
+// are about 4.3x and 4.5x the observed maximum.
+//
+// They match react-icon-browser's AppConfig.limits (svgMaxChars 4,500,000,
+// svgMaxNodes 30,000, react-icon-browser#197) and core's caps, so this tool
+// never accepts an SVG that a consumer rejects. Change all three together.
 const (
-	DefaultMaxBytes = 8 << 20
-	DefaultMaxNodes = 50_000
+	DefaultMaxBytes = 4_500_000
+	DefaultMaxNodes = 30_000
 )
 
 // Namespace URIs the policy cares about.

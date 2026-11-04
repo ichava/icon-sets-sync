@@ -5,11 +5,18 @@ import (
 	"testing"
 )
 
+// The numbers are the estate's, not this package's: react-icon-browser#197.
+func TestDefaultCapsMatchTheConsumers(t *testing.T) {
+	if DefaultMaxBytes != 4500000 || DefaultMaxNodes != 30000 {
+		t.Fatalf("caps = %d bytes / %d nodes, want 4500000 / 30000", DefaultMaxBytes, DefaultMaxNodes)
+	}
+}
+
 func TestDefaultCapsRefuseOversizedInput(t *testing.T) {
 	tooManyNodes := `<svg xmlns="http://www.w3.org/2000/svg">` +
 		strings.Repeat(`<g/>`, 60000) + `</svg>`
 	tooManyBytes := `<svg xmlns="http://www.w3.org/2000/svg"><title>` +
-		strings.Repeat("a", 9<<20) + `</title></svg>`
+		strings.Repeat("a", 4500001) + `</title></svg>`
 
 	for name, doc := range map[string]string{"nodes": tooManyNodes, "bytes": tooManyBytes} {
 		t.Run(name, func(t *testing.T) {

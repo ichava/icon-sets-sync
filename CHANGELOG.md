@@ -7,7 +7,7 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 ### Security
 
 - **The SVG policy's CSS `url()` guard can no longer be bypassed (S1).** It matched the raw text with a regex, so CSS escapes (`\75rl(`, `\000075rl(`, `u\rl(`), comments (`u/**/rl(`), `image-set(`, `-webkit-image-set(`, `image(`, `src(`, `cross-fade(`, `element(`, `expression(`, `@import` and a quote mismatch such as `url("https://e/x'y")` all got a remote fetch past it. Values are now normalised (comments stripped, escapes decoded, lowercased) and checked against an allow-list: `url(` only with a same-document `#id`, only colour, `var`, math, transform and easing functions otherwise, and no at-rules. The same check now covers `fill`, `stroke`, `filter`, `clip-path`, `mask` and `marker-*`, which were trusted on their name. `url(#grad)` is unchanged.
-- **Documents are capped before and while they are parsed (S2).** `Policy.MaxBytes` (default 8 MiB) and `Policy.MaxNodes` (default 50,000 elements) refuse an oversized file as an error, like an unparseable one. The largest SVG in the packs is 1,053,328 bytes and 6,741 elements.
+- **Documents are capped before and while they are parsed (S2).** `Policy.MaxBytes` (default 4,500,000 bytes, matching react-icon-browser and core) and `Policy.MaxNodes` (default 30,000 elements) refuse an oversized file as an error, like an unparseable one. The largest SVG in the packs is 1,053,328 bytes and 6,741 elements.
 
 ### Changed
 
