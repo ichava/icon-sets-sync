@@ -60,7 +60,7 @@ func (s NpmTarball) Execute(ctx *pipeline.Context) error {
 	spec := s.Package + "@" + s.Version
 	log.Info("npm pack", "spec", spec)
 
-	cmd := exec.CommandContext(ctx.Context(), "npm", "pack", spec, "--silent")
+	cmd := exec.CommandContext(ctx.Context(), "npm", NpmPackArgs(spec)...)
 	cmd.Dir = workDir
 	out, err := cmd.Output()
 	if err != nil {
@@ -343,8 +343,75 @@ func safeJoin(dest, name string) (string, error) {
 	return cleaned, nil
 }
 
+// ExtractLimits bounds what one archive may expand to (S6).
+//
+// Zip-slip is stopped by safeJoin; a decompression bomb is a different attack
+// and it is the size of the output that matters, not of the archive: gzip and
+// deflate both reach about 1000:1, so a few hundred KiB can ask for hundreds of
+// GiB. The inputs are pinned upstreams, so this needs a compromised one.
+type ExtractLimits struct {
+	// MaxMemberBytes caps one file.
+	MaxMemberBytes int64
+	// MaxTotalBytes caps everything written from one archive.
+	MaxTotalBytes int64
+	// MaxEntries caps members of any type, directories included.
+	MaxEntries int
+}
+
+// DefaultExtractLimits sit well above the largest real upstream (tens of
+// thousands of files, a few hundred MiB) and well below a bomb.
+var DefaultExtractLimits = ExtractLimits{
+	MaxMemberBytes: 256 << 20,
+	MaxTotalBytes:  2 << 30,
+	MaxEntries:     200_000,
+}
+
+// NpmPackArgs is the argument list for every `npm pack` this tool runs.
+//
+// --ignore-scripts is the point (S7). A registry spec does not run lifecycle
+// scripts, but a git or local spec runs `prepare`, and the spec comes from repo
+// config or the token-authenticated local web UI. Both call sites share this so
+// neither can lose the flag.
+func NpmPackArgs(spec string) []string {
+	return []string{"pack", spec, "--silent", "--ignore-scripts"}
+}
+
+// extractBudget tracks what one extraction has written.
+type extractBudget struct {
+	limits  ExtractLimits
+	entries int
+	total   int64
+}
+
+func (b *extractBudget) entry(name string) error {
+	b.entries++
+	if b.limits.MaxEntries > 0 && b.entries > b.limits.MaxEntries {
+		return fmt.Errorf("archive has more than %d entries (at %q)", b.limits.MaxEntries, name)
+	}
+	return nil
+}
+
+// room is how many more bytes the next member may be, and which limit that is.
+func (b *extractBudget) room() (n int64, member bool) {
+	n, member = b.limits.MaxMemberBytes, true
+	if b.limits.MaxMemberBytes <= 0 {
+		n = 1<<63 - 1
+	}
+	if b.limits.MaxTotalBytes > 0 {
+		if left := b.limits.MaxTotalBytes - b.total; left < n {
+			n, member = left, false
+		}
+	}
+	return n, member
+}
+
 // ExtractTarGz unpacks a gzipped tar, refusing any entry that escapes dest.
 func ExtractTarGz(archive, dest string) error {
+	return extractTarGz(archive, dest, DefaultExtractLimits)
+}
+
+func extractTarGz(archive, dest string, limits ExtractLimits) error {
+	budget := &extractBudget{limits: limits}
 	f, err := os.Open(archive)
 	if err != nil {
 		return err
@@ -367,6 +434,9 @@ func ExtractTarGz(archive, dest string) error {
 			return err
 		}
 
+		if err := budget.entry(hdr.Name); err != nil {
+			return err
+		}
 		path, err := safeJoin(dest, hdr.Name)
 		if err != nil {
 			return err
@@ -378,7 +448,7 @@ func ExtractTarGz(archive, dest string) error {
 				return err
 			}
 		case tar.TypeReg:
-			if err := writeMember(path, tr, os.FileMode(hdr.Mode)); err != nil {
+			if err := writeMember(path, tr, os.FileMode(hdr.Mode), budget); err != nil {
 				return err
 			}
 			// Symlinks and every other type are skipped: an icon pack has no
@@ -390,6 +460,11 @@ func ExtractTarGz(archive, dest string) error {
 
 // ExtractZip unpacks a zip, refusing any entry that escapes dest.
 func ExtractZip(archive, dest string) error {
+	return extractZip(archive, dest, DefaultExtractLimits)
+}
+
+func extractZip(archive, dest string, limits ExtractLimits) error {
+	budget := &extractBudget{limits: limits}
 	r, err := zip.OpenReader(archive)
 	if err != nil {
 		return err
@@ -397,6 +472,9 @@ func ExtractZip(archive, dest string) error {
 	defer r.Close()
 
 	for _, f := range r.File {
+		if err := budget.entry(f.Name); err != nil {
+			return err
+		}
 		path, err := safeJoin(dest, f.Name)
 		if err != nil {
 			return err
@@ -416,7 +494,7 @@ func ExtractZip(archive, dest string) error {
 		if err != nil {
 			return err
 		}
-		err = writeMember(path, rc, f.Mode())
+		err = writeMember(path, rc, f.Mode(), budget)
 		rc.Close()
 		if err != nil {
 			return err
@@ -425,7 +503,13 @@ func ExtractZip(archive, dest string) error {
 	return nil
 }
 
-func writeMember(path string, src io.Reader, mode os.FileMode) error {
+// writeMember copies one archive member, stopping at the budget.
+//
+// The cap is enforced on the bytes actually read, never on a size the header
+// declares: a zip header can claim any size, and a bomb is exactly the member
+// whose header lies. The member is read one byte past its room so that
+// reaching the limit exactly is allowed and exceeding it is not.
+func writeMember(path string, src io.Reader, mode os.FileMode, budget *extractBudget) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -436,7 +520,25 @@ func writeMember(path string, src io.Reader, mode os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(out, src); err != nil {
+
+	room, member := budget.room()
+	if room < 0 {
+		room = 0
+	}
+	n, err := io.Copy(out, io.LimitReader(src, room+1))
+	budget.total += n
+	if err == nil && n > room {
+		which := "total"
+		if member {
+			which = "member"
+		}
+		err = fmt.Errorf("archive entry %q is over the %s size limit (%d bytes)", filepath.Base(path), which, room)
+	}
+	if err != nil {
+		// Empty what was written through the handle already open, rather than
+		// removing by path: the extraction is being abandoned, and a path built
+		// from archive entry names should be touched only where it must be.
+		_ = out.Truncate(0)
 		out.Close()
 		return err
 	}

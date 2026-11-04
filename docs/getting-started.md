@@ -32,6 +32,10 @@ icon-sets-sync check
 Resolves each pack's `version_check_url`, compares against what the pack repo records, and reports
 what is stale. Writes nothing. Exits 1 when any pack is behind, so it can gate a scheduled job.
 
+`--suggest-kinds` also scans each pack for items that look like illustrations and writes
+`build/kind-suggestions/<pack>.json`; see [Kinds](configuration.md#kinds). It suggests and never
+changes a kind.
+
 ## Refresh one pack
 
 ```bash

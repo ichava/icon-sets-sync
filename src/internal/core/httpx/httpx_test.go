@@ -27,9 +27,10 @@ type stubTransport struct {
 }
 
 type stubResponse struct {
-	status int
-	body   string
-	err    error
+	status   int
+	body     string
+	err      error
+	location string
 }
 
 func (s *stubTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -42,11 +43,15 @@ func (s *stubTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
+	h := make(http.Header)
+	if r.location != "" {
+		h.Set("Location", r.location)
+	}
 	return &http.Response{
 		StatusCode: r.status,
 		Status:     http.StatusText(r.status),
 		Body:       io.NopCloser(strings.NewReader(r.body)),
-		Header:     make(http.Header),
+		Header:     h,
 		Request:    req,
 	}, nil
 }
@@ -302,3 +307,132 @@ CWxvY2FsaG9zdDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABGYr0kR5mS7xU3xU
 nS8wCgYIKoZIzj0EAwIDSAAwRQIhAPz0qVvXYvV0m0K3f5o3QW0wV0TzL0q0kY0F
 lQ0000000AiBQ0000000000000000000000000000000000000000000==
 -----END CERTIFICATE-----`
+
+// S6: a response body is read up to a cap and no further. A compromised
+// upstream that answers with an endless or enormous body must fail the run, not
+// fill the runner's disk or memory.
+
+func TestGetJSONRefusesABodyOverTheCap(t *testing.T) {
+	c, tr, _ := newTestClient(stubResponse{status: 200, body: `{"v":"` + strings.Repeat("a", 200) + `"}`})
+	c.MaxJSONBytes = 64
+
+	var out map[string]any
+	err := c.GetJSON(context.Background(), "https://registry.example/x", &out)
+	if err == nil || !strings.Contains(err.Error(), "byte limit") {
+		t.Fatalf("err = %v, want a byte-limit error", err)
+	}
+	if tr.hits != 1 {
+		t.Errorf("hits = %d, want 1 -- an oversize body is permanent, so it must not be retried", tr.hits)
+	}
+}
+
+func TestGetJSONAcceptsABodyExactlyAtTheCap(t *testing.T) {
+	body := `{"version":"1"}`
+	c, _, _ := newTestClient(stubResponse{status: 200, body: body})
+	c.MaxJSONBytes = int64(len(body))
+
+	var out map[string]any
+	if err := c.GetJSON(context.Background(), "https://registry.example/x", &out); err != nil {
+		t.Fatalf("a body at the cap must pass: %v", err)
+	}
+}
+
+func TestDownloadRefusesABodyOverTheCapAndLeavesNothing(t *testing.T) {
+	c, tr, _ := newTestClient(stubResponse{status: 200, body: strings.Repeat("x", 500)})
+	c.MaxDownloadBytes = 100
+	dest := filepath.Join(t.TempDir(), "archive.zip")
+
+	err := func() error { _, e := c.Download(context.Background(), "https://x", dest, false); return e }()
+	if err == nil || !strings.Contains(err.Error(), "byte limit") {
+		t.Fatalf("err = %v, want a byte-limit error", err)
+	}
+	if tr.hits != 1 {
+		t.Errorf("hits = %d, want 1 -- not retried", tr.hits)
+	}
+	for _, p := range []string{dest, dest + ".tmp"} {
+		if _, statErr := os.Stat(p); !os.IsNotExist(statErr) {
+			t.Errorf("%s left behind after an oversize download", p)
+		}
+	}
+}
+
+func TestDownloadAcceptsABodyAtTheCap(t *testing.T) {
+	c, _, _ := newTestClient(stubResponse{status: 200, body: strings.Repeat("x", 100)})
+	c.MaxDownloadBytes = 100
+	dest := filepath.Join(t.TempDir(), "archive.zip")
+
+	if _, err := c.Download(context.Background(), "https://x", dest, false); err != nil {
+		t.Fatalf("a body at the cap must pass: %v", err)
+	}
+}
+
+func TestDefaultCapsAreSetAndGenerous(t *testing.T) {
+	if DefaultMaxDownloadBytes < 256<<20 {
+		t.Errorf("DefaultMaxDownloadBytes = %d; the largest upstream archives are well over 100 MiB", DefaultMaxDownloadBytes)
+	}
+	if DefaultMaxJSONBytes < 1<<20 || DefaultMaxJSONBytes > 256<<20 {
+		t.Errorf("DefaultMaxJSONBytes = %d is out of the sensible range", DefaultMaxJSONBytes)
+	}
+}
+
+// S13: a redirect may not leave https for http, nor leave http(s) for another
+// scheme, nor land on a literal loopback, private or link-local address (the
+// cloud metadata endpoint is 169.254.169.254).
+
+func TestRedirectPolicy(t *testing.T) {
+	cases := []struct {
+		name     string
+		from     string
+		location string
+		ok       bool
+	}{
+		{"https to https, same host", "https://github.com/a.zip", "https://github.com/b.zip", true},
+		{"https to another https host", "https://github.com/a.zip", "https://codeload.github.com/b.zip", true},
+		{"http to https", "http://registry.example/a", "https://registry.example/a", true},
+		{"https to http downgrade", "https://registry.example/a", "http://registry.example/a", false},
+		{"https to ftp", "https://registry.example/a", "ftp://registry.example/a", false},
+		{"to loopback ip", "https://registry.example/a", "https://127.0.0.1/a", false},
+		{"to link-local metadata ip", "https://registry.example/a", "https://169.254.169.254/latest/meta-data/", false},
+		{"to private ip", "https://registry.example/a", "https://10.0.0.5/a", false},
+		{"to ipv6 loopback", "https://registry.example/a", "https://[::1]/a", false},
+		{"to a public ip literal", "https://registry.example/a", "https://93.184.216.34/a", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, _, _ := newTestClient(
+				stubResponse{status: 302, location: tc.location},
+				stubResponse{status: 200, body: `{"ok":true}`},
+			)
+			var out map[string]any
+			err := c.GetJSON(context.Background(), tc.from, &out)
+			if tc.ok && err != nil {
+				t.Fatalf("redirect to %s refused: %v", tc.location, err)
+			}
+			if !tc.ok && (err == nil || !strings.Contains(err.Error(), "redirect")) {
+				t.Fatalf("redirect to %s allowed, err = %v", tc.location, err)
+			}
+		})
+	}
+}
+
+func TestRedirectPolicyAlsoGuardsDownloads(t *testing.T) {
+	c, _, _ := newTestClient(
+		stubResponse{status: 302, location: "http://downgrade.example/a.zip"},
+		stubResponse{status: 200, body: "payload"},
+	)
+	dest := filepath.Join(t.TempDir(), "a.zip")
+	if _, err := c.Download(context.Background(), "https://registry.example/a.zip", dest, false); err == nil {
+		t.Fatal("a download followed an https to http redirect")
+	}
+}
+
+func TestRedirectChainIsBounded(t *testing.T) {
+	c, tr, _ := newTestClient(stubResponse{status: 302, location: "https://registry.example/loop"})
+	var out map[string]any
+	if err := c.GetJSON(context.Background(), "https://registry.example/loop", &out); err == nil {
+		t.Fatal("an endless redirect chain succeeded")
+	}
+	if tr.hits > 40 {
+		t.Errorf("hits = %d; the chain must stop at 10 hops per attempt", tr.hits)
+	}
+}

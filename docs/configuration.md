@@ -149,6 +149,90 @@ A document over 4,500,000 bytes or 30,000 elements is refused before it builds a
 unparseable file: counted and left as it was. The caps are the `MaxBytes` and `MaxNodes` fields on the
 policy, and match react-icon-browser's and core's; the pack SVGs measure at most 1.0 MB and 6,741 elements.
 
+## Download and extraction limits
+
+Sources fetch from pinned upstreams, so these limits only bite if one is compromised. Each fails the
+run with an error that names the limit; none is retried, because a retry would read the same bytes.
+
+| Limit | Value | Where |
+|---|---|---|
+| Version-check and registry JSON | 32 MiB | `httpx.DefaultMaxJSONBytes` |
+| One archive download | 1 GiB | `httpx.DefaultMaxDownloadBytes` |
+| One extracted file | 256 MiB | `sources.DefaultExtractLimits.MaxMemberBytes` |
+| Everything extracted from one archive | 2 GiB | `MaxTotalBytes` |
+| Entries in one archive | 200,000 | `MaxEntries` |
+
+The extraction caps are enforced on the bytes actually written, not on a size an archive header
+declares, because a decompression bomb is exactly the archive whose header lies. Path escapes, symlinks,
+hard links and device members were already refused.
+
+**Redirects.** The HTTP client follows at most 10, and refuses one that leaves `https` for `http`,
+leaves `http(s)` altogether, or lands on a literal loopback, private or link-local address (the cloud
+metadata service is `169.254.169.254`). It does not restrict the host: GitHub and npm legitimately
+redirect to CDNs.
+
+**`npm pack` runs with `--ignore-scripts`**, so a git or local spec in a config cannot run a package's
+`prepare` script on the runner.
+
+## Kinds
+
+A pack declares what its items are (`icon` or `illustration`) in its own
+`resources/assets/svg/config.json`, and `ichava/core` reads it. `icon-sets-sync` does not decide a kind;
+it keeps those keys intact and can suggest where one may be wrong.
+
+| Key | Meaning |
+|---|---|
+| `package.kind` | the pack's default |
+| `metadata.data.categories.<slug>.kind` | a category (the first folder under `files/`) |
+| `metadata.data.kinds.rules[]` | `{ "match": <glob>, "kind": <kind> }`; the **first** matching rule wins |
+| `metadata.data.items.<item path>.kind` | one item |
+
+An item path is the file's path under `files/` with `.svg` removed, for example
+`illustrations/office`. A key at the top level of the file (`items`, `kinds`, `categories`) is read as a
+fallback when the `metadata.data` one is absent or empty. Precedence, first hit wins: item, rule,
+category, pack, then `icon`. A pack with none of these keys reads as all `icon`.
+
+**Globs** match the whole item path, case-sensitively. `*` is any run of characters except `/`, `?` is
+one character except `/`, and `**` is zero or more whole path segments (`scenes/**`, `**/hero-*`,
+`a/**/b`). A pattern with `[ ] { } \`, an empty or `..` segment, or a `**` that is not a whole segment
+is invalid and the rule is ignored. The implementation is `internal/core/kinds/glob.go`, and core's
+`Support\KindGlob` carries the same test vectors.
+
+**A sync never touches these keys.** The version stamp edits one value in place and leaves every other
+byte of `config.json` alone; a golden test (`kind_passthrough_test.go`) holds that.
+
+### Suggesting kinds
+
+```bash
+icon-sets-sync check --suggest-kinds            # or: sync --pack=<slug> --suggest-kinds
+icon-sets-sync check --suggest-kinds=all
+```
+
+Scans each pack's checkout and writes `build/kind-suggestions/<pack>.json` (change the directory with
+`--kind-suggestions-dir`), an array of records. **It only suggests.** Nothing writes a kind into
+`config.json`; a person copies a record's `accept` block in, which is the acceptance.
+
+A file is measured on its viewBox, size, element count and literal colours. These signals fire:
+
+| Signal | Fires when |
+|---|---|
+| `aspect` | viewBox width/height is outside 0.8 to 1.25 |
+| `palette` | 4 or more distinct literal colours (`fill`, `stroke`, `stop-color`) |
+| `bytes` | more than 20,000 bytes |
+| `elements` | more than 150 elements |
+| `canvas` | the larger viewBox side is more than 256 |
+
+A suggestion needs 3 or more signals, at least one of them `bytes` or `elements` (which keeps small
+multicolour 4:3 flags out), and an item that resolved `icon` **by default**. Items whose kind came from
+an item entry, a rule or a category are a person's decision and are never second-guessed. With
+`--suggest-kinds=all`, items that are `icon` only through `package.kind` are included too.
+
+When a folder holds at least 5 items and at least 80% are suggested, they collapse into one record for
+the folder with an `accept` of `{ "kinds": { "rules": [{ "match": "<folder>/**", "kind": "illustration" }] } }`.
+Theme twins (a category's `theme_variants`, such as `scene-dark.svg`) are not items and are not scanned.
+A file that cannot be parsed is listed as skipped. The scan warns about, and does not fail on, an
+unreadable pack; `check` keeps its exit 1 for a stale pack only.
+
 ## Sinks
 
 | `type` | Options | Does |

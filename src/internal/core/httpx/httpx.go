@@ -11,12 +11,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -37,7 +40,37 @@ const (
 	backoffMinWait = 2 * time.Second
 	backoffMaxJSON = 30 * time.Second
 	backoffMaxFile = 60 * time.Second
+
+	// DefaultMaxJSONBytes caps a version-discovery or registry response. The
+	// largest real one is a few hundred KiB; 32 MiB is two orders above that.
+	DefaultMaxJSONBytes int64 = 32 << 20
+
+	// DefaultMaxDownloadBytes caps one archive download (S6). The largest
+	// upstream archives are a few hundred MiB; 1 GiB leaves headroom without
+	// letting a compromised upstream fill a runner's disk.
+	DefaultMaxDownloadBytes int64 = 1 << 30
+
+	// maxRedirects is net/http's own default, made explicit because the
+	// redirect policy below replaces the function that enforced it.
+	maxRedirects = 10
 )
+
+// errOverLimit marks a body that exceeded its cap. It is permanent: a retry
+// would read the same oversize body, so it is never retried.
+type errOverLimit struct {
+	url   string
+	limit int64
+}
+
+// errRedirectRefused marks a redirect the policy below rejected. Like an
+// oversize body it is permanent, so a retry loop must not swallow it.
+type errRedirectRefused struct{ reason string }
+
+func (e *errRedirectRefused) Error() string { return "redirect: " + e.reason }
+
+func (e *errOverLimit) Error() string {
+	return fmt.Sprintf("GET %s: response is over the %d byte limit", e.url, e.limit)
+}
 
 // Client performs the toolkit's HTTP requests.
 type Client struct {
@@ -51,6 +84,11 @@ type Client struct {
 	// Sleep is swapped by tests so the retry path can be exercised without
 	// waiting out the real backoff.
 	Sleep func(time.Duration)
+
+	// MaxJSONBytes and MaxDownloadBytes cap what one response body may hold.
+	// Zero means the defaults below. Tests set them small.
+	MaxJSONBytes     int64
+	MaxDownloadBytes int64
 }
 
 // New returns a client with the shared timeout.
@@ -63,7 +101,49 @@ func (c *Client) clientFor(timeout time.Duration) *http.Client {
 	if transport == nil {
 		transport = defaultTransport()
 	}
-	return &http.Client{Timeout: timeout, Transport: transport}
+	return &http.Client{Timeout: timeout, Transport: transport, CheckRedirect: checkRedirect}
+}
+
+// checkRedirect is the redirect policy (S13).
+//
+// Every upstream is a fixed https URL from a config template, and each one
+// legitimately redirects (github.com to codeload.github.com, npm to its CDN), so
+// a host allowlist would break working syncs. What no legitimate upstream does
+// is leave https for plain http, leave http(s) altogether, or hand a client to a
+// loopback, private or link-local address (169.254.169.254 is the cloud
+// metadata service). Those are refused, and the chain is bounded.
+func checkRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= maxRedirects {
+		return &errRedirectRefused{fmt.Sprintf("stopped after %d redirects", maxRedirects)}
+	}
+
+	scheme := strings.ToLower(req.URL.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return &errRedirectRefused{fmt.Sprintf("refusing scheme %q", req.URL.Scheme)}
+	}
+	if prev := via[len(via)-1]; strings.EqualFold(prev.URL.Scheme, "https") && scheme == "http" {
+		return &errRedirectRefused{fmt.Sprintf("refusing a downgrade from https to http (%s)", req.URL.Redacted())}
+	}
+	if ip := net.ParseIP(req.URL.Hostname()); ip != nil &&
+		(ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+			ip.IsUnspecified() || ip.IsMulticast()) {
+		return &errRedirectRefused{fmt.Sprintf("refusing the non-public address %s", ip)}
+	}
+	return nil
+}
+
+func (c *Client) maxJSON() int64 {
+	if c.MaxJSONBytes > 0 {
+		return c.MaxJSONBytes
+	}
+	return DefaultMaxJSONBytes
+}
+
+func (c *Client) maxDownload() int64 {
+	if c.MaxDownloadBytes > 0 {
+		return c.MaxDownloadBytes
+	}
+	return DefaultMaxDownloadBytes
 }
 
 var (
@@ -177,12 +257,20 @@ func (c *Client) GetJSON(ctx context.Context, url string, out any) error {
 
 		resp, err := client.Do(req)
 		if err != nil {
+			var refused *errRedirectRefused
+			if errors.As(err, &refused) {
+				return fmt.Errorf("GET %s: %w", url, err)
+			}
 			lastErr = err
 			continue
 		}
 
-		body, readErr := io.ReadAll(resp.Body)
+		limit := c.maxJSON()
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 		_ = resp.Body.Close()
+		if int64(len(body)) > limit {
+			return &errOverLimit{url: url, limit: limit}
+		}
 
 		if resp.StatusCode >= 400 {
 			lastErr = fmt.Errorf("GET %s: %s", url, resp.Status)
@@ -237,6 +325,10 @@ func (c *Client) Download(ctx context.Context, url, dest string, force bool) (st
 
 		resp, err := client.Do(req)
 		if err != nil {
+			var refused *errRedirectRefused
+			if errors.As(err, &refused) {
+				return "", fmt.Errorf("GET %s: %w", url, err)
+			}
 			lastErr = err
 			continue
 		}
@@ -255,9 +347,15 @@ func (c *Client) Download(ctx context.Context, url, dest string, force bool) (st
 			_ = resp.Body.Close()
 			return "", err
 		}
-		_, copyErr := io.Copy(f, resp.Body)
+		limit := c.maxDownload()
+		n, copyErr := io.Copy(f, io.LimitReader(resp.Body, limit+1))
 		closeErr := f.Close()
 		_ = resp.Body.Close()
+
+		if copyErr == nil && n > limit {
+			_ = os.Remove(tmp)
+			return "", &errOverLimit{url: url, limit: limit}
+		}
 
 		if copyErr != nil || closeErr != nil {
 			_ = os.Remove(tmp)

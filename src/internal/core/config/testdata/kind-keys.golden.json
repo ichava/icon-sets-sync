@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "package": {
+    "name": "acme/scenes",
+    "title": "Scenes",
+    "version": "0.1.0",
+    "upstream_version": "3.47.0",
+    "kind": "icon"
+  },
+  "upstream": {
+    "current_version": "3.47.0"
+  },
+  "metadata": {
+    "data": {
+      "categories": {
+        "illustrations": { "name": "Illustrations", "kind": "illustration", "theme_variants": { "dark": "-dark" } },
+        "glyphs": { "name": "Glyphs" }
+      },
+      "kinds": { "rules": [
+        { "match": "spot/tiny-*", "kind": "icon", "note": "spot glyphs are 24px" },
+        { "match": "spot/**",     "kind": "illustration" }
+      ] },
+      "items": {
+        "glyphs/hero-banner": { "kind": "illustration" }
+      }
+    }
+  },
+  "items": { "legacy/one": { "kind": "illustration" } },
+  "kinds": { "rules": [ { "match": "legacy/**", "kind": "illustration" } ] }
+}

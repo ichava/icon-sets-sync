@@ -61,7 +61,10 @@ func newListPacksCommand() *cobra.Command {
 // --------------------------------------------------------------------- check
 
 func newCheckCommand() *cobra.Command {
-	var pack string
+	var (
+		pack string
+		kf   kindFlags
+	)
 
 	cmd := &cobra.Command{
 		Use:   "check",
@@ -71,12 +74,15 @@ func newCheckCommand() *cobra.Command {
 Exits 1 when any pack is behind upstream, so it can gate a scheduled job.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := kf.validate(); err != nil {
+				return err
+			}
 			packs, err := app.LoadPacksIn(configDir(), pack, workspace())
 			if err != nil {
 				return failure(err)
 			}
 
-			results := app.CheckAll(cmd.Context(), packs)
+			results := checkAll(cmd.Context(), packs)
 
 			if ui.JSONMode() {
 				if err := ui.JSON(results); err != nil {
@@ -87,6 +93,8 @@ Exits 1 when any pack is behind upstream, so it can gate a scheduled job.`,
 				ui.Summarise(results)
 			}
 
+			kf.report(packs)
+
 			// Exit 1 on any stale pack. Load-bearing for CI.
 			if checker.AnyStale(results) {
 				return &ExitError{Code: ExitFailure}
@@ -95,6 +103,7 @@ Exits 1 when any pack is behind upstream, so it can gate a scheduled job.`,
 		},
 	}
 	cmd.Flags().StringVar(&pack, "pack", "", "restrict to one pack slug")
+	addKindFlags(cmd.Flags(), &kf)
 	return cmd
 }
 
@@ -116,6 +125,7 @@ func newSyncCommand() *cobra.Command {
 	var (
 		pack     string
 		allPacks bool
+		kf       kindFlags
 	)
 
 	cmd := &cobra.Command{
@@ -128,6 +138,9 @@ a pack declares no sinks outside a dry run, or when any stage fails. The other
 packs still run first.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := kf.validate(); err != nil {
+				return err
+			}
 			if pack == "" && !allPacks {
 				return usageErr("pass --pack=<slug> or --all")
 			}
@@ -138,11 +151,16 @@ packs still run first.`,
 			if err != nil {
 				return failure(err)
 			}
-			return runSync(cmd.Context(), packs)
+			// The scan reads the pack checkout, so it runs after the sync has
+			// refreshed it, and whether or not the sync succeeded.
+			syncErr := runSync(cmd.Context(), packs)
+			kf.report(packs)
+			return syncErr
 		},
 	}
 	f := cmd.Flags()
 	f.StringVar(&pack, "pack", "", "sync one pack slug")
+	addKindFlags(f, &kf)
 	f.BoolVar(&allPacks, "all", false, "sync every pack (same as sync-all)")
 	f.IntVar(&g.concurrency, "concurrency", 1, "packs synced at once with --all (setting concurrency)")
 	addRunFlags(f, true)
@@ -167,6 +185,10 @@ func newSyncAllCommand() *cobra.Command {
 	addRunFlags(f, true)
 	return cmd
 }
+
+// checkAll is app.CheckAll, swappable so a test can run `check` without the
+// network.
+var checkAll = app.CheckAll
 
 // Seams for tests. Nil means the real checker and the real recipe runner,
 // which need the network and npm.

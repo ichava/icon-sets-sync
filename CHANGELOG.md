@@ -8,6 +8,10 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 - **The SVG policy's CSS `url()` guard can no longer be bypassed (S1).** It matched the raw text with a regex, so CSS escapes (`\75rl(`, `\000075rl(`, `u\rl(`), comments (`u/**/rl(`), `image-set(`, `-webkit-image-set(`, `image(`, `src(`, `cross-fade(`, `element(`, `expression(`, `@import` and a quote mismatch such as `url("https://e/x'y")` all got a remote fetch past it. Values are now normalised (comments stripped, escapes decoded, lowercased) and checked against an allow-list: `url(` only with a same-document `#id`, only colour, `var`, math, transform and easing functions otherwise, and no at-rules. The same check now covers `fill`, `stroke`, `filter`, `clip-path`, `mask` and `marker-*`, which were trusted on their name. `url(#grad)` is unchanged.
 - **Documents are capped before and while they are parsed (S2).** `Policy.MaxBytes` (default 4,500,000 bytes, matching react-icon-browser and core) and `Policy.MaxNodes` (default 30,000 elements) refuse an oversized file as an error, like an unparseable one. The largest SVG in the packs is 1,053,328 bytes and 6,741 elements.
+- **Response bodies and archives are bounded (S6).** `GetJSON` reads at most 32 MiB and `Download` at most 1 GiB. Extraction refuses a file over 256 MiB, more than 2 GiB in total, or more than 200,000 entries, counted on the bytes written and not on a size the header declares, so a decompression bomb stops at the cap. An over-limit body is not retried.
+- **Redirects are policed (S13).** The client refuses a redirect from `https` to `http`, to a scheme other than `http(s)`, or to a literal loopback, private or link-local address, and stops after 10. A refused redirect is not retried. There is still no host allowlist, because GitHub and npm redirect to CDNs.
+- **`npm pack` runs with `--ignore-scripts` (S7)**, in both places it is called, so a git or local spec cannot run a `prepare` script on the runner.
+- S1, the CSS `url()` bypass, was already closed in this section's first entry; no further change was needed here.
 
 ### Changed
 
@@ -20,6 +24,9 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ### Added
 
+- **Kind support for packs** (contract D6). `internal/core/kinds` reads a pack's `package.kind`, `categories.*.kind`, `items` and `kinds.rules` the way core does, with the same glob syntax and the same test vectors, and resolves an item through item, rule, category, pack, default. It is additive: a config with no kind keys reads as all `icon`.
+- **`check --suggest-kinds[=default|all]` and `sync --suggest-kinds[=default|all]`** (row 7). They scan each pack's checkout and write `build/kind-suggestions/<pack>.json` (`--kind-suggestions-dir` changes the directory). The heuristic suggests `illustration` for an item that fires 3 or more of aspect, palette, bytes, elements and canvas, including bytes or elements, and only for items that resolved `icon` by default (or by `package.kind` with `=all`). It never writes a kind: a person copies a record's `accept` block into `config.json`.
+- A golden test pins that a sync preserves `package.kind`, `categories.*.kind`, `items` and `kinds.rules` byte for byte.
 - `ICHAVA_ICON_SETS_SYNC_BIN`: the Composer launcher runs a binary you built from source instead of
   downloading a release. Without it, and with no release published, the launcher says how to build one.
 
