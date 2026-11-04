@@ -331,3 +331,45 @@ func TestSourceVersionFieldDefaultsToVersion(t *testing.T) {
 		t.Errorf("VersionField = %q, want version", src.VersionField())
 	}
 }
+
+// P2-G6: a pack config naming a plain-http upstream fails when it loads, with
+// the URL and the rule, before any fetch.
+func TestLoadPackRefusesANonHTTPSUpstream(t *testing.T) {
+	cases := []struct {
+		name   string
+		check  string
+		source string
+		ok     bool
+	}{
+		{"https everywhere", "https://registry.npmjs.org/x/latest", `{"type": "github-archive", "archive_url": "https://github.com/o/r/archive/refs/tags/{version}.zip"}`, true},
+		{"http version check", "http://registry.npmjs.org/x/latest", `{"type": "npm", "package": "x"}`, false},
+		{"http archive url", "https://registry.npmjs.org/x/latest", `{"type": "github-archive", "archive_url": "http://github.com/o/r/archive/{version}.zip"}`, false},
+		{"loopback http version check", "http://127.0.0.1:8765/latest.json", `{"type": "npm", "package": "x"}`, true},
+		{"localhost http archive", "https://registry.npmjs.org/x/latest", `{"type": "github-archive", "archive_url": "http://localhost:9/{version}.zip"}`, true},
+		{"ftp version check", "ftp://registry.npmjs.org/x", `{"type": "npm", "package": "x"}`, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := `{"name": "demo", "pack": "ichava/demo", "pack_root": "/work/demo",
+  "version_check_url": "` + tc.check + `", "source": ` + tc.source + `}`
+			_, err := ParsePackBytes("demo.json", []byte(body))
+			if tc.ok {
+				if err != nil {
+					t.Fatalf("refused: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("a non-https upstream loaded")
+			}
+			for _, want := range []string{"demo.json", "https"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q lacks %q", err, want)
+				}
+			}
+			if !strings.Contains(err.Error(), "http://") && !strings.Contains(err.Error(), "ftp://") {
+				t.Errorf("error does not name the URL: %v", err)
+			}
+		})
+	}
+}

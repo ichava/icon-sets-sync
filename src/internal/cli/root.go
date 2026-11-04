@@ -16,6 +16,7 @@ import (
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 	"github.com/ichava/icon-sets-sync/src/internal/ui"
 	"github.com/ichava/icon-sets-sync/src/internal/version"
@@ -276,6 +277,9 @@ func resolveState(cmd *cobra.Command) error {
 	// the TUI and the web UI all see the same packs. Set on every run, unset
 	// included, so one invocation never inherits another's.
 	config.SetPrivateConfigDir(state.run.String("private_config_dir"))
+	// The upstream allowlist is run-wide for the same reason, and is set the
+	// same way: on every run, empty included.
+	httpx.SetExtraAllowedHosts(httpx.ParseHostList(state.run.String("allowed_hosts")))
 	if err := config.CheckPrivateConfigDir(); err != nil {
 		return usageErr("%s", err)
 	}

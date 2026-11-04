@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
+	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
 )
 
 // SourceConfig says where to fetch upstream artefacts from.
@@ -338,6 +339,21 @@ func ParsePackBytes(path string, data []byte) (*PackConfig, error) {
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&pack); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+
+	// P2-G6: refuse a plain-http upstream here, with the file named, rather than
+	// at the first fetch. The host allowlist is not checked here: it is run-wide
+	// and not yet applied when a config loads, so httpx enforces it per fetch.
+	for field, raw := range map[string]string{
+		"version_check_url":  pack.VersionCheckURL,
+		"source.archive_url": pack.Source.ArchiveURL,
+	} {
+		if raw == "" {
+			continue
+		}
+		if err := httpx.CheckScheme(raw); err != nil {
+			return nil, fmt.Errorf("%s: %s: %w", path, field, err)
+		}
 	}
 
 	if pack.VersionFile == "" {

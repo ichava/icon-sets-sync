@@ -61,6 +61,10 @@ every time `serve` starts.
   (DNS rebinding), and every change needs a same-origin `Origin` and the session's form token.
 - **Nothing loads from the network.** The page's styles, scripts and icons are embedded, and the
   Content-Security-Policy forbids inline script and style.
+- **Fetches stay on a short list of hosts, over https.** Runs fetch only from the built-in upstream hosts
+  and any you add with `allowed_hosts`, and refuse plain `http`; see
+  [Upstream hosts and https](../configuration.md#upstream-hosts-and-https). A blocked fetch fails the run
+  with the host named. The setting is read when `serve` starts.
 - **Credentials stay where they are.** Runs use the `git` and `gh` credentials this machine already
   has (`GH_TOKEN`); the UI never asks for, stores or shows a token.
 

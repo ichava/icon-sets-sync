@@ -387,3 +387,53 @@ func TestParseGlobalMatchesLoadGlobal(t *testing.T) {
 		t.Error("an unknown key parsed")
 	}
 }
+
+// P2-G5: the upstream allowlist is extended through the ordinary settings
+// layers, and only run-wide ones: a pack config can be edited from the web UI,
+// so it must not be able to widen where the toolkit fetches from.
+func TestAllowedHostsSetting(t *testing.T) {
+	key, ok := Lookup("allowed_hosts")
+	if !ok {
+		t.Fatal("no allowed_hosts setting")
+	}
+	if key.Env != "ICHAVA_ALLOWED_HOSTS" {
+		t.Errorf("env = %q", key.Env)
+	}
+	if key.PackScoped {
+		t.Error("allowed_hosts must be run-wide, not settable from a pack config")
+	}
+	if key.Default != "" {
+		t.Errorf("default = %v, want empty", key.Default)
+	}
+
+	cases := []struct {
+		in string
+		ok bool
+	}{
+		{"", true},
+		{"mirror.example", true},
+		{"a.example, b.example", true},
+		{"a.example b.example", true},
+		{"https://mirror.example", false},
+		{"mirror.example/path", false},
+		{"mirror.example:8443", false},
+		{"*.example", false},
+		{"a.example;b.example", false},
+	}
+	for _, tc := range cases {
+		_, err := key.ParseString(tc.in)
+		if tc.ok != (err == nil) {
+			t.Errorf("ParseString(%q) err = %v, want ok=%v", tc.in, err, tc.ok)
+		}
+	}
+
+	if _, err := FromTree(map[string]any{"allowed_hosts": "mirror.example"}, LayerPack); err == nil {
+		t.Error("a pack config set allowed_hosts")
+	}
+	if v, err := FromTree(map[string]any{"allowed_hosts": "mirror.example"}, LayerGlobal); err != nil || v["allowed_hosts"] != "mirror.example" {
+		t.Errorf("global layer: %v, %v", v, err)
+	}
+	if v, err := FromEnv(func(k string) (string, bool) { return "a.example", k == "ICHAVA_ALLOWED_HOSTS" }); err != nil || v["allowed_hosts"] != "a.example" {
+		t.Errorf("env layer: %v, %v", v, err)
+	}
+}
