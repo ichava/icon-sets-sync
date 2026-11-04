@@ -168,6 +168,7 @@ Run with no arguments in a terminal for the interactive menu.`,
 	pf.BoolVarP(&g.quiet, "quiet", "q", false, "only errors (log_level=error) and no status output")
 	pf.BoolVar(&g.noColor, "no-color", false, "disable colour (also honours NO_COLOR)")
 	pf.BoolVar(&g.noInput, "no-input", false, "never prompt; fail instead of asking")
+	pf.BoolVar(&g.noInput, "non-interactive", false, "same as --no-input, the name CI mode uses")
 	pf.BoolVar(&g.assumeYes, "yes", false, "assume yes for confirmations")
 	pf.BoolVar(&g.jsonOut, "json", false, "machine-readable output")
 

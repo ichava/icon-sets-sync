@@ -129,8 +129,10 @@ func newSyncCommand() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "sync",
-		Short: "Refresh a pack's assets from upstream and open a pull request",
+		Use: "sync",
+		// run is the CI-mode name (`run --pack <slug> --non-interactive`).
+		Aliases: []string{"run"},
+		Short:   "Refresh a pack's assets from upstream and open a pull request",
 		Long: `Refresh a pack's assets from upstream and open a pull request.
 
 Fails (exit 1) when a pack's latest upstream version cannot be resolved, when
@@ -226,6 +228,11 @@ func runSync(ctx context.Context, packs []*config.PackConfig) error {
 			}
 			if o.Status == app.StatusSynced {
 				row["summary"] = o.Result.Summary()
+			}
+			// Present only when true: CI opens an issue for a person instead
+			// of a pull request.
+			if o.LicenceChanged() {
+				row["licence_changed"] = true
 			}
 			rows = append(rows, row)
 		}

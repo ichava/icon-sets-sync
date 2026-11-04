@@ -8,7 +8,7 @@
 |---|---|---|
 | Packs | `/` | every registered pack: vendored and upstream versions, status, SVG count, the pack repo's branch and uncommitted changes |
 | Pack | `/packs/<slug>` | one pack's config and `_note` annotations, its pipeline, its settings with origins, its recent runs, and the Sync and Recipe forms |
-| Run | `/jobs/<id>` | a run's per-pack status, its stages and its log, live while it runs, with Cancel |
+| Run | `/jobs/<id>` | a run's per-pack status, its stages and its log, live while it runs, with Cancel. Each pack line carries the diff the run makes (icons added, removed and changed, counted before the wipe, so a dry run shows it too), and says so when an upstream licence change blocked the sync |
 | Runs | `/jobs` | the run history, filtered by pack or outcome, each downloadable as JSON Lines |
 | Config | `/config` | the registry, the pack configs, the bundled set manifest and the global config, each in a validating editor |
 | Manifest pack audit | `/manifest-pack/audit` | `manifest-pack audit` in the browser: which upstream each set of the aggregator pack came from, with the result downloadable as a set manifest. |

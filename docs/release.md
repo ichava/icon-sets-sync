@@ -30,6 +30,11 @@ an existing tag:
 gh workflow run release.yml -R ichava/icon-sets-sync --ref vX.Y.Z -f confirm=release-go
 ```
 
+To build the whole matrix on your own machine without publishing anything, run `make cross`
+(GoReleaser v2 on `PATH`). It reads the same `src/.goreleaser.yaml` and writes the flat
+`icon-sets-sync_<os>_<arch>` binaries (macOS as `macos`, plus `macos_universal`), the archives and
+the Linux packages into `build/dist/`, with publishing, signing and SBOMs skipped.
+
 v0.1.0's release run was cancelled on 2026-11-02 before GoReleaser finished, so v0.1.0 has no GitHub
 release. Its tags (`v0.1.0`, `src/v0.1.0`) are final and stay where they are.
 

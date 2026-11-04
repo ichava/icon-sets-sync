@@ -94,6 +94,32 @@ dispatched by pack name or by the config's `recipe` key.
 
 ### 3. Workflow template
 
+**The reusable workflow `.github/workflows/sync-pack.yml`** (`on: workflow_call`) is the CI mode
+of the same engine the web UI drives. A pack's own workflow keeps the triggers (a weekly `schedule`
+plus `workflow_dispatch`, never `push`) and calls it with the pack slug and a pinned toolkit ref:
+
+```yaml
+jobs:
+  sync:
+    uses: ichava/icon-sets-sync/.github/workflows/sync-pack.yml@vX.Y.Z
+    with:
+      pack: ${{ github.event.repository.name }}
+      toolkit-ref: vX.Y.Z
+      refresh-app-client-id: ${{ vars.REFRESH_APP_CLIENT_ID }}
+    secrets:
+      refresh-app-private-key: ${{ secrets.REFRESH_APP_PRIVATE_KEY }}
+```
+
+It refuses a `toolkit-ref` that is not a `vX.Y.Z` tag or a full commit SHA, builds the binary from
+source with `GOPRIVATE`/`GONOSUMDB` set (there is no release asset), and runs
+`icon-sets-sync --json --non-interactive run --pack <slug>`. The pull request is opened with a
+Refresh Bot token limited to `contents` and `pull-requests` write, so its own CI runs. **A licence
+change opens an issue and fails the job; it never opens a pull request.** Linux only, 30-minute
+timeout, superseded runs cancelled. `src/internal/cli/workflow_test.go` holds the file to all of that.
+
+The caller needs `permissions: contents: read, issues: write`. The pack repositories still carry
+their own copies, described next, until they move to calling this one.
+
 A drop-in `.github/workflows/sync-upstream.yml` each pack ships. It
 checks out the toolkit repo, runs the toolkit's Docker image, and
 opens a PR when upstream has moved. The canonical template lives in
@@ -136,6 +162,7 @@ would be scope creep without user demand.
 | Recipe script returns non-zero | Orchestrator commits nothing, exits non-zero, CI run fails red, GitHub Actions notifies the maintainer. |
 | Refreshed assets fail downstream tests on the PR | The PR sits unmerged; maintainer fixes the recipe and re-runs `workflow_dispatch`. |
 | `gh pr create` rejected (already exists) | Orchestrator detects the existing PR and skips. Idempotent. |
+| Upstream licence no longer matches the pack's declared `licence` | The sync stops before the licence texts are touched and exits 1. `--json` marks the pack `licence_changed: true`; `sync-pack.yml` opens an issue instead of a pull request. |
 
 ## See also
 

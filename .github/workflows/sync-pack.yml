@@ -1,0 +1,201 @@
+# .github/workflows/sync-pack.yml
+#
+# The CI mode of icon-sets-sync: one reusable workflow every pack repository
+# calls, instead of each carrying its own copy of the sync logic. It builds the
+# binary from source at a pinned toolkit tag or commit (there is no release
+# asset to download, because Go releases are on hold), runs the sync headless,
+# and opens the update pull request with a Refresh Bot token so that pull
+# request's own CI runs.
+#
+# A licence change upstream is a decision for a person: the job opens an issue
+# naming it, opens no pull request, and fails.
+#
+# This file has only `workflow_call`. The caller owns the triggers: a weekly
+# `schedule` plus `workflow_dispatch`, never `push`. A caller looks like:
+#
+#   name: Sync upstream
+#   on:
+#     schedule:
+#       - cron: '45 6 * * 1'
+#     workflow_dispatch:
+#       inputs:
+#         force: { type: boolean, default: false }
+#   permissions:
+#     contents: read
+#     issues: write
+#   jobs:
+#     sync:
+#       uses: ichava/icon-sets-sync/.github/workflows/sync-pack.yml@vX.Y.Z
+#       with:
+#         pack: ${{ github.event.repository.name }}
+#         toolkit-ref: vX.Y.Z
+#         refresh-app-client-id: ${{ vars.REFRESH_APP_CLIENT_ID }}
+#         force: ${{ inputs.force == true }}
+#       secrets:
+#         refresh-app-private-key: ${{ secrets.REFRESH_APP_PRIVATE_KEY }}
+#
+# Pin `uses:` and `toolkit-ref` to the same tag. src/internal/cli/workflow_test.go
+# holds this file to its triggers, permissions, limits and pinning.
+
+name: Sync a pack
+
+on:
+  workflow_call:
+    inputs:
+      pack:
+        description: 'Pack slug, the same as the pack repository name (icon-sets-tabler)'
+        required: true
+        type: string
+      toolkit-ref:
+        description: 'icon-sets-sync tag (vX.Y.Z) or full commit SHA to build from; a branch is refused'
+        required: true
+        type: string
+      refresh-app-client-id:
+        description: 'Refresh Bot client id, usually vars.REFRESH_APP_CLIENT_ID'
+        required: true
+        type: string
+      force:
+        description: 'Refresh even when current == latest'
+        required: false
+        type: boolean
+        default: false
+      private-config-dir:
+        description: "A directory in the pack repository holding private pack configs (the bundled pack's .dev/icon-sets-sync)"
+        required: false
+        type: string
+        default: ''
+    secrets:
+      refresh-app-private-key:
+        description: 'Refresh Bot private key, usually secrets.REFRESH_APP_PRIVATE_KEY'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync ${{ inputs.pack }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # GITHUB_TOKEN only reads the code and opens the licence issue. Every
+    # write to the repository goes through the Refresh Bot token below.
+    permissions:
+      contents: read
+      issues: write
+    # Not the caller's group name: a caller and a callee sharing one group
+    # cancel each other.
+    concurrency:
+      group: sync-pack-${{ github.repository }}-${{ inputs.pack }}
+      cancel-in-progress: true
+    env:
+      # Our own modules come from git, never through the public proxy, so a
+      # sync never feeds proxy.golang.org or sum.golang.org a tag.
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
+    steps:
+      # First, before anything is fetched: a branch name would float, and the
+      # point of the pin is that the code that rewrites a pack is code someone
+      # reviewed and tagged.
+      - name: Refuse an unpinned toolkit ref
+        env:
+          REF: ${{ inputs.toolkit-ref }}
+        run: |
+          if ! printf '%s' "$REF" | grep -Eq '^(v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?|[0-9a-f]{40})$'; then
+            echo "::error::toolkit-ref '$REF' is not a vX.Y.Z tag or a full commit SHA. Pin the toolkit; a branch floats."
+            exit 1
+          fi
+
+      - name: Mint the Refresh Bot token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ inputs.refresh-app-client-id }}
+          private-key: ${{ secrets.refresh-app-private-key }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      # Checked out with the Refresh Bot token, so the sync's own `git push`
+      # authenticates as the app and its pull request starts CI.
+      - name: Check out the pack
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app.outputs.token }}
+
+      - name: Check out icon-sets-sync at the pinned ref
+        uses: actions/checkout@v7
+        with:
+          repository: ichava/icon-sets-sync
+          ref: ${{ inputs.toolkit-ref }}
+          path: .icon-sets-sync
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: .icon-sets-sync/src/go.mod
+          cache-dependency-path: .icon-sets-sync/src/go.sum
+
+      - name: Build icon-sets-sync from source
+        run: go -C .icon-sets-sync/src build -trimpath -o "$RUNNER_TEMP/icon-sets-sync" ./cmd/icon-sets-sync
+
+      # The shipped configs name the pack at /work/<pack>, the layout the
+      # Docker image mounts. Give the runner the same layout instead of
+      # rewriting the configs: /work is the directory the checkout sits in.
+      - name: Lay out /work as the configs expect
+        run: |
+          sudo ln -sfn "$(dirname "$GITHUB_WORKSPACE")" /work
+          test -d "/work/${PACK}" || { echo "::error::/work/${PACK} does not exist; pack must equal the repository name"; exit 1; }
+        env:
+          PACK: ${{ inputs.pack }}
+
+      - name: Configure the commit identity
+        run: |
+          git config --global user.name  "ichava-sync-bot"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global --add safe.directory '*'
+
+      - name: Run the sync
+        id: sync
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PACK: ${{ inputs.pack }}
+          FORCE: ${{ inputs.force }}
+          PRIVATE_DIR: ${{ inputs.private-config-dir }}
+        run: |
+          set +e
+          args=(--config-dir .icon-sets-sync/config --json --non-interactive)
+          if [ -n "$PRIVATE_DIR" ]; then args+=(--private-config-dir "$PRIVATE_DIR"); fi
+          args+=(run --pack "$PACK")
+          if [ "$FORCE" = "true" ]; then args+=(--force); fi
+          "$RUNNER_TEMP/icon-sets-sync" "${args[@]}" > "$RUNNER_TEMP/sync.json"
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/sync.json"
+          changed=$(jq -r 'if type == "array" then (map(.licence_changed == true) | any) else false end' "$RUNNER_TEMP/sync.json" 2>/dev/null || echo false)
+          echo "licence-changed=$changed" >> "$GITHUB_OUTPUT"
+          echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$changed" = "true" ]; then exit 0; fi
+          exit "$code"
+
+      # GITHUB_TOKEN opens the issue: the Refresh Bot holds no issues
+      # permission, and does not need one for anything else.
+      - name: Open an issue for the licence change
+        if: steps.sync.outputs.licence-changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACK: ${{ inputs.pack }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Upstream licence changed for ${PACK}"
+          if [ -n "$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number')" ]; then
+            echo "An issue is already open for this licence change."
+          else
+            body=$(printf '%s\n\n%s\n\n%s\n' \
+              "The scheduled sync of \`${PACK}\` stopped because the upstream licence text no longer matches the licence the pack declares. No pull request was opened." \
+              "Read the new terms. If they are acceptable, update the pack's declared \`licence\` in icon-sets-sync's config and run the sync again. If not, keep the pack at its current version." \
+              "Run: ${RUN_URL}")
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
+          echo "::error::The upstream licence changed. An issue asks a person to review it; no pull request was opened."
+          exit 1

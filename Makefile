@@ -118,6 +118,17 @@ format:  ## gofmt -w
 build-local:  ## Build $(BIN) with the host's Go toolchain
 	go -C src build -trimpath -o ../$(BIN) ./cmd/icon-sets-sync
 
+# The target list is src/.goreleaser.yaml's builds, the one place it is kept,
+# so this builds exactly the set a release would, into build/dist/: the flat
+# {binary}_{os}_{arch} executables (macOS as `macos`, plus the universal
+# binary), the archives and the Linux packages. A snapshot with publishing,
+# signing and SBOMs skipped, so nothing leaves the machine.
+.PHONY: cross
+cross:  ## Build every release target locally into build/dist (needs goreleaser v2)
+	@command -v goreleaser >/dev/null || { echo "goreleaser v2 is required: https://goreleaser.com/install/"; exit 2; }
+	GOPRIVATE='github.com/ichava/*' GONOSUMDB='github.com/ichava/*' \
+		goreleaser release --snapshot --clean --config src/.goreleaser.yaml --skip=publish,sign,sbom
+
 .PHONY: test-local
 test-local:  ## go vet + go test with the host's Go toolchain
 	go -C src vet ./...

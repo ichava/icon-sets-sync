@@ -49,6 +49,10 @@ human reviews the diff and merges; the tool never merges.
 - `--dry-run` writes the assets into the pack's working tree and stops there: no version stamp, no
   commit, no pull request. `--commit` does the opposite, overriding a `dry_run` set anywhere else.
 - `--force` refreshes even when the pack is already current.
+- In CI, `icon-sets-sync --json --non-interactive run --pack=<slug>` is the same command: `run` is
+  an alias of `sync` and `--non-interactive` of `--no-input`. With `--json`, a pack the licence guard
+  stopped carries `licence_changed: true`. The reusable workflow that runs it is described in
+  [Maintainer sync](maintainer-sync.md#3-workflow-template).
 
 **`sync` fails loudly.** It exits 1 when a pack's latest upstream version cannot be resolved (a dead
 registry, a renamed package), and when a pack declares no sinks outside a dry run. The Python
