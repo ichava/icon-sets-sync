@@ -278,14 +278,7 @@ func (s *Server) hooks(j *jobs.Job) RunHooks {
 			if o.Err != nil {
 				errText = o.Err.Error()
 			}
-			detail := ""
-			switch o.Status {
-			case app.StatusUpToDate:
-				detail = "up to date at " + o.Current
-			case app.StatusSynced:
-				detail = summary(o.Result.Metrics)
-			}
-			j.PackDone(o.Pack, string(o.Status), errText, detail)
+			j.PackDone(o.Pack, string(o.Status), errText, packDetail(o))
 		},
 	}
 }
@@ -305,6 +298,19 @@ func (s *Server) started(w http.ResponseWriter, r *http.Request, j *jobs.Job, er
 	http.Redirect(w, r, "/jobs/"+j.Info().ID, http.StatusSeeOther)
 }
 
+// packDetail is the line under a pack on the job page.
+func packDetail(o app.Outcome) string {
+	switch {
+	case o.LicenceChanged():
+		return "licence changed upstream: the sync is blocked until a person reads the new terms and updates the pack's declared licence"
+	case o.Status == app.StatusUpToDate:
+		return "up to date at " + o.Current
+	case o.Status == app.StatusSynced:
+		return summary(o.Result.Metrics)
+	}
+	return ""
+}
+
 // summary renders a run's metrics as one short line.
 func summary(m map[string]any) string {
 	keys := make([]string, 0, len(m))
@@ -315,7 +321,7 @@ func summary(m map[string]any) string {
 	var parts []string
 	for _, k := range keys {
 		if inner, ok := m[k].(map[string]any); ok {
-			for _, field := range []string{"copied", "status", "would_write"} {
+			for _, field := range []string{"copied", "added", "removed", "changed", "status", "would_write"} {
 				if v, ok := inner[field]; ok {
 					parts = append(parts, fmt.Sprintf("%s %s %v", k, strings.ReplaceAll(field, "_", " "), v))
 				}
