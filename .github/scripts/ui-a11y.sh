@@ -52,6 +52,14 @@ jar="$work/cookies"
 curl -fsS -c "$jar" -o /dev/null "$url"
 csrf=$(curl -fsS -b "$jar" "$origin/settings" | sed -n 's/.*name="csrf-token" content="\([^"]*\)".*/\1/p')
 [ -n "$csrf" ] || { echo "::error::no CSRF token on the settings page"; exit 1; }
+# A browser's same-origin form POST carries Origin: null under the UI's
+# referrer policy plus Sec-Fetch-Site: same-origin. Send exactly that, so the
+# shape that was once refused with a 403 is exercised here. This is curl, not a
+# click: the script has no way to drive a form in the browser axe launches.
+code=$(curl -sS -b "$jar" -o /dev/null -w '%{http_code}' \
+  -H "Origin: null" -H "Sec-Fetch-Site: same-origin" --data-urlencode "csrf=$csrf" \
+  "$origin/check")
+[ "$code" = 303 ] || { echo "::error::a browser-shaped POST /check answered $code, not 303"; exit 1; }
 job=$(curl -fsS -b "$jar" -o /dev/null -w '%{redirect_url}' \
   -H "Origin: $origin" --data-urlencode "csrf=$csrf" --data "mode=dry-run" \
   "$origin/packs/icon-sets-a11y/sync")
