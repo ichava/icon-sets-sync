@@ -1,6 +1,7 @@
 package sinks
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -60,6 +61,11 @@ type LicenceTexts struct {
 	Licence string
 }
 
+// ErrLicenceChanged marks a sync refused because the upstream's licence text
+// no longer matches the licence the pack declares. Callers test for it with
+// errors.Is to report a licence change apart from any other failure.
+var ErrLicenceChanged = errors.New("licence changed")
+
 // licenceTitles maps a declared SPDX id to the title line its licence text
 // opens with. Adding a licence here is how a pack may declare it.
 var licenceTitles = map[string]string{
@@ -88,7 +94,7 @@ func checkLicence(spdx string, files []string) error {
 			}
 		}
 	}
-	return fmt.Errorf("licence changed: the pack declares %s but no upstream licence file opens with %q; review the new terms, then update the pack's declared licence", spdx, title)
+	return fmt.Errorf("%w: the pack declares %s but no upstream licence file opens with %q; review the new terms, then update the pack's declared licence", ErrLicenceChanged, spdx, title)
 }
 
 // HandSuppliedMarker is the file whose presence makes a licence directory

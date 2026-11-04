@@ -8,6 +8,8 @@
 package sinks
 
 import (
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -73,6 +75,13 @@ func (s Filesystem) Execute(ctx *pipeline.Context) error {
 		log = ctx.Logger()
 	}
 
+	// Hashed before the wipe, so the diff is what this refresh changes, and a
+	// dry run, which still runs this sink, reports it too.
+	before, err := hashSVGs(target)
+	if err != nil {
+		return err
+	}
+
 	if !s.Incremental {
 		if _, err := os.Stat(target); err == nil {
 			if err := s.guardRetention(source, target, log); err != nil {
@@ -119,7 +128,17 @@ func (s Filesystem) Execute(ctx *pipeline.Context) error {
 		copied++
 	}
 
-	ctx.Metric("filesystem", map[string]any{"copied": copied, "target": target})
+	after, err := hashSVGs(source)
+	if err != nil {
+		return err
+	}
+	d := diffTrees(before, after, !s.Incremental)
+
+	ctx.Metric("filesystem", map[string]any{
+		"copied": copied, "target": target,
+		"added": len(d.added), "removed": len(d.removed), "changed": len(d.changed),
+		"added_names": capNames(d.added), "removed_names": capNames(d.removed), "changed_names": capNames(d.changed),
+	})
 	ctx.SetString(pipeline.KeyFilesystemTgt, target)
 	log.Info("filesystem", "copied", copied, "target", target)
 	return nil
@@ -397,4 +416,74 @@ func orDefault(v, fallback string) string {
 		return fallback
 	}
 	return v
+}
+
+// maxDiffNames caps each list of names the Filesystem sink reports. The
+// counts are always complete; the names are a sample a person can read.
+const maxDiffNames = 50
+
+// hashSVGs maps every SVG under dir, by slash-separated relative path, to the
+// sha256 of its bytes. A directory that does not exist yet is empty.
+func hashSVGs(dir string) (map[string][32]byte, error) {
+	out := map[string][32]byte{}
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) && path == dir {
+				return filepath.SkipDir
+			}
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(strings.ToLower(path), ".svg") {
+			return nil
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+		out[filepath.ToSlash(rel)] = sha256.Sum256(b)
+		return nil
+	})
+	return out, err
+}
+
+type treeDiff struct{ added, removed, changed []string }
+
+// diffTrees compares the destination before a refresh with what the refresh
+// writes. withRemovals is false for an incremental sink, which deletes nothing.
+func diffTrees(before, after map[string][32]byte, withRemovals bool) treeDiff {
+	var d treeDiff
+	for name, sum := range after {
+		old, ok := before[name]
+		switch {
+		case !ok:
+			d.added = append(d.added, name)
+		case old != sum:
+			d.changed = append(d.changed, name)
+		}
+	}
+	if withRemovals {
+		for name := range before {
+			if _, ok := after[name]; !ok {
+				d.removed = append(d.removed, name)
+			}
+		}
+	}
+	sort.Strings(d.added)
+	sort.Strings(d.removed)
+	sort.Strings(d.changed)
+	return d
+}
+
+func capNames(names []string) []string {
+	if names == nil {
+		return []string{}
+	}
+	if len(names) > maxDiffNames {
+		return names[:maxDiffNames]
+	}
+	return names
 }
