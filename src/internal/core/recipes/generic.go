@@ -87,7 +87,7 @@ func buildGeneric(pack *config.PackConfig, version string, opts Options) (*pipel
 				MinRetention: sink.MinRetention,
 			})
 			set := licenceSet(pack.Source)
-			p.Sink(sinks.LicenceTexts{Root: LicencesRoot + "/" + set, Set: set})
+			p.Sink(sinks.LicenceTexts{Root: LicencesRoot + "/" + set, Set: set, Licence: pack.Licence})
 			added += 2
 
 		case "git-branch":

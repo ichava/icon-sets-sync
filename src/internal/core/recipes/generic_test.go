@@ -286,3 +286,29 @@ func TestBuildTransformsRejectsAnUnknownType(t *testing.T) {
 		t.Fatalf("got %#v", got[0])
 	}
 }
+
+// A licence a generic pack declares must reach its licence-text sink. Before
+// this, only the openmoji-sets recipe honoured the field, so a declaration in
+// a tabler or flag config was silently unguarded.
+func TestGenericPassesTheDeclaredLicenceToItsSink(t *testing.T) {
+	for _, licence := range []string{"", "CC-BY-4.0"} {
+		pack := npmPack("icon-sets-demo")
+		pack.Licence = licence
+		built, err := Build(pack, "1.0.0", Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var found bool
+		for _, s := range built[0].Stages() {
+			if lt, ok := s.(sinks.LicenceTexts); ok {
+				found = true
+				if lt.Licence != licence {
+					t.Errorf("declared %q, sink guards %q", licence, lt.Licence)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("no LicenceTexts in %v", stageNames(built[0]))
+		}
+	}
+}
