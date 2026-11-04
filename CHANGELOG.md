@@ -4,6 +4,11 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ## [Unreleased]
 
+### Security
+
+- **The SVG policy's CSS `url()` guard can no longer be bypassed (S1).** It matched the raw text with a regex, so CSS escapes (`\75rl(`, `\000075rl(`, `u\rl(`), comments (`u/**/rl(`), `image-set(`, `-webkit-image-set(`, `image(`, `src(`, `cross-fade(`, `element(`, `expression(`, `@import` and a quote mismatch such as `url("https://e/x'y")` all got a remote fetch past it. Values are now normalised (comments stripped, escapes decoded, lowercased) and checked against an allow-list: `url(` only with a same-document `#id`, only colour, `var`, math, transform and easing functions otherwise, and no at-rules. The same check now covers `fill`, `stroke`, `filter`, `clip-path`, `mask` and `marker-*`, which were trusted on their name. `url(#grad)` is unchanged.
+- **Documents are capped before and while they are parsed (S2).** `Policy.MaxBytes` (default 8 MiB) and `Policy.MaxNodes` (default 50,000 elements) refuse an oversized file as an error, like an unparseable one. The largest SVG in the packs is 1,053,328 bytes and 6,741 elements.
+
 ### Changed
 
 - **Documentation links point at each repository's own `docs/`** (Sim, 2026-11-03: "all ichava repos have docs in their respective repos. thats by design"). Links to `opensource.simtabi.com/documentation/ichava/...` and the `opensource.simtabi.com/products/ichava/...` homepage, which answer 404 for every ichava page, now go to the matching `docs/*.md` on GitHub, or to the repository itself. Each target was checked to exist on that repository's `main`. The manifest's `homepage` and `support.docs` follow.
