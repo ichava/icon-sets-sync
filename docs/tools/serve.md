@@ -71,8 +71,8 @@ hand-off to a running server prints one line and the window can be closed.
 **Which configs.** The startup line `config: <dir> (<source>)` and the Settings page name where the
 pack configs came from: `flag` (`--config-dir`), `env` (`ICHAVA_CONFIG_DIR`), `cwd` (found walking up
 from the working directory), `executable` (`config/` beside the binary, or found walking up from the
-binary's own directory, which is how a double-clicked `build/icon-sets-sync` or
-`build/dist/icon-sets-sync_macos_universal` finds its checkout) or `embedded` (the configs built into
+binary's own directory, which is how a double-clicked `build/macos/icon-sets-sync` or
+`build/macos/icon-sets-sync_macos_universal` finds its checkout) or `embedded` (the configs built into
 the binary, used outside any checkout). Embedded configs are read-only in the Config page; pass
 `--config-dir` to edit a checkout's. Without a checkout of a pack, its page says a sync needs a
 workspace (`ICHAVA_WORKSPACE`).
@@ -122,7 +122,7 @@ applies to the next run without a restart.
 ## From a checkout
 
 ```bash
-make ui        # builds build/icon-sets-sync, then serve --port 7878 against config/
+make ui        # builds build/<os>/icon-sets-sync, then serve --port 7878 against config/
 make serve     # go run, on the first free port from 7878
 ```
 

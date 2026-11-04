@@ -23,7 +23,7 @@ the binary with Go 1.26 or later:
 ```bash
 git clone https://github.com/ichava/icon-sets-sync.git
 cd icon-sets-sync
-make build-local          # writes build/icon-sets-sync (make build does the same)
+make build-local          # writes build/<os>/icon-sets-sync, e.g. build/macos/ (make build does the same)
 ```
 
 Or run it straight from the checkout without keeping a binary:
@@ -39,7 +39,7 @@ repository as a `vcs` repository), point the launcher at the binary you built:
 
 ```bash
 composer require --dev ichava/icon-sets-sync
-ICHAVA_ICON_SETS_SYNC_BIN=/path/to/icon-sets-sync/build/icon-sets-sync vendor/bin/icon-sets-sync version
+ICHAVA_ICON_SETS_SYNC_BIN=/path/to/icon-sets-sync/build/macos/icon-sets-sync vendor/bin/icon-sets-sync version
 ```
 
 The Composer package carries no Go code. With `ICHAVA_ICON_SETS_SYNC_BIN` set it runs that binary.
@@ -78,7 +78,7 @@ make validate
 
 ### Usage
 
-Double-click the binary (or run `build/icon-sets-sync` with no arguments) to open the web UI in your
+Double-click the binary (or run `build/macos/icon-sets-sync`, `build/linux/…` or `build/windows/….exe` with no arguments) to open the web UI in your
 browser. Pass a command for CLI and CI use: a command never opens a browser, and with no terminal,
 with `CI` set, or on Linux without a display, no arguments prints the help instead. The terminal menu
 that no arguments used to open is `icon-sets-sync menu` (`make menu`).
@@ -98,7 +98,7 @@ make sync PACK=icon-sets-tabler
 Dry-run every pack (fetch and report the diff, write nothing), two at a time, against a different base branch:
 
 ```bash
-ICHAVA_GIT_BASE=develop build/icon-sets-sync --config-dir config sync-all --dry-run --concurrency=2
+ICHAVA_GIT_BASE=develop build/macos/icon-sets-sync --config-dir config sync-all --dry-run --concurrency=2
 ```
 
 Or do the same from a browser, dry run first:

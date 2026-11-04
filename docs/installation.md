@@ -7,35 +7,54 @@
 ```bash
 git clone https://github.com/ichava/icon-sets-sync.git
 cd icon-sets-sync
-make build-local                  # writes build/icon-sets-sync; make build does the same
-build/icon-sets-sync --config-dir config list-packs
+make build-local                  # writes build/<os>/icon-sets-sync; make build does the same
+build/macos/icon-sets-sync --config-dir config list-packs   # build/linux/, build/windows/….exe elsewhere
 ```
 
 Run with no arguments, or double-clicked, it opens the web UI in your browser; with a command it runs
 headless, as on CI and servers (see [`serve`](tools/serve.md#flags)).
 
-Double-clicked from inside the checkout, `build/icon-sets-sync` and the `build/dist/` binaries find
+Double-clicked from inside the checkout, every binary under `build/<os>/` finds
 the checkout's `config/` from their own location; a binary copied anywhere else uses the pack configs
 built into it, read-only. After editing `config/`, run `make embed-config` so the built-in copy
 matches; a test fails until it does.
 
 ### Build outputs
 
-Everything generated goes under `build/`, which is gitignored; `make clean` removes it.
+`build/` holds one folder per OS and nothing else, and is gitignored; `make clean` removes it.
+
+```text
+build/
+  checksums.txt   bare-name SHA-256 over every cross binary below
+  macos/          icon-sets-sync (the host build)  icon-sets-sync_macos_amd64  _arm64  _universal
+  linux/          icon-sets-sync_linux_<arch> …
+  windows/        icon-sets-sync_windows_<arch>.exe …
+  freebsd/        icon-sets-sync_freebsd_<arch> …
+  archives/       only after `make dist`
+```
 
 | Command | Writes |
 |---|---|
-| `make build-local` | `build/icon-sets-sync`, for this machine |
-| `make cross` | `build/dist/{binary}_{os}_{arch}` (`.exe` on Windows) for every release target of `icon-sets-sync`, with macOS as `macos` plus a `macos_universal` binary, and `build/dist/checksums.txt` over them. Nothing else. |
-| `make dist` | the same, plus `build/dist/archives/`: the `.tar.gz`/`.zip` archives, the `.deb`/`.rpm`/`.apk` packages, the source tarball and their own `checksums.txt` |
+| `make build-local` | `build/<os>/icon-sets-sync` for this machine (`build/macos/` on a Mac, `.exe` on Windows) |
+| `make cross` | `build/{os}/{binary}_{os}_{arch}` (`.exe` on Windows) for every release target of `icon-sets-sync`, with macOS as `macos` plus a `macos_universal` binary, and `build/checksums.txt` over them. Nothing else. |
+| `make dist` | the same, plus `build/archives/`: the `.tar.gz`/`.zip` archives, the `.deb`/`.rpm`/`.apk` packages, the source tarball and their own `checksums.txt` |
 
 `cross` and `dist` need GoReleaser v2 and read the target list from `src/.goreleaser.yaml`; they are
-snapshots with publishing, signing and SBOMs skipped, so nothing is released. Measured 2026-11-04,
+snapshots with publishing, signing and SBOMs skipped, so nothing is released. GoReleaser writes into a
+scratch directory, `.cache/goreleaser/`, and only the bare binaries are copied out of it into
+`build/{os}/`; the scratch directory is then removed. `make check-build` (run by all three targets)
+fails if `build/` holds anything else or an OS folder holds a folder. Measured 2026-11-04,
 `make cross` leaves 19 binaries and `checksums.txt`; it left 38 (568 MB) while it also built a short
 alias, and 86 items (1.0 GB) before it was trimmed, most of them GoReleaser's per-target folders. `bin/icon-sets-sync` is the tracked Composer
 launcher (PHP), not a build output.
 
-Put `build/icon-sets-sync` on your `PATH` to call it from anywhere. To pin a version, check out its
+To verify the cross binaries, rewrite each bare name to its OS folder and check from `build/`:
+
+```bash
+cd build && sed -E 's#  (icon-sets-sync_([a-z]+)_)#  \2/\1#' checksums.txt | shasum -a 256 -c
+```
+
+Put `build/<os>/` on your `PATH` (`make shell` does it for one shell) to call it from anywhere. To pin a version, check out its
 tag (`git checkout vX.Y.Z`) before building. To run it without keeping a binary:
 
 ```bash

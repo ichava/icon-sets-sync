@@ -35,10 +35,15 @@ That command publishes for real, so run it only for a version the maintainers ap
 tag alone publishes nothing.
 
 To build the whole matrix on your own machine without publishing anything, run `make cross`
-(GoReleaser v2 on `PATH`). It reads the same `src/.goreleaser.yaml` and leaves only the flat
-`icon-sets-sync_<os>_<arch>` and `imt_<os>_<arch>` binaries (macOS as `macos`, plus
-`macos_universal`) and `checksums.txt` in `build/dist/`. `make dist` adds the archives and the Linux
-packages under `build/dist/archives/`. Both skip publishing, signing and SBOMs.
+(GoReleaser v2 on `PATH`). It reads the same `src/.goreleaser.yaml`, builds into the scratch directory
+`.cache/goreleaser/`, and copies only the flat `icon-sets-sync_<os>_<arch>` binaries (macOS as
+`macos`, plus `macos_universal`) into one folder per OS, `build/macos/`, `build/linux/`,
+`build/windows/` and `build/freebsd/`, with `build/checksums.txt` over them. `make dist` adds the
+archives and the Linux packages under `build/archives/`. Both skip publishing, signing and SBOMs.
+
+The release assets do not come from `build/`. `release.yml` runs GoReleaser in CI, which uploads
+straight from its own dist (`.cache/goreleaser/`), so a release stays flat, as a release has no
+folders, and keeps the version-less `icon-sets-sync_<os>_<arch>[.exe]` names.
 
 v0.1.0's release run was cancelled on 2026-11-02 before GoReleaser finished, so v0.1.0 has no GitHub
 release. Its tags (`v0.1.0`, `src/v0.1.0`) are final and stay where they are.
@@ -87,7 +92,7 @@ signature) and asserts what came out. Locally:
 
 ```bash
 goreleaser check --config src/.goreleaser.yaml
-goreleaser release --snapshot --clean --config src/.goreleaser.yaml --skip=sign,publish   # into build/dist
+goreleaser release --snapshot --clean --config src/.goreleaser.yaml --skip=sign,publish   # into .cache/goreleaser
 ```
 
 ## Verifying a release
