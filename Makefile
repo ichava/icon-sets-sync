@@ -89,6 +89,10 @@ build-emoji: build-local  ## Run the icon-sets-emoji recipe (Twemoji + OpenMoji 
 validate: build-local  ## Validate every pack config against config/schema/pack.schema.json
 	$(RUN) config validate
 
+.PHONY: embed-config
+embed-config:  ## Copy config/ into the binary's embedded defaults (run after editing config/)
+	go -C src generate ./internal/defaultconfig
+
 .PHONY: config-print
 config-print: build-local  ## Print the effective settings and where each came from [PACK=<name>]
 	$(RUN) config print --origins $(if $(PACK),--pack=$(PACK),)
