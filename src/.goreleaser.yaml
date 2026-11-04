@@ -62,8 +62,8 @@ builds:
       - { goos: freebsd, goarch: ppc64le }
       - { goos: freebsd, goarch: s390x }
     mod_timestamp: &ts "{{ .CommitTimestamp }}"
-    # The same variables the Dockerfile stamps, so `icon-sets-sync version`
-    # reports the tag whichever way the binary was built.
+    # The variables `icon-sets-sync version` reports, so a release binary
+    # names its tag, commit and date.
     ldflags: &ldflags
       - -s -w
       - -X github.com/ichava/icon-sets-sync/src/internal/version.version={{ .Version }}

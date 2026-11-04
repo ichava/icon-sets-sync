@@ -160,8 +160,8 @@ layer is refused, because a typo that silently did nothing would commit.
 ## Why the version lives in the pack repo
 
 `GitBranch` commits the pack repo, so anything written before it travels in the pull request.
-Anything written to *this* repository does not: under Docker, `config/` is a mount from the runner's
-checkout, deleted by the workflow's cleanup step.
+Anything written to *this* repository does not: in CI, `config/` is the runner's throwaway
+checkout of this repository, deleted when the job ends.
 
 That is not hypothetical. `current_version` used to live only here, the bump was written through
 that mount, and it was discarded on every run, so the checker compared against a version that never
@@ -170,8 +170,8 @@ the assets it describes, is what makes the sync converge.
 
 ## Why sync fails loudly
 
-A scheduled job's exit code is the only thing anyone reads. The Python skipped a pack whose upstream
-could not be resolved and exited 0, so a dead registry or a renamed package looked identical to an
+A scheduled job's exit code is the only thing anyone reads. The earlier implementation skipped a
+pack whose upstream could not be resolved and exited 0, so a dead registry or a renamed package looked identical to an
 up-to-date pack, every week. `sync` now exits 1 for an unresolvable upstream and for a pack with no
 sinks outside a dry run, after the other packs have run.
 
@@ -183,27 +183,18 @@ the workflow, not a formality around it.
 
 ## Why Go, and what happened to the Python
 
-The first implementation was a Python package (`src/ichava_maintainer_toolkit/`, Typer, Pydantic,
-lxml). The Go port reached parity, then went further: it is the only implementation of the
-manifest-pack refresh, it fixed the emoji recipe's version stamp (the Python's commit pipeline had no
-version to stamp, so that pack never converged), it filters `gh pr list` to open pull requests, and
-it ships as one static binary in a smaller image.
+The first implementation was a Python package. The Go port reached parity, then went further: it is
+the only implementation of the manifest-pack refresh, it fixed the emoji recipe's version stamp (the
+old commit pipeline had no version to stamp, so that pack never converged), and it filters
+`gh pr list` to open pull requests. The Python package, its tests and its CI job were removed on the
+owner's decision of 2026-10-21, before the re-based 0.1.0. The SVG filter's agreement with the lxml
+implementation it replaced is still checked, against
+`src/internal/core/svg/testdata/lxml-oracle.json`, the frozen results of the last lxml run.
 
-From the re-based 0.1.0 the Docker image runs only the Go binary, and **the Python package is removed**: the
-package, `pyproject.toml`, its tests and its CI job were deleted on the owner's decision of
-2026-10-21. The SVG filter's agreement with the lxml implementation it replaced is still checked,
-against `src/internal/core/svg/testdata/lxml-oracle.json`, the frozen results of the last lxml run.
-
-The Python's fluent API looked like this, for anyone reading an old recipe:
-
-```python
-Pipeline.named("icon-sets-tabler@3.44.0") \
-    .source(sources.NpmTarball("@tabler/icons", version="3.44.0")) \
-    .transform(transforms.SubsetTo("icons")) \
-    .transform(transforms.Sanitise()) \
-    .sink(sinks.Filesystem(root="/work/icon-sets-tabler/resources/assets/svg/files")) \
-    .run()
-```
+The Docker image that carried the binary went next. Once `sync-pack.yml` built the binary from
+source on the runner, no pack pulled the image, so the Dockerfile, the compose file and the
+workflow that published `ghcr.io/ichava/icon-sets-sync` were removed (see the CHANGELOG).
+`TestNoDockerOrPythonSurface` and `TestNoWorkflowBuildsOrPublishesAnImage` fail if either comes back.
 
 ---
 

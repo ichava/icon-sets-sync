@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-// publicConfigDir is the repository's config/, the directory the Docker image
-// ships as /app/config.
+// publicConfigDir is the repository's config/, the directory sync-pack.yml
+// passes as --config-dir.
 var publicConfigDir = filepath.Join("..", "..", "..", "..", "config")
 
 // privateFixture is a synthetic private config directory: a registry, one

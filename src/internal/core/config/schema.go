@@ -15,8 +15,8 @@ import (
 
 // packSchema is a byte-identical copy of config/schema/pack.schema.json at the
 // repository root. It is embedded because the binary has to validate a pack
-// config wherever it runs -- inside the Docker image the config directory is
-// a bind mount the binary does not control -- and a Go module cannot embed a
+// config wherever it runs -- the config directory can be anywhere --config-dir
+// names, which the binary does not control -- and a Go module cannot embed a
 // file outside its own directory. TestEmbeddedSchemaMatchesTheRepoCopy keeps
 // the two from drifting.
 //

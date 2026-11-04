@@ -139,9 +139,9 @@ jobs:
       - name: Build icon-sets-sync from source
         run: go -C .icon-sets-sync/src build -trimpath -o "$RUNNER_TEMP/icon-sets-sync" ./cmd/icon-sets-sync
 
-      # The shipped configs name the pack at /work/<pack>, the layout the
-      # Docker image mounts. Give the runner the same layout instead of
-      # rewriting the configs: /work is the directory the checkout sits in.
+      # The shipped configs name the pack at /work/<pack>. Give the runner
+      # that layout instead of rewriting the configs: /work is the directory
+      # the checkout sits in.
       - name: Lay out /work as the configs expect
         run: |
           sudo ln -sfn "$(dirname "$GITHUB_WORKSPACE")" /work

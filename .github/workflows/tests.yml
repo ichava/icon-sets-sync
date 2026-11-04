@@ -5,10 +5,9 @@
 # release that breaks the build, two green PRs that interact) would otherwise
 # stay invisible until an unrelated pull request goes red.
 #
-# The Go job tests the implementation the Docker image runs. The Composer job
-# tests the PHP launcher that installs that implementation's release binary.
-# The Docker job builds the image the pack workflows build, and runs it the way
-# they do, because nothing else exercises the Dockerfile before a merge.
+# The Go job tests the binary the pack workflows build from source
+# (sync-pack.yml). The Composer job tests the PHP launcher that runs that
+# binary.
 
 name: Tests
 
@@ -100,46 +99,6 @@ jobs:
       - name: Pest
         run: vendor/bin/pest --test-directory=php/tests
 
-  docker:
-    name: Docker image
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Build the image the pack workflows build
-        run: docker build --build-arg VERSION=ci -t icon-sets-sync:ci .
-
-      - name: The entrypoint is the Go binary
-        run: |
-          out=$(docker run --rm icon-sets-sync:ci version)
-          echo "$out"
-          [ "$out" = "icon-sets-sync ci" ] || { echo "::error::unexpected version line: $out"; exit 1; }
-
-      # The same mounts sync-upstream.yml uses: the toolkit's config/ over
-      # /app/config. If the image cannot find or validate the configs this
-      # way, every pack's Monday sync fails, so check it here.
-      - name: The shipped configs validate inside the image
-        run: |
-          docker run --rm -v "$PWD/config:/app/config" icon-sets-sync:ci config validate
-
-      - name: The web UI is in the image
-        run: |
-          docker run --rm icon-sets-sync:ci serve --help | grep -q -- '--allow-remote' \
-            || { echo "::error::the image's binary has no serve command"; exit 1; }
-
-      - name: The runtime tools are present
-        run: |
-          docker run --rm --entrypoint sh icon-sets-sync:ci -c \
-            'git --version && gh --version && npm --version && test -L /usr/local/bin/imt'
-
-      - name: The removed Python console script name is not shipped
-        run: |
-          docker run --rm --entrypoint sh icon-sets-sync:ci -c \
-            '! test -e /usr/local/bin/ichava-maintainer-toolkit && ! test -L /usr/local/bin/ichava-maintainer-toolkit' \
-            || { echo "::error::the image still ships /usr/local/bin/ichava-maintainer-toolkit"; exit 1; }
-
   ui-a11y:
     name: Web UI accessibility
     runs-on: ubuntu-latest
@@ -214,9 +173,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
-    # Nothing else reads these files until a tag is pushed. `release.yml` triggers
-    # on `push: tags`, so until now a broken workflow was first observed as a
-    # release that refused to start -- after the decision to release had been made.
+    # Nothing else reads these files until they run. `release.yml` runs only when
+    # dispatched against a tag, so without this a broken workflow is first observed
+    # as a release that refused to start -- after the decision to release was made.
     #
     # A YAML parse is not a substitute. `yaml.safe_load` accepts a duplicate key
     # and silently keeps the last one, which is how a double-applied patch shipped
@@ -239,8 +198,8 @@ jobs:
       GOPRIVATE: github.com/ichava/*
       GONOSUMDB: github.com/ichava/*
 
-    # release.yml only runs on a tag, so without this the first sight of a
-    # broken GoReleaser config, a target that stopped compiling or an archive
+    # release.yml only runs when dispatched against a tag, so without this the
+    # first sight of a broken GoReleaser config, a target that stopped compiling or an archive
     # that lost a file is a tag that published nothing. This builds the whole
     # release matrix the way release.yml does, minus the publish and the
     # keyless signature (no tag, no point), and checks what came out.
@@ -290,10 +249,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     name: Changelog order
+    env:
+      GOPRIVATE: github.com/ichava/*
+      GONOSUMDB: github.com/ichava/*
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
 
       # A misordered CHANGELOG still releases correctly, because release.yml
       # finds a section by heading rather than by position -- so nothing else
@@ -301,54 +269,9 @@ jobs:
       # [Unreleased] below [0.2.7], and icon-sets-emoji had [0.2.6] filed
       # between [0.1.1] and [0.1.0]. Closing [Unreleased] in place would have
       # filed the new version underneath an older one.
+      #
+      # It also refuses a duplicate heading: release.yml extracts exactly one
+      # section per version, so a second [Unreleased] strands half the notes.
+      # The check is src/internal/tools/changelog, unit-tested with the suite.
       - name: Check CHANGELOG section order
-        run: |
-          python3 - CHANGELOG.md <<'PYEOF'
-          import collections
-          import re, sys
-
-          path = sys.argv[1]
-          try:
-              text = open(path, encoding='utf-8').read()
-          except FileNotFoundError:
-              print(f'::error::{path} not found'); sys.exit(1)
-
-          heads = re.findall(r'^## \[([^\]]+)\]', text, re.M)
-          if not heads:
-              print(f'::error::{path} has no "## [version]" headings'); sys.exit(1)
-
-          def order_key(v):
-              nums = [int(n) for n in re.findall(r'\d+', v)[:3]]
-              return tuple(nums + [0] * (3 - len(nums)))
-
-          problems = []
-          # Duplicates first. Ordering says nothing about how many [Unreleased]
-          # headings there are, and release.yml extracts exactly one section by
-          # version heading: a second [Unreleased] means the next release
-          # publishes part of its notes and strands the rest under a heading no
-          # version will ever match. Four had accumulated here before anyone
-          # looked, and three other repos in the ecosystem had the same.
-          seen = [h for h, n in collections.Counter(heads).items() if n > 1]
-          if seen:
-              problems.append(
-                  'duplicate section headings: ' + ', '.join(f'[{h}]' for h in seen)
-                  + '. Each branch must add to the existing section, not prepend its own.')
-
-          if 'Unreleased' in heads and heads[0] != 'Unreleased':
-              problems.append(
-                  f'[Unreleased] is section {heads.index("Unreleased") + 1}, not the first. '
-                  'Closing it in place would file the new version below an older one.')
-
-          versions = [h for h in heads if h != 'Unreleased']
-          for older, newer in zip(versions, versions[1:]):
-              if order_key(older) < order_key(newer):
-                  problems.append(f'[{older}] is listed above [{newer}], but is the lower version.')
-
-          if problems:
-              print(f'::error::{path} sections are out of order:')
-              for p in problems:
-                  print(f'::error::  {p}')
-              sys.exit(1)
-
-          print(f'{path}: {len(heads)} sections, correctly ordered')
-          PYEOF
+        run: go -C src run ./internal/tools/changelog check ../CHANGELOG.md

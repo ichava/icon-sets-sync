@@ -17,8 +17,8 @@ import (
 // Python got this free from tarfile's filter="data"; Go's archive packages do
 // nothing about it, so an upstream tarball with an entry named
 // ../../../etc/something would otherwise be written wherever it pointed. The
-// toolkit runs against archives fetched from the internet, inside a container
-// that has a mounted pack tree, so it matters.
+// toolkit runs against archives fetched from the internet, on a runner that
+// has the pack checkouts beside it, so it matters.
 func TestSafeJoinRefusesTraversal(t *testing.T) {
 	dest := "/tmp/extract"
 

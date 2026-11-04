@@ -19,8 +19,8 @@ func newMenuCommand() *cobra.Command {
 
 // runMenu launches the TUI, or prints help when there is nobody to drive it.
 //
-// This is the Docker image's default CMD, and the image is run by a scheduled
-// GitHub Actions job as often as by a person. The Python version called
+// The binary is run by a scheduled GitHub Actions job as often as by a
+// person, so the menu must not wait on a runner. The earlier implementation called
 // questionary.select() unconditionally, which on a runner blocks on a stdin
 // that never answers -- a job that hangs until the 30-minute timeout rather
 // than one that says what it wanted.

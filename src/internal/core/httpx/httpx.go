@@ -177,7 +177,7 @@ var (
 // independently; it is the part to keep if this function is ever simplified.
 //
 // The certificate half is defensive rather than established. Go is documented
-// to honour SSL_CERT_FILE, and on Linux -- which is what the Docker image runs,
+// to honour SSL_CERT_FILE, and on Linux -- which is what the CI runners use,
 // and therefore what production uses -- it does. On the macOS machine this was
 // developed on it demonstrably did not: with the variable set and visible to
 // the process, x509.SystemCertPool() returned zero subjects and every TLS dial

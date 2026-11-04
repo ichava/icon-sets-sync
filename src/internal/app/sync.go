@@ -35,8 +35,8 @@ func PackSettings(stack settings.Stack, pack *config.PackConfig) (settings.Resol
 
 // ApplyWorkspace resolves a relative pack_root against the workspace setting.
 //
-// Every shipped config names an absolute /work/<pack>, which is where the
-// Docker image sees the mounted checkouts. A relative root is for running the
+// Every shipped config names an absolute /work/<pack>, the directory
+// sync-pack.yml links to the runner's checkouts. A relative root is for running the
 // binary on a laptop against sibling checkouts without editing four configs.
 func ApplyWorkspace(pack *config.PackConfig, workspace string) {
 	if workspace == "" || pack.PackRoot == "" || filepath.IsAbs(pack.PackRoot) {

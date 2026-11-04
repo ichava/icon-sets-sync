@@ -1,7 +1,7 @@
 // Package gitx shells out to git and gh.
 //
-// Deliberately subprocesses rather than a Go git library: the sync runs inside
-// a container whose credentials arrive as git config
+// Deliberately subprocesses rather than a Go git library: the sync runs on a
+// CI runner whose credentials arrive as git config
 // (http.https://github.com/.extraheader, set by the workflow), and pull
 // requests are opened with gh. A library would have to reimplement both, and
 // the workflow's own comments record what it cost to get that plumbing right.

@@ -8,12 +8,15 @@ go -C src vet ./...
 go -C src test -count=1 ./...
 ```
 
-Or `make test-go` and `make lint`, which run the same in a container. The module lives in `src/`,
-so every `go` command names it with `-C src`: a bare `go test ./...` at the root finds no packages
-and passes.
+Or `make test` and `make lint`, which run the same with your Go toolchain (`make lint` adds
+golangci-lint when it is installed, for issues new since `main`). The module lives in `src/`, so
+every `go` command names it with `-C src`: a bare `go test ./...` at the root finds no packages and
+passes.
 
-For an actual sync, use the Docker image. It is what CI runs, and a local machine with a different
-`npm` or `gh` is a different tool.
+For an actual sync, build the binary (`make build-local`) and put the pack checkouts at `/work`; see
+[docs/installation.md](docs/installation.md#the-work-directory). CI does the same in
+`sync-pack.yml`, so a local machine with a different `npm` or `gh` is the one difference to keep in
+mind.
 
 ## Where things go
 
@@ -28,8 +31,8 @@ See [docs/architecture.md](docs/architecture.md) for why the parts are split tha
 
 ## The rule that is easy to get wrong
 
-**The vendored version belongs in the pack repo, not this one.** Under Docker, `config/` is a mount
-from the runner's throwaway checkout, deleted by the workflow's cleanup step. Writing the version
+**The vendored version belongs in the pack repo, not this one.** In CI, `config/` comes from the
+runner's throwaway checkout of this repository, deleted when the job ends. Writing the version
 there is how this tool spent weeks re-opening a pull request it had already opened.
 
 ## Conventions
@@ -47,7 +50,7 @@ there is how this tool spent weeks re-opening a pull request it had already open
 ## Releases and versioning
 
 - **No binary release until the maintainers say so.** A version is git only for now: a `vX.Y.Z` tag
-  starts no workflow, and no GitHub release, binary, package or Docker tag is published. Users build
+  starts no workflow, and no GitHub release, binary or package is published. Users build
   from source. `release.yml` stays in the repository but is manual and refuses to run without
   `-f confirm=release-go`; do not dispatch it, or restore a `push: tags` trigger, without an explicit
   maintainer decision. See [Release](docs/release.md#binary-releases-are-off).

@@ -13,11 +13,10 @@ import (
 // Manifest records where each vendored set comes from.
 //
 // It lives in its own file beside the pack config -- config/<pack>.sets.json --
-// rather than as a key inside it. That is deliberate and temporary: the Python
-// is still the Docker entrypoint, its PackConfig rejects unknown keys, and a
-// new key in the shipped config would break every Python command for this pack
-// during the overlap. A separate file the Python never opens has no such
-// effect. Fold it in once the Python is gone.
+// rather than as a key inside it. That kept it invisible to the implementation
+// this one replaced, whose pack config rejected unknown keys. That
+// implementation is gone, so the manifest could now be folded into the pack
+// config; it has not been, and the file is still where it is read from.
 type Manifest struct {
 	// Pack is the composer name, recorded so a manifest cannot be pointed at
 	// the wrong pack by being copied.
