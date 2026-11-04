@@ -229,7 +229,7 @@ jobs:
       - name: Assert the release set
         run: |
           set -euo pipefail
-          cd build/dist
+          cd .cache/goreleaser
           bins=$(grep -cvE '\.(tar\.gz|zip|deb|rpm|apk|json)$|_source\.tar\.gz$' checksums.txt)
           archives=$(find . -maxdepth 1 \( -name '*.tar.gz' -o -name '*.zip' \) ! -name '*_source.tar.gz' | wc -l)
           pkgs=$(find . -maxdepth 1 \( -name '*.deb' -o -name '*.rpm' -o -name '*.apk' \) | wc -l)

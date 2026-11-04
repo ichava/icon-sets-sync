@@ -14,11 +14,15 @@ project_name: icon-sets-sync
 # module, via builds[].dir. Run from inside src/ and archive `files:` globbing
 # refuses the `../` prefix, so LICENSE and README become unreachable.
 #
-# Generated output goes to build/dist/, which .gitignore already covers.
+# GoReleaser writes into a scratch dist, .cache/goreleaser/ (ignored, and
+# removed by `make clean`), never into build/. Locally, `make cross` and
+# `make dist` copy only the bare binaries out of it into build/{os}/ and delete
+# it (src/internal/tools/flatdist); a release uploads straight from it, so the
+# published assets and their names do not depend on the local build layout.
 #
 # Reference: simtabi/ssh-manager's src/.goreleaser.yaml, minus the Homebrew,
 # Scoop and Winget channels -- ichava has no tap, bucket or winget fork yet.
-dist: build/dist
+dist: .cache/goreleaser
 
 # One entrypoint, icon-sets-sync. The short alias was retired on 2026-11-04;
 # TestGoReleaserBuildsOneBinary fails if a second binary comes back.
