@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 )
 
 // TestSafeJoinRefusesTraversal is the Zip Slip guard.
@@ -168,5 +170,162 @@ func TestUnicodeCldrRequiresAVersion(t *testing.T) {
 	// no default now.
 	if err := (UnicodeCldr{}).Execute(nil); err == nil {
 		t.Fatal("expected an error naming the missing unicode_version")
+	}
+}
+
+// S6: extraction is bounded. Zip-slip is blocked by safeJoin; a decompression
+// bomb is a different attack, and it is the size of the output that matters,
+// not the size of the archive.
+
+func writeZip(t *testing.T, path string, files map[string]string) {
+	t.Helper()
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	for name, body := range files {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func dirBytes(t *testing.T, dir string) int64 {
+	t.Helper()
+	var n int64
+	_ = filepath.WalkDir(dir, func(_ string, d os.DirEntry, err error) error {
+		if err == nil && d.Type().IsRegular() {
+			if info, e := d.Info(); e == nil {
+				n += info.Size()
+			}
+		}
+		return nil
+	})
+	return n
+}
+
+func TestExtractionLimits(t *testing.T) {
+	bomb := strings.Repeat("\x00", 4<<20) // compresses to a few KiB
+	many := map[string]string{}
+	for i := 0; i < 20; i++ {
+		many[filepath.Join("package", "f"+string(rune('a'+i))+".svg")] = "<svg/>"
+	}
+
+	cases := []struct {
+		name   string
+		files  map[string]string
+		limits ExtractLimits
+		want   string // error substring; "" means success
+	}{
+		{"member over its cap", map[string]string{"package/big.bin": bomb}, ExtractLimits{MaxMemberBytes: 1 << 20, MaxTotalBytes: 1 << 30, MaxEntries: 100}, "member"},
+		{"total over its cap", map[string]string{"package/a.bin": bomb[:600<<10], "package/b.bin": bomb[:600<<10]}, ExtractLimits{MaxMemberBytes: 1 << 20, MaxTotalBytes: 1 << 20, MaxEntries: 100}, "total"},
+		{"too many entries", many, ExtractLimits{MaxMemberBytes: 1 << 20, MaxTotalBytes: 1 << 30, MaxEntries: 10}, "entries"},
+		{"within every cap", map[string]string{"package/ok.svg": "<svg/>"}, ExtractLimits{MaxMemberBytes: 1 << 20, MaxTotalBytes: 1 << 20, MaxEntries: 10}, ""},
+		{"member exactly at its cap", map[string]string{"package/ok.bin": bomb[:1024]}, ExtractLimits{MaxMemberBytes: 1024, MaxTotalBytes: 1 << 20, MaxEntries: 10}, ""},
+	}
+
+	for _, format := range []string{"tar.gz", "zip"} {
+		for _, tc := range cases {
+			t.Run(format+"/"+tc.name, func(t *testing.T) {
+				dir := t.TempDir()
+				archive := filepath.Join(dir, "a."+format)
+				dest := filepath.Join(dir, "out")
+
+				var err error
+				if format == "zip" {
+					writeZip(t, archive, tc.files)
+					err = extractZip(archive, dest, tc.limits)
+				} else {
+					writeTarGz(t, archive, tc.files)
+					err = extractTarGz(archive, dest, tc.limits)
+				}
+
+				if tc.want == "" {
+					if err != nil {
+						t.Fatalf("unexpected error: %v", err)
+					}
+					return
+				}
+				if err == nil || !strings.Contains(err.Error(), tc.want) {
+					t.Fatalf("err = %v, want one naming %q", err, tc.want)
+				}
+				// The write stops at the cap; it does not write the bomb out first.
+				if got := dirBytes(t, dest); got > tc.limits.MaxTotalBytes {
+					t.Errorf("wrote %d bytes, past the %d byte total cap", got, tc.limits.MaxTotalBytes)
+				}
+			})
+		}
+	}
+}
+
+func TestDefaultExtractLimitsAreSetAndGenerous(t *testing.T) {
+	l := DefaultExtractLimits
+	if l.MaxMemberBytes < 64<<20 || l.MaxTotalBytes < 1<<30 || l.MaxEntries < 50_000 {
+		t.Fatalf("defaults %+v would refuse a real upstream archive (the largest holds tens of thousands of files)", l)
+	}
+	if l.MaxMemberBytes > l.MaxTotalBytes {
+		t.Fatalf("member cap %d above total cap %d", l.MaxMemberBytes, l.MaxTotalBytes)
+	}
+}
+
+// S7: npm pack must never run a package's lifecycle scripts. A registry spec
+// does not run them, but a git or local spec runs `prepare`, and the spec comes
+// from config or the local web UI.
+
+func TestNpmPackArgsIgnoreScripts(t *testing.T) {
+	args := NpmPackArgs("@tabler/icons@3.46.0")
+	want := map[string]bool{"pack": false, "@tabler/icons@3.46.0": false, "--silent": false, "--ignore-scripts": false}
+	for _, a := range args {
+		if _, ok := want[a]; ok {
+			want[a] = true
+		}
+	}
+	for a, seen := range want {
+		if !seen {
+			t.Errorf("npm args %v lack %q", args, a)
+		}
+	}
+}
+
+// fakeNpm puts an `npm` on PATH that records its arguments and fails, so the
+// test sees exactly what the real call site passed.
+func fakeNpm(t *testing.T) (argsFile string) {
+	t.Helper()
+	bin := t.TempDir()
+	argsFile = filepath.Join(t.TempDir(), "args")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$NPM_ARGS_FILE\"\nexit 1\n"
+	if err := os.WriteFile(filepath.Join(bin, "npm"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("NPM_ARGS_FILE", argsFile)
+	return argsFile
+}
+
+func TestNpmTarballPassesIgnoreScripts(t *testing.T) {
+	argsFile := fakeNpm(t)
+
+	_, _ = pipeline.Named("demo").
+		Source(NpmTarball{Package: "@tabler/icons", Version: "3.46.0"}).
+		Sink(nopSink{}).
+		Run()
+
+	got, err := os.ReadFile(argsFile)
+	if err != nil {
+		t.Fatalf("the fake npm was never called: %v", err)
+	}
+	if !strings.Contains(string(got), "--ignore-scripts") {
+		t.Fatalf("npm pack ran without --ignore-scripts; args:\n%s", got)
 	}
 }

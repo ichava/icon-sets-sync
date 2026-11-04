@@ -27,7 +27,7 @@ func (f NpmFetcher) Fetch(ctx context.Context, pkg, dest string) (string, error)
 		return "", err
 	}
 
-	cmd := exec.CommandContext(ctx, "npm", "pack", pkg, "--silent")
+	cmd := exec.CommandContext(ctx, "npm", sources.NpmPackArgs(pkg)...)
 	cmd.Dir = dest
 	out, err := cmd.Output()
 	if err != nil {
