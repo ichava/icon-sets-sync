@@ -17,7 +17,8 @@ const scratch = ".cache/goreleaser"
 // goreleaserTree lays out a scratch dist the way a GoReleaser snapshot does:
 // one folder per target, a binary-format "archive" pointing into it, a folder
 // sharing a bare binary's name, and the archives and packages beside them.
-// The checkout already holds a host build and a stale cross binary.
+// The checkout already holds a host build, a stale cross binary, and an app
+// bundle built from the universal binary this run replaces.
 func goreleaserTree(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
@@ -40,6 +41,7 @@ func goreleaserTree(t *testing.T) string {
 	}
 	write(t, filepath.Join(root, "build", "macos", "icon-sets-sync"), "host")
 	write(t, filepath.Join(root, "build", "linux", "icon-sets-sync_linux_mips"), "dropped target")
+	write(t, filepath.Join(root, "build", "macos", "icon-sets-sync.app", "Contents", "MacOS", "icon-sets-sync"), "old universal")
 	bin := func(name, goos, path string) map[string]any {
 		return map[string]any{"name": name, "path": scratch + "/" + path, "type": "Binary", "goos": goos,
 			"extra": map[string]any{"Format": "binary", "ID": "binary"}}
