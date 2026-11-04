@@ -11,7 +11,7 @@ import (
 func newMenuCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "menu",
-		Short: "Interactive menu (the default action in a terminal)",
+		Short: "Interactive terminal menu (what no arguments opened before the web UI did)",
 		Args:  cobra.NoArgs,
 		RunE:  runMenu,
 	}

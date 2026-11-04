@@ -152,11 +152,13 @@ Settings resolve in this order, highest first:
 The global config is $XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml}.
 Run "config print --origins" to see where every value came from.
 
-Run with no arguments in a terminal for the interactive menu.`,
+Run with no arguments (or double-click the binary) to open the web UI in your
+browser. Pass a command to run headless, as CI and servers do; "menu" opens
+the interactive terminal menu.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMenu(cmd, args)
+			return runDefault(cmd, args)
 		},
 	}
 

@@ -56,7 +56,7 @@ shell: build-local  ## Open a shell with build/ on PATH and ICHAVA_CONFIG_DIR se
 # ---------------------------------------------------------------------------
 
 .PHONY: menu
-menu: build-local  ## Open the interactive menu (default action)
+menu: build-local  ## Open the interactive terminal menu (no arguments opens the web UI)
 	$(RUN) menu
 
 .PHONY: check
@@ -149,7 +149,7 @@ test-local:  ## go vet + go test with the host's Go toolchain
 # ---------------------------------------------------------------------------
 
 .PHONY: serve
-serve:  ## Run the web UI (icon-sets-sync serve) with the host's Go toolchain
+serve:  ## Run the web UI (icon-sets-sync serve; opens a browser unless --no-open) with the host Go toolchain
 	go -C src run ./cmd/icon-sets-sync serve
 
 .PHONY: ui
