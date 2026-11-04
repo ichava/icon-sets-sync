@@ -30,8 +30,25 @@ func SanitiseBytes(raw []byte, alsoStripClass bool) ([]byte, []string, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	return p.Sanitise(raw, alsoStripClass)
+}
 
-	root, err := Parse(raw, p.StripComments)
+// Sanitise is SanitiseBytes against this policy, honouring its MaxBytes and
+// MaxNodes. A document over either cap is an error, like an unparseable one.
+func (p *Policy) Sanitise(raw []byte, alsoStripClass bool) ([]byte, []string, error) {
+	maxBytes := p.MaxBytes
+	if maxBytes <= 0 {
+		maxBytes = DefaultMaxBytes
+	}
+	if len(raw) > maxBytes {
+		return nil, nil, fmt.Errorf("parsing svg: document is %d bytes, over the %d byte limit", len(raw), maxBytes)
+	}
+
+	maxNodes := p.MaxNodes
+	if maxNodes <= 0 {
+		maxNodes = DefaultMaxNodes
+	}
+	root, err := parse(raw, p.StripComments, maxNodes)
 	if err != nil {
 		return nil, nil, err
 	}

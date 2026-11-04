@@ -131,6 +131,24 @@ order.
 | `indexer` | `targets`: `codepoints`, `names` | write the emoji lookup files |
 | `flatten-variants` | `variants` (`path`, `prefix`, `suffix`), `separator` | merge several upstream directories into one flat set |
 
+### What `sanitise` enforces on CSS values
+
+A value in `style`, or in `fill`, `stroke`, `filter`, `clip-path`, `mask` or `marker-*`, is read as CSS
+after its comments are stripped, its escapes decoded and its case folded, so `\75rl(` and `u/**/rl(`
+are seen as `url(`. Then:
+
+- `url(` must name a same-document fragment, `url(#grad)`, with its quotes matched.
+- Any other function must be a colour, `var`, math, transform or easing function (`rgb`, `oklch`,
+  `color-mix`, `var`, `calc`, `clamp`, `translate`, `cubic-bezier`, `steps` and their siblings).
+  `image-set()`, `src()`, `image()`, `cross-fade()`, `element()` and `expression()` are not.
+- Any `@` rule fails the value.
+
+A value that fails is dropped whole, like any other disallowed attribute.
+
+A document over 4,500,000 bytes or 30,000 elements is refused before it builds a tree. It is treated like an
+unparseable file: counted and left as it was. The caps are the `MaxBytes` and `MaxNodes` fields on the
+policy, and match react-icon-browser's and core's; the pack SVGs measure at most 1.0 MB and 6,741 elements.
+
 ## Sinks
 
 | `type` | Options | Does |

@@ -19,6 +19,18 @@ import (
 	"sync"
 )
 
+// Default caps. Measured 2026-11-04 over every .svg under icon-sets-*/: the
+// largest file is 1,053,328 bytes and the largest has 6,741 elements, so these
+// are about 4.3x and 4.5x the observed maximum.
+//
+// They match react-icon-browser's AppConfig.limits (svgMaxChars 4,500,000,
+// svgMaxNodes 30,000, react-icon-browser#197) and core's caps, so this tool
+// never accepts an SVG that a consumer rejects. Change all three together.
+const (
+	DefaultMaxBytes = 4_500_000
+	DefaultMaxNodes = 30_000
+)
+
 // Namespace URIs the policy cares about.
 const (
 	NamespaceSVG   = "http://www.w3.org/2000/svg"
@@ -59,6 +71,13 @@ type Policy struct {
 	// without this package pretending to a structure it does not use.
 	AllowedValues json.RawMessage `json:"allowedValues"`
 
+	// MaxBytes and MaxNodes bound a document before and while it is parsed, so
+	// one hostile or corrupt file cannot cost unbounded time and memory. Not
+	// part of the shared policy JSON (the other runtimes carry their own caps);
+	// zero means "use the default". MaxNodes counts elements.
+	MaxBytes int `json:"-"`
+	MaxNodes int `json:"-"`
+
 	// Derived, built once in load().
 	allowedTagSet    map[string]bool
 	forbiddenTagSet  map[string]bool
@@ -90,6 +109,8 @@ func Load() (*Policy, error) {
 			return
 		}
 
+		p.MaxBytes = DefaultMaxBytes
+		p.MaxNodes = DefaultMaxNodes
 		p.allowedTagSet = toSet(p.AllowedTags, false)
 		p.forbiddenTagSet = toSet(p.ForbiddenTags, false)
 		p.allowedAttrLower = toSet(p.allowedAttributeNames(), true)
@@ -185,6 +206,12 @@ func (p *Policy) TagAllowed(name string) bool {
 	return !p.forbiddenTagSet[name] && p.allowedTagSet[name]
 }
 
+// cssURLAttributes are the attributes whose value is CSS that may hold a url().
+var cssURLAttributes = toSet([]string{
+	"fill", "stroke", "filter", "clip-path", "mask", "marker",
+	"marker-start", "marker-mid", "marker-end",
+}, false)
+
 // AttributeAllowed reports whether an attribute survives, by name then value.
 //
 // Order matters and is the design. The deny prefix wins over everything, then
@@ -223,33 +250,21 @@ func (p *Policy) AttributeAllowed(name, value string, alsoStripClass bool) bool 
 		return StyleValueIsSafe(value)
 	}
 
+	// A presentation attribute that takes a paint, url or filter fetches exactly
+	// as style does, and used to be trusted on its name alone.
+	if cssURLAttributes[lowered] {
+		return CSSValueIsSafe(value)
+	}
+
 	return true
 }
 
-// styleSinks are the CSS constructs that execute or fetch.
-var styleSinks = []string{"expression(", "behavior:", "-moz-binding", "@import"}
-
-// urlCall matches a CSS url() and captures its target.
-var urlCall = regexp.MustCompile(`(?i)url\(\s*(['"]?)([^'")]*)['"]?\s*\)`)
-
 // StyleValueIsSafe reports whether a style attribute value is permitted.
 //
-// A url() aimed off the document is the CSS exfiltration vector, so every one
-// in the value has to target a same-document fragment.
+// It is CSSValueIsSafe: a url() aimed off the document is the CSS exfiltration
+// vector, and so are the functions and escapes that spell one. See css.go.
 func StyleValueIsSafe(value string) bool {
-	lowered := strings.ToLower(value)
-	for _, sink := range styleSinks {
-		if strings.Contains(lowered, sink) {
-			return false
-		}
-	}
-
-	for _, match := range urlCall.FindAllStringSubmatch(value, -1) {
-		if !strings.HasPrefix(match[2], "#") {
-			return false
-		}
-	}
-	return true
+	return CSSValueIsSafe(value)
 }
 
 // AttributeName normalises a parsed attribute back to the policy's spelling.
