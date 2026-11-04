@@ -327,6 +327,23 @@ func configDir() string {
 	return config.DefaultConfigDir()
 }
 
+// configSource is configDir with the layer that chose it, as the Settings
+// page and serve's startup line show it: flag, env, cwd, executable or
+// embedded (a global config's config_dir reports "global").
+func configSource() (string, string) {
+	if dir := state.run.String("config_dir"); dir != "" {
+		switch o := state.run.Origin("config_dir"); o {
+		case settings.LayerFlag:
+			return dir, config.SourceFlag
+		case settings.LayerEnv:
+			return dir, config.SourceEnv
+		default:
+			return dir, string(o)
+		}
+	}
+	return config.DefaultConfigSource()
+}
+
 func workspace() string { return state.run.String("workspace") }
 
 func newVersionCommand() *cobra.Command {

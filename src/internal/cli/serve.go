@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
 	"github.com/ichava/icon-sets-sync/src/internal/version"
 	"github.com/ichava/icon-sets-sync/src/internal/web"
@@ -112,9 +113,10 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 	bound := ln.Addr().(*net.TCPAddr).Port
 
 	token := web.NewToken()
+	cfgDir, cfgSource := configSource()
 	srv, err := web.New(web.Options{
 		Engine: &web.AppEngine{
-			ConfigDir: configDir(), Workspace: workspace(),
+			ConfigDir: cfgDir, ConfigSource: cfgSource, Workspace: workspace(),
 			GlobalPath: state.globalPath, GlobalHome: configHome(), Stack: state.stack, Git: gitx.New(),
 		},
 		Token:        token,
@@ -134,6 +136,10 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 	out := cmd.OutOrStdout()
 	if bound != pinnedPort && pinnedPort != 0 {
 		_, _ = fmt.Fprintf(out, "port %d is in use; listening on %d instead\n", pinnedPort, bound)
+	}
+	_, _ = fmt.Fprintf(out, "config: %s (%s)\n", cfgDir, cfgSource)
+	if cfgSource == config.SourceEmbedded {
+		_, _ = fmt.Fprintln(out, "  the configs built into this binary, read-only; pass --config-dir to use and edit a checkout's")
 	}
 	_, _ = fmt.Fprintf(out, "icon-sets-sync web UI: %s\n", url)
 	if o.allowRemote {

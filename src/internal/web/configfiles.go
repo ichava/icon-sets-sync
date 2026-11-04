@@ -129,7 +129,10 @@ func (e *AppEngine) ReadConfig(name string) (ConfigDoc, error) {
 	default:
 		return doc, err
 	}
-	if why := writeProbe(filepath.Dir(f.Path)); why != "" {
+	if e.ConfigSource == config.SourceEmbedded && f.Kind != KindGlobal {
+		doc.ReadOnly, doc.Why = true, "these are the pack configs built into this binary, found because no checkout's config/ was. "+
+			"To edit them, run with --config-dir (or ICHAVA_CONFIG_DIR) pointing at a checkout's config/ directory."
+	} else if why := writeProbe(filepath.Dir(f.Path)); why != "" {
 		doc.ReadOnly, doc.Why = true, why
 	}
 	return doc, nil
