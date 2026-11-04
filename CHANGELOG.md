@@ -24,6 +24,15 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ### Added
 
+- **A sync recipe for `ichava/icon-sets-openmoji` (Q15).** `config/icon-sets-openmoji.json` and the
+  `openmoji-sets` recipe pull the colour and black sets from `hfg-gmuend/openmoji`, pinned to the
+  release tag the checker finds, and the pack is listed in `config/packs.json`. It shares one
+  pipeline definition with the OpenMoji sets inside `emoji-sets`, which are deprecated and still
+  sync unchanged, and a test asserts the two produce identical stages.
+- **A pack can declare its `licence`, and the sync enforces it.** With `"licence": "CC-BY-SA-4.0"`
+  (or `CC-BY-4.0`) the licence-text sink fails before touching the pack if the upstream licence text
+  no longer opens with that licence's title, so a relicensing blocks the sync. openmoji declares it;
+  a pack that declares nothing behaves as before.
 - **Kind support for packs** (contract D6). `internal/core/kinds` reads a pack's `package.kind`, `categories.*.kind`, `items` and `kinds.rules` the way core does, with the same glob syntax and the same test vectors, and resolves an item through item, rule, category, pack, default. It is additive: a config with no kind keys reads as all `icon`.
 - **`check --suggest-kinds[=default|all]` and `sync --suggest-kinds[=default|all]`** (row 7). They scan each pack's checkout and write `build/kind-suggestions/<pack>.json` (`--kind-suggestions-dir` changes the directory). The heuristic suggests `illustration` for an item that fires 3 or more of aspect, palette, bytes, elements and canvas, including bytes or elements, and only for items that resolved `icon` by default (or by `package.kind` with `=all`). It never writes a kind: a person copies a record's `accept` block into `config.json`.
 - A golden test pins that a sync preserves `package.kind`, `categories.*.kind`, `items` and `kinds.rules` byte for byte.

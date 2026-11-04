@@ -6,7 +6,7 @@ settings that resolve across five layers.
 ## The registry
 
 ```json
-{ "packs": ["icon-sets-tabler", "icon-sets-flag", "icon-sets-emoji"] }
+{ "packs": ["icon-sets-tabler", "icon-sets-flag", "icon-sets-emoji", "icon-sets-openmoji"] }
 ```
 
 `config/packs.json` (or `packs.yaml`). Each slug maps to `config/<slug>.json`, `.yaml` or `.yml`.
@@ -80,7 +80,8 @@ turning it into `"16"`.
 | `source` | where the assets come from; see [Sources](#sources) |
 | `sinks` | where they land, in order; see [Sinks](#sinks) |
 | `transforms` | what happens in between; see [Transforms](#transforms) |
-| `recipe` | `auto` (default), `generic`, `emoji-sets` or `manifest-pack`; see [Recipes](#recipes) |
+| `recipe` | `auto` (default), `generic`, `emoji-sets`, `openmoji-sets` or `manifest-pack`; see [Recipes](#recipes) |
+| `licence` | Optional SPDX id the upstream must keep (`CC-BY-4.0` or `CC-BY-SA-4.0`). A sync whose upstream licence text no longer opens with that licence's title fails before the pack is touched; see [Upstream licence texts](architecture.md#upstream-licence-texts-travel-with-the-icons) |
 | `settings` | this pack's layer of the [settings](#settings) |
 | `version_file` | pack-repo-relative file recording the vendored version; default `resources/assets/svg/config.json` |
 | `version_keys` | dot-paths inside that file; default `upstream.current_version`, `package.upstream_version` |
@@ -257,6 +258,7 @@ A recipe turns a pack config into pipelines. `auto` picks by pack name, then by 
 | Recipe | Picked for | Builds |
 |---|---|---|
 | `emoji-sets` | `icon-sets-emoji` | Twemoji (npm) + OpenMoji colour and black (GitHub archive), categorised by the Unicode taxonomy, then one commit |
+| `openmoji-sets` | `icon-sets-openmoji` | OpenMoji colour and black from one pinned `hfg-gmuend/openmoji` release tag (no `v` prefix), categorised by the Unicode taxonomy, then one commit. Runs the same pipelines as the OpenMoji sets inside `emoji-sets`, so the two stay byte-identical |
 | `manifest-pack` | `"recipe": "manifest-pack"` | one pipeline per set in the pack's `<slug>.sets.json` set manifest, each from its own upstream, then one commit |
 | `generic` | any `npm` or `github-*` source | the config's own source, transforms and sinks |
 

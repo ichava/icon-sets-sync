@@ -24,6 +24,11 @@ const (
 	RecipeGeneric   = "generic"
 	RecipeEmojiSets = "emoji-sets"
 
+	// RecipeOpenMojiSets syncs the two OpenMoji sets (colour, black) into
+	// ichava/icon-sets-openmoji, from the same upstream and with the same
+	// pipelines emoji-sets runs for its deprecated copies.
+	RecipeOpenMojiSets = "openmoji-sets"
+
 	// RecipeManifestPack refreshes a pack set by set, each set from the
 	// upstream its set manifest names, then commits once.
 	RecipeManifestPack = "manifest-pack"
@@ -84,6 +89,9 @@ func build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.P
 	case RecipeEmojiSets:
 		return buildEmojiSets(pack, version, opts)
 
+	case RecipeOpenMojiSets:
+		return buildOpenMojiSets(pack, version, opts)
+
 	case RecipeManifestPack:
 		// A native per-set refresh, not the `iconify` one the pack config
 		// asks for -- see buildManifestPack for why that would have been a
@@ -106,12 +114,14 @@ func build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.P
 // manifest-pack is only ever chosen by its config saying so.
 func Select(pack *config.PackConfig) string {
 	switch pack.Recipe {
-	case RecipeGeneric, RecipeEmojiSets, RecipeManifestPack:
+	case RecipeGeneric, RecipeEmojiSets, RecipeOpenMojiSets, RecipeManifestPack:
 		return pack.Recipe
 	}
 	switch {
 	case pack.Name == "icon-sets-emoji":
 		return RecipeEmojiSets
+	case pack.Name == "icon-sets-openmoji":
+		return RecipeOpenMojiSets
 	case fetchable(pack.Source.Type):
 		return RecipeGeneric
 	}
@@ -227,24 +237,7 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 		Sink(sinks.LicenceTexts{Root: licencesRoot + "/twemoji", Set: "twemoji"})
 
 	openmoji := func(name, subdir string) *pipeline.Pipeline {
-		return pipeline.Named(fmt.Sprintf("emoji-sets:%s@%s", name, openmojiVersion)).
-			Config(cfg).
-			Source(sources.Compound{
-				First: cldr,
-				Second: sources.GithubArchive{
-					// OpenMoji tags without a `v`, so the built-in template
-					// would ask for a tag that does not exist.
-					ArchiveURL: "https://github.com/hfg-gmuend/openmoji/archive/refs/tags/{version}.zip",
-					Owner:      "hfg-gmuend", Repo: "openmoji",
-					Version: openmojiVersion,
-				},
-			}).
-			Transform(transforms.FindLicences{}).
-			Transform(transforms.SubsetTo{Subdir: subdir}).
-			Transform(transforms.Sanitise{}).
-			Transform(transforms.Categorise{By: "cldr"}).
-			Sink(sinks.Filesystem{Root: filesRoot + "/" + name}).
-			Sink(sinks.LicenceTexts{Root: licencesRoot + "/" + name, Set: name})
+		return openmojiPipeline(cfg, cldr, openmojiVersion, name, subdir, filesRoot, licencesRoot+"/"+name, name, "")
 	}
 
 	pipelines := []*pipeline.Pipeline{
@@ -262,6 +255,62 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 				// silently does nothing -- which is what the Python did, and
 				// why this pack never converged.
 				Source(sources.Static{Version: twemojiVersion}).
+				Sink(sinks.VersionStamp{Pack: pack}).
+				Sink(gitBranch(pack, firstSink(pack, "git-branch"), opts)))
+	}
+	return pipelines, nil
+}
+
+// openmojiPipeline is the one definition of how an OpenMoji set is fetched,
+// narrowed, cleaned, categorised and written. emoji-sets (its deprecated
+// copies) and openmoji-sets (the new pack) both call it, which is what keeps
+// their outputs byte-identical rather than merely similar. licence is the SPDX
+// id to guard the licence text with; empty means unguarded.
+func openmojiPipeline(cfg map[string]any, cldr sources.UnicodeCldr, version, name, subdir, filesRoot, licenceRoot, licenceSet, licence string) *pipeline.Pipeline {
+	return pipeline.Named(fmt.Sprintf("emoji-sets:%s@%s", name, version)).
+		Config(cfg).
+		Source(sources.Compound{
+			First: cldr,
+			Second: sources.GithubArchive{
+				// OpenMoji tags without a `v`, so the built-in template
+				// would ask for a tag that does not exist.
+				ArchiveURL: "https://github.com/hfg-gmuend/openmoji/archive/refs/tags/{version}.zip",
+				Owner:      "hfg-gmuend", Repo: "openmoji",
+				Version: version,
+			},
+		}).
+		Transform(transforms.FindLicences{}).
+		Transform(transforms.SubsetTo{Subdir: subdir}).
+		Transform(transforms.Sanitise{}).
+		Transform(transforms.Categorise{By: "cldr"}).
+		Sink(sinks.Filesystem{Root: filesRoot + "/" + name}).
+		Sink(sinks.LicenceTexts{Root: licenceRoot, Set: licenceSet, Licence: licence})
+}
+
+// buildOpenMojiSets composes ichava/icon-sets-openmoji: the colour and black
+// sets from one OpenMoji release, then a commit-only pipeline so both land in a
+// single commit. The release is the version the checker discovered, not a
+// setting, so the pack's recorded upstream version and what it fetched cannot
+// diverge. Both sets share one licence directory, guarded by pack.Licence.
+func buildOpenMojiSets(pack *config.PackConfig, version string, opts Options) ([]*pipeline.Pipeline, error) {
+	if version == "" {
+		return nil, fmt.Errorf("openmoji-sets: an OpenMoji release tag is required")
+	}
+	r := opts.resolved()
+	cfg := packConfig(pack)
+	cldr := sources.UnicodeCldr{UnicodeVersion: r.String("emoji.unicode_version")}
+	filesRoot := pack.PackRoot + "/resources/assets/svg/files"
+	licenceRoot := pack.PackRoot + "/resources/assets/svg/licenses/openmoji"
+
+	pipelines := []*pipeline.Pipeline{
+		openmojiPipeline(cfg, cldr, version, "openmoji-color", "color/svg", filesRoot, licenceRoot, "openmoji", pack.Licence),
+		openmojiPipeline(cfg, cldr, version, "openmoji-black", "black/svg", filesRoot, licenceRoot, "openmoji", pack.Licence),
+	}
+	if !opts.DryRun {
+		pipelines = append(pipelines,
+			pipeline.Named("openmoji-sets:commit").
+				Config(cfg).
+				Source(sources.Static{Version: version}).
 				Sink(sinks.VersionStamp{Pack: pack}).
 				Sink(gitBranch(pack, firstSink(pack, "git-branch"), opts)))
 	}

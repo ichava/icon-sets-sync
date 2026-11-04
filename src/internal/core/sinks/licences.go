@@ -52,6 +52,43 @@ type LicenceTexts struct {
 	// reported as a metric on every run, unless the directory is hand-supplied
 	// (holds a SOURCE.md), which satisfies the exception.
 	MissingReason string
+
+	// Licence is the SPDX id the pack declares for this upstream. When set,
+	// the upstream's licence text must still be that licence, or the run
+	// fails before the existing texts are touched: a relicensed upstream is a
+	// decision for a person, not something a scheduled sync copies in.
+	Licence string
+}
+
+// licenceTitles maps a declared SPDX id to the title line its licence text
+// opens with. Adding a licence here is how a pack may declare it.
+var licenceTitles = map[string]string{
+	"CC-BY-4.0":    "Attribution 4.0 International",
+	"CC-BY-SA-4.0": "Attribution-ShareAlike 4.0 International",
+}
+
+// checkLicence reports an error unless one of the upstream files opens with
+// the declared licence's title.
+func checkLicence(spdx string, files []string) error {
+	title, ok := licenceTitles[spdx]
+	if !ok {
+		return fmt.Errorf("unknown licence %q: add its title to licenceTitles before declaring it", spdx)
+	}
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			return err
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			if line = strings.TrimSpace(line); line != "" {
+				if line == title {
+					return nil
+				}
+				break
+			}
+		}
+	}
+	return fmt.Errorf("licence changed: the pack declares %s but no upstream licence file opens with %q; review the new terms, then update the pack's declared licence", spdx, title)
 }
 
 // HandSuppliedMarker is the file whose presence makes a licence directory
@@ -132,6 +169,12 @@ func (s LicenceTexts) Execute(ctx *pipeline.Context) error {
 	}
 	if len(files) == 0 {
 		return fmt.Errorf("LicenceTexts %s: upstream %s ships no LICENSE, LICENCE, COPYING, NOTICE or OFL file at its root; set licence_missing with the evidence, and add the text by hand", s.Set, orDefault(src, "(unknown source)"))
+	}
+
+	if s.Licence != "" {
+		if err := checkLicence(s.Licence, files); err != nil {
+			return fmt.Errorf("LicenceTexts %s: %w", s.Set, err)
+		}
 	}
 
 	if err := os.RemoveAll(target); err != nil {
