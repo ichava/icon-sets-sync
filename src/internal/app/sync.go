@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -33,16 +34,67 @@ func PackSettings(stack settings.Stack, pack *config.PackConfig) (settings.Resol
 	return stack.Resolve(packValues), nil
 }
 
-// ApplyWorkspace resolves a relative pack_root against the workspace setting.
+// ciWorkRoot is the directory sync-pack.yml links to the runner's checkouts.
+// A var so tests can stand in for it.
+var ciWorkRoot = "/work"
+
+// ApplyWorkspace resolves where a pack's checkout is.
 //
-// Every shipped config names an absolute /work/<pack>, the directory
-// sync-pack.yml links to the runner's checkouts. A relative root is for running the
-// binary on a laptop against sibling checkouts without editing four configs.
+// A relative pack_root is joined to the workspace setting, as before. Every
+// shipped config names an absolute /work/<pack>, the layout sync-pack.yml
+// makes on a CI runner; for such a root, in order:
+//
+//  1. the workspace setting (--set workspace=, ICHAVA_WORKSPACE), when
+//     <workspace>/<pack> exists;
+//  2. /work/<pack>, when it exists (CI);
+//  3. the sibling checkout <toolkit root>/../<pack>, when it exists (a
+//     developer machine, where the packs sit beside this repository);
+//  4. the configured value, unchanged, with PackRootOrigin naming the
+//     setting that fixes it.
+//
+// pack.PackRootOrigin records which of these applied.
 func ApplyWorkspace(pack *config.PackConfig, workspace string) {
-	if workspace == "" || pack.PackRoot == "" || filepath.IsAbs(pack.PackRoot) {
+	cwd, _ := os.Getwd()
+	applyWorkspaceIn(pack, workspace, cwd, ciWorkRoot)
+}
+
+func applyWorkspaceIn(pack *config.PackConfig, workspace, cwd, ciRoot string) {
+	pack.PackRootOrigin = "pack config"
+	if pack.PackRoot == "" {
 		return
 	}
-	pack.PackRoot = filepath.Join(workspace, pack.PackRoot)
+	if !filepath.IsAbs(pack.PackRoot) {
+		if workspace != "" {
+			pack.PackRoot = filepath.Join(workspace, pack.PackRoot)
+			pack.PackRootOrigin = "workspace setting"
+		}
+		return
+	}
+	if filepath.Dir(pack.PackRoot) != filepath.Clean(ciRoot) {
+		return // an absolute root of the config's own choosing
+	}
+	name := filepath.Base(pack.PackRoot)
+	if workspace != "" {
+		if c := filepath.Join(workspace, name); isDir(c) {
+			pack.PackRoot, pack.PackRootOrigin = c, "workspace setting"
+			return
+		}
+	}
+	if isDir(pack.PackRoot) {
+		return
+	}
+	if root := config.FindToolkitRoot(cwd); root != "" {
+		if c := filepath.Join(filepath.Dir(root), name); isDir(c) {
+			pack.PackRoot, pack.PackRootOrigin = c, "sibling checkout of this repository"
+			return
+		}
+	}
+	pack.PackRootOrigin = "pack config (" + pack.PackRoot + " does not exist; set ICHAVA_WORKSPACE or --set workspace=<directory holding the " + name + " checkout>)"
+}
+
+func isDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 // Status is how one pack's sync ended.
