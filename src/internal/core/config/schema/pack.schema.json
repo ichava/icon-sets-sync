@@ -51,8 +51,13 @@
     },
     "recipe": {
       "type": "string",
-      "enum": ["auto", "generic", "emoji-sets", "manifest-pack"],
+      "enum": ["auto", "generic", "emoji-sets", "openmoji-sets", "manifest-pack"],
       "description": "Which recipe builds the pipelines. `auto` (the default) picks by pack name, then by source type. `manifest-pack` refreshes one pipeline per set in the pack's set manifest, and is only ever chosen by naming it here."
+    },
+    "licence": {
+      "type": "string",
+      "enum": ["CC-BY-4.0", "CC-BY-SA-4.0"],
+      "description": "SPDX id the upstream is expected to carry. The licence-text sink blocks a sync whose upstream licence text no longer matches it."
     },
     "source": { "$ref": "#/$defs/source" },
     "sinks": {

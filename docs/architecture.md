@@ -88,10 +88,17 @@ pipeline in every recipe now runs `FindLicences` straight after its source, whic
 |---|---|
 | `generic` | `resources/assets/svg/licenses/<upstream>`, the npm package with its scope folded in (`tabler-icons`, `flag-icons`) or the GitHub repository |
 | `emoji-sets` | `resources/assets/svg/licenses/{twemoji,openmoji-color,openmoji-black}` |
+| `openmoji-sets` | `resources/assets/svg/licenses/openmoji`, one directory for both sets |
 | `manifest-pack` | `resources/assets/svg/licenses/<set>`, pairing with `files/<set>` |
 
 `resources/` is not export-ignored in any pack, so the texts ship in the dist archive. Each
 destination is replaced on every run, so a `NOTICE` upstream drops goes too.
+
+**A pack may declare its licence** (`"licence": "CC-BY-SA-4.0"` in its config). The sink then checks
+that one of the upstream licence files still opens with that licence's title, and fails the run,
+before the existing texts are touched, if none does. A relicensed upstream therefore blocks the sync
+until a person has read the new terms and changed the declaration. `icon-sets-openmoji` declares
+CC-BY-SA-4.0. A pack that declares nothing is unguarded.
 
 **An upstream with no licence file at its root fails that pipeline**, naming the set and the source.
 Shipping icons whose licence text cannot be found is the defect this exists to end, so a scheduled

@@ -196,6 +196,12 @@ type PackConfig struct {
 	// name, then by source type, exactly as before the field existed.
 	Recipe string `json:"recipe,omitempty"`
 
+	// Licence is the SPDX id the pack's upstream is expected to carry. When
+	// set, the licence-text sink refuses a sync whose upstream licence text
+	// no longer matches it, so a relicensing blocks the refresh instead of
+	// being copied into the pack unreviewed.
+	Licence string `json:"licence,omitempty"`
+
 	// Settings is the pack layer of the settings precedence. It is kept as a
 	// raw tree here and resolved by internal/core/settings, which owns the
 	// key registry; the schema has already checked its shape.

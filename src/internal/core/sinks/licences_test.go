@@ -286,3 +286,55 @@ func keys(m map[string][]byte) []string {
 	sort.Strings(out)
 	return out
 }
+
+func TestLicenceTextsGuardRefusesAChangedLicence(t *testing.T) {
+	ccBySA := []byte("Attribution-ShareAlike 4.0 International\n\n====\nbody\n")
+	ccBY := []byte("\nAttribution 4.0 International\n\n====\nbody\n")
+	cases := []struct {
+		name    string
+		body    []byte
+		licence string
+		wantErr string
+	}{
+		{name: "matching licence copies", body: ccBySA, licence: "CC-BY-SA-4.0"},
+		{name: "no declared licence is unguarded", body: ccBY, licence: ""},
+		{name: "a relicensed upstream blocks", body: ccBY, licence: "CC-BY-SA-4.0", wantErr: "licence changed"},
+		{name: "an undeclared SPDX id is a config error", body: ccBySA, licence: "WTFPL-9", wantErr: "unknown licence"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			src := t.TempDir()
+			p := filepath.Join(src, "LICENSE.txt")
+			if err := os.WriteFile(p, c.body, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			dest := filepath.Join(t.TempDir(), "licenses", "openmoji")
+			if err := os.MkdirAll(dest, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dest, "LICENSE"), []byte("kept"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			ctx := ctxFor(t, src)
+			ctx.SetString(pipeline.KeyLicenceFiles, p)
+			ctx.SetString(pipeline.KeyFetchedSource, "github-archive:hfg-gmuend/openmoji@17.0.0")
+
+			err := LicenceTexts{Root: dest, Set: "openmoji", Licence: c.licence}.Execute(ctx)
+			if c.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+					t.Fatalf("err = %v, want it to contain %q", err, c.wantErr)
+				}
+				if b, _ := os.ReadFile(filepath.Join(dest, "LICENSE")); string(b) != "kept" {
+					t.Fatal("a refused sync must leave the existing licence text untouched")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(filepath.Join(dest, "LICENSE.txt")); err != nil {
+				t.Fatalf("licence not copied: %v", err)
+			}
+		})
+	}
+}
