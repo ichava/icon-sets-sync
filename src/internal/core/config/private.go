@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pathguard"
 )
 
 // A private config directory holds recipes that must not ship in this
@@ -115,23 +116,27 @@ func findDoc(configDir, base string) (string, error) {
 // ResolveFile returns where a file a recipe reads beside its pack config is:
 // the private directory's copy when there is one, else the public path --
 // returned even when it does not exist, so the caller's error names it.
+// The error is set only when name is refused.
 //
-// name is a bare file name. One that could leave the directory -- a separator
-// or a `..` -- is never looked up in the private directory, only joined onto
-// the public one as before, so a slug from a request cannot probe the
-// filesystem through the overlay.
-func ResolveFile(configDir, name string) string {
-	dirs := searchDirs(configDir)
-	if strings.Contains(name, "..") || strings.ContainsAny(name, `/\`) {
-		return filepath.Join(dirs[len(dirs)-1], name)
+// name is a file in the directory and nothing else. One that could leave it
+// -- a `..`, an absolute path, a link out -- is refused with
+// pathguard.ErrEscape in every directory, so a slug from a request can probe
+// neither the overlay nor the public directory.
+func ResolveFile(configDir, name string) (string, error) {
+	if strings.ContainsAny(name, `/\`) {
+		return "", fmt.Errorf("%w: %q is not a bare file name", pathguard.ErrEscape, name)
 	}
+	dirs := searchDirs(configDir)
 	for _, dir := range dirs {
-		path := filepath.Join(dir, name)
+		path, err := pathguard.Join(dir, name)
+		if err != nil {
+			return "", err
+		}
 		if _, err := os.Stat(path); err == nil {
-			return path
+			return path, nil
 		}
 	}
-	return filepath.Join(dirs[len(dirs)-1], name)
+	return pathguard.Join(dirs[len(dirs)-1], name)
 }
 
 // mergePrivateRegistry appends the private registry's packs to registry.

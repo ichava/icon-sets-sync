@@ -175,7 +175,7 @@ func TestManifestPackBuildsOnePipelinePerSet(t *testing.T) {
 			"feather-icons":   {Package: "feather-icons", Path: "package/dist/icons", Version: "4.29.2"},
 		},
 	}
-	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -225,7 +225,7 @@ func TestManifestPackDoesNotEnforceThePolicy(t *testing.T) {
 	m := &manifestpack.Manifest{Sets: map[string]manifestpack.SetSource{
 		"x": {Package: "x", Path: "package"},
 	}}
-	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
@@ -257,7 +257,7 @@ func TestManifestPackRefusesAManifestForAnotherPack(t *testing.T) {
 	m := &manifestpack.Manifest{Pack: "ichava/icon-sets-tabler", Sets: map[string]manifestpack.SetSource{
 		"x": {Package: "x", Path: "package"},
 	}}
-	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
@@ -338,7 +338,7 @@ func TestManifestPackRetentionFloorMatchesTheAuditFloor(t *testing.T) {
 	m := &manifestpack.Manifest{Sets: map[string]manifestpack.SetSource{
 		"x": {Package: "x", Path: "package"},
 	}}
-	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
@@ -382,7 +382,7 @@ func TestManifestPackFlattensAVariantSet(t *testing.T) {
 			{Path: "16/solid", Prefix: "c-"},
 		}},
 	}}
-	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{

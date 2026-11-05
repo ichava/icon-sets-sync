@@ -151,7 +151,13 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			q := clean.Query()
 			q.Del("token")
 			clean.RawQuery = q.Encode()
-			http.Redirect(w, r, clean.RequestURI(), http.StatusSeeOther)
+			target := clean.RequestURI()
+			if !isLocalURL(target) {
+				// "//host/x" and "/\host/x" name another host. Land on the
+				// home page instead of following the request off site.
+				target = "/"
+			}
+			http.Redirect(w, r, target, http.StatusSeeOther)
 			return
 		}
 		c, err := r.Cookie(SessionCookie)
@@ -166,6 +172,27 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r.WithContext(withSession(r.Context(), sess)))
 	})
+}
+
+// isLocalURL reports whether target is a same-origin, relative URL: a path
+// starting with exactly one slash, which no browser reads as naming a host.
+// "//host" is scheme-relative, and browsers treat a backslash after the first
+// slash as a second slash, so both are refused, as is anything with a scheme,
+// a host or a control character.
+func isLocalURL(target string) bool {
+	if target == "" || target[0] != '/' {
+		return false
+	}
+	if len(target) > 1 && (target[1] == '/' || target[1] == '\\') {
+		return false
+	}
+	for _, c := range target {
+		if c < 0x20 || c == 0x7f {
+			return false
+		}
+	}
+	u, err := url.Parse(target)
+	return err == nil && u.Scheme == "" && u.Host == "" && u.User == nil
 }
 
 func (s *Server) secure(r *http.Request) bool {

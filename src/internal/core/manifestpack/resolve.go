@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ichava/icon-sets-sync/src/internal/core/pathguard"
 	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
 )
 
@@ -47,7 +48,11 @@ func (f NpmFetcher) Fetch(ctx context.Context, pkg, dest string) (string, error)
 		return "", fmt.Errorf("npm pack %s printed no tarball name", pkg)
 	}
 
-	if err := sources.ExtractTarGz(filepath.Join(dest, tarball), filepath.Join(dest, "x")); err != nil {
+	archive, err := pathguard.Join(dest, tarball)
+	if err != nil {
+		return "", fmt.Errorf("npm pack %s printed %q: %w", pkg, tarball, err)
+	}
+	if err := sources.ExtractTarGz(archive, filepath.Join(dest, "x")); err != nil {
 		return "", err
 	}
 	return versionFromTarball(tarball, pkg), nil
@@ -120,7 +125,11 @@ func ResolveSet(ctx context.Context, setDir string, fetch Fetcher, workDir strin
 
 	var tried []string
 	for _, pkg := range candidates {
-		dest := filepath.Join(workDir, fp.Name, sanitise(pkg))
+		dest, err := pathguard.Join(workDir, fp.Name, sanitise(pkg))
+		if err != nil {
+			tried = append(tried, pkg)
+			continue
+		}
 
 		version, err := fetch.Fetch(ctx, pkg, dest)
 		if err != nil {

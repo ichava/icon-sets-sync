@@ -34,7 +34,7 @@ func dryRunPacks(t *testing.T, packRoot string) (map[string]*config.PackConfig, 
 	m := &manifestpack.Manifest{Pack: "ichava/icon-sets-bundled", Sets: map[string]manifestpack.SetSource{
 		"demo": {Package: "demo", Path: "package"},
 	}}
-	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	bundled := &config.PackConfig{

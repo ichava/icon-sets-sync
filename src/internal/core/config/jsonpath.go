@@ -61,11 +61,34 @@ func setStringAtPath(data []byte, dotted, value string) (out []byte, ok bool, er
 		return data, false, err
 	}
 
-	spliced := make([]byte, 0, len(data)-(end-start)+len(encoded))
+	size, err := spliceSize(len(data), start, end, len(encoded))
+	if err != nil {
+		return data, false, err
+	}
+	spliced := make([]byte, 0, size)
 	spliced = append(spliced, data[:start]...)
 	spliced = append(spliced, encoded...)
 	spliced = append(spliced, data[end:]...)
 	return spliced, true, nil
+}
+
+// maxSpliceBytes bounds both the document and the value spliced into it. A
+// pack config is a few KiB; the bound is far above any real one and low enough
+// that the sum of two bounded sizes cannot wrap an int, even a 32-bit one.
+const maxSpliceBytes = 1 << 28
+
+// spliceSize is the length of data with [start, end) replaced by insert bytes:
+// total-(end-start)+insert, refused instead of wrapping. Each operand is
+// checked against maxSpliceBytes before the arithmetic, so neither the
+// subtraction nor the addition can overflow.
+func spliceSize(total, start, end, insert int) (int, error) {
+	if total < 0 || total > maxSpliceBytes || insert < 0 || insert > maxSpliceBytes {
+		return 0, fmt.Errorf("splice of %d bytes into %d is over the %d-byte limit", insert, total, maxSpliceBytes)
+	}
+	if start < 0 || end < start || end > total {
+		return 0, fmt.Errorf("splice range [%d, %d) is outside a %d-byte document", start, end, total)
+	}
+	return total - (end - start) + insert, nil
 }
 
 // locateValue returns the byte range of the string value at path.

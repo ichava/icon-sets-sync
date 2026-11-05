@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+
+	"github.com/ichava/icon-sets-sync/src/internal/core/pathguard"
 )
 
 // TieBreakMargin is how far ahead the closest directory must be before a tie
@@ -83,9 +85,15 @@ func Similarity(dir string, fp SetFingerprint) float64 {
 
 // readIcon resolves a fingerprint key back to a file. Keys drop the extension,
 // and the two sides do not always agree on its case.
+//
+// A key that would leave root is refused rather than read.
 func readIcon(root, key string) ([]byte, error) {
 	for _, ext := range []string{".svg", ".SVG"} {
-		if b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(key)+ext)); err == nil {
+		path, err := pathguard.Join(root, filepath.FromSlash(key)+ext)
+		if err != nil {
+			return nil, err
+		}
+		if b, err := os.ReadFile(path); err == nil {
 			return b, nil
 		}
 	}

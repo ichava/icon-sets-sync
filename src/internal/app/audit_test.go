@@ -107,3 +107,32 @@ func TestAuditManifestPackPackageNeedsASet(t *testing.T) {
 		t.Fatalf("want a usage error, got %v", err)
 	}
 }
+
+// TestResolveSetsRefusesASetThatLeavesTheFilesRoot is go/path-injection: the
+// set name comes from the audit form, and one that climbs out of the files
+// root must be refused before anything is fetched or read.
+func TestResolveSetsRefusesASetThatLeavesTheFilesRoot(t *testing.T) {
+	root := t.TempDir()
+	filesRoot := filepath.Join(root, "files")
+	if err := os.MkdirAll(filepath.Join(root, "elsewhere"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "elsewhere", "icon.svg"), []byte("<svg/>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fetched := recordingFetcher{}
+	res := ResolveSets(context.Background(), []string{"../elsewhere"}, filesRoot, t.TempDir(), 1, "", fetched)
+	if len(res) != 1 || res[0].Confidence != manifestpack.ConfidenceNone || res[0].Icons != 0 {
+		t.Errorf("a set outside the files root was surveyed: %+v", res)
+	}
+	if len(fetched) != 0 {
+		t.Errorf("fetched %v for a set outside the files root", fetched)
+	}
+}
+
+type recordingFetcher map[string]string
+
+func (f recordingFetcher) Fetch(_ context.Context, pkg, dest string) (string, error) {
+	f[pkg] = dest
+	return "", errors.New("no network in tests")
+}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pathguard"
 )
 
 // ManifestPack is the registry slug of the aggregator pack the manifest-pack
@@ -63,6 +64,9 @@ func AuditManifestPack(ctx context.Context, opts AuditOptions) ([]manifestpack.R
 		return nil, err
 	}
 	if opts.Set != "" {
+		if _, err := pathguard.Join(filesRoot, opts.Set); err != nil {
+			return nil, usage(errf("--set %q: %w", opts.Set, err))
+		}
 		sets = []string{opts.Set}
 	}
 	if opts.Package != "" && opts.Set == "" {
@@ -127,8 +131,12 @@ func resolveSets(ctx context.Context, sets []string, filesRoot, workDir string, 
 			slots <- struct{}{}
 			defer func() { <-slots }()
 
-			results[i] = manifestpack.ResolveSet(
-				ctx, filepath.Join(filesRoot, set), fetcher, workDir, log, explicit...)
+			setDir, err := pathguard.Join(filesRoot, set)
+			if err != nil {
+				results[i] = manifestpack.Resolution{Set: set, Confidence: manifestpack.ConfidenceNone, Note: err.Error()}
+			} else {
+				results[i] = manifestpack.ResolveSet(ctx, setDir, fetcher, workDir, log, explicit...)
+			}
 			if done != nil {
 				mu.Lock()
 				done(results[i])

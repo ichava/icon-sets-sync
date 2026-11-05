@@ -15,7 +15,7 @@ func TestParseManifestBytesAgreesWithLoadManifest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := ManifestPath(dir, "icon-sets-example")
+	path := mustManifestPath(t, dir, "icon-sets-example")
 	data, _ := os.ReadFile(path)
 	fromBytes, err := ParseManifestBytes(path, data)
 	if err != nil || !reflect.DeepEqual(fromFile, fromBytes) {

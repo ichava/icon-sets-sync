@@ -88,3 +88,21 @@ func TestReadTree(t *testing.T) {
 		t.Fatal("a list at the top level: want an error")
 	}
 }
+
+// TestFindRefusesANameThatLeavesTheDirectory is go/path-injection: a slug
+// from a request reaches Find as base, and must not look outside dir.
+func TestFindRefusesANameThatLeavesTheDirectory(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "config")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "outside.json"), []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, base := range []string{"../outside", "a/../../outside", filepath.Join(root, "outside")} {
+		if got, err := Find(dir, base); err == nil {
+			t.Errorf("Find(%q) = %q, outside %s", base, got, dir)
+		}
+	}
+}
