@@ -29,8 +29,7 @@ import (
 // here too.
 //
 // A directory holding a source.md is hand-maintained, and the sink never
-// deletes or overwrites it. The uppercase SOURCE.md is still accepted but
-// deprecated (see LegacyHandSuppliedMarker). source.md is where a maintainer records where a
+// deletes or overwrites it. source.md is where a maintainer records where a
 // hand-supplied text came from, for a set whose upstream ships none; replacing
 // that directory on a scheduled run would destroy the only copy of the text in
 // the pack. Such a set is reported as hand-supplied rather than missing, and a
@@ -174,19 +173,6 @@ func checkLicenceDigest(want string, files []string) error {
 // sim-standards pre-commit hook enforces on Markdown.
 const HandSuppliedMarker = "source.md"
 
-// LegacyHandSuppliedMarker is the uppercase spelling the sink accepted first.
-// It still marks a directory hand-maintained, so a pack that has not renamed
-// its markers keeps its texts.
-//
-// Deprecated: name the marker source.md (HandSuppliedMarker). The uppercase
-// spelling is accepted until 0.3.0 at the earliest.
-const LegacyHandSuppliedMarker = "SOURCE.md"
-
-// handSuppliedMarkers are the names that mark a directory hand-maintained,
-// matched exactly: a case-insensitive filesystem (macOS) must not accept a
-// spelling the Linux runners that sync the packs would not.
-var handSuppliedMarkers = []string{HandSuppliedMarker, LegacyHandSuppliedMarker}
-
 // The status values LicenceTexts reports in its metric.
 const (
 	LicenceStatusCopied       = "copied"
@@ -194,26 +180,25 @@ const (
 	LicenceStatusHandSupplied = "hand-supplied"
 )
 
-// isHandSupplied reports whether dir holds a marker (source.md, or the
-// deprecated SOURCE.md) as a regular file, and which name it found. Directory
-// entries are compared byte for byte rather than probed with Lstat, which a
-// case-insensitive filesystem would answer for any spelling.
-func isHandSupplied(dir string) (bool, string, error) {
+// isHandSupplied reports whether dir holds the marker, source.md, as a
+// regular file. Directory entries are compared byte for byte rather than
+// probed with Lstat, which a case-insensitive filesystem (macOS) would answer
+// for any spelling, accepting a name the Linux runners that sync the packs
+// would not. The uppercase SOURCE.md the sink accepted first is not a marker.
+func isHandSupplied(dir string) (bool, error) {
 	entries, err := os.ReadDir(dir)
 	if os.IsNotExist(err) {
-		return false, "", nil
+		return false, nil
 	}
 	if err != nil {
-		return false, "", err
+		return false, err
 	}
-	for _, want := range handSuppliedMarkers {
-		for _, e := range entries {
-			if e.Name() == want && e.Type().IsRegular() {
-				return true, want, nil
-			}
+	for _, e := range entries {
+		if e.Name() == HandSuppliedMarker && e.Type().IsRegular() {
+			return true, nil
 		}
 	}
-	return false, "", nil
+	return false, nil
 }
 
 func (LicenceTexts) Name() string { return "LicenceTexts" }
@@ -238,13 +223,9 @@ func (s LicenceTexts) Execute(ctx *pipeline.Context) error {
 		return err
 	}
 
-	handSupplied, marker, err := isHandSupplied(target)
+	handSupplied, err := isHandSupplied(target)
 	if err != nil {
 		return fmt.Errorf("LicenceTexts %s: %w", s.Set, err)
-	}
-	if marker == LegacyHandSuppliedMarker {
-		ctx.Logger().Info("licence texts: "+LegacyHandSuppliedMarker+" is deprecated; rename it "+HandSuppliedMarker,
-			"set", s.Set, "target", target)
 	}
 	src, _ := ctx.String(pipeline.KeyFetchedSource)
 

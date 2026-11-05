@@ -85,7 +85,7 @@ turning it into `"16"`.
 | `licence_sha256` | Optional SHA-256 one upstream licence file must have. A sync whose licence text changed by a byte fails before the pack is touched. For a licence with no standard text (Font Awesome Free, Material Design Icons, Game Icons), or to pin one exactly |
 | `licence_set` | the directory under `resources/assets/svg/licenses/` the licence texts go to; default named after the npm package or GitHub repository |
 | `licence_from` | the upstream directory, relative to its root, the licence files are read from; default the root. Noto Emoji's SVGs carry their own `2D/svg/LICENSE` |
-| `licence_missing` | why the upstream ships no licence file, with the evidence. The sync runs and reports the gap; the pack supplies the text by hand beside a `source.md` (the deprecated `SOURCE.md` still works), which keeps the sink from removing it |
+| `licence_missing` | why the upstream ships no licence file, with the evidence. The sync runs and reports the gap; the pack supplies the text by hand beside a `source.md`, which keeps the sink from removing it |
 | `settings` | this pack's layer of the [settings](#settings) |
 | `version_file` | pack-repo-relative file recording the vendored version; default `resources/assets/svg/config.json` |
 | `version_keys` | dot-paths inside that file; default `upstream.current_version`, `package.upstream_version` |
