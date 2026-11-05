@@ -103,12 +103,25 @@ func TestLicenceTextsNeedsFindLicences(t *testing.T) {
 	}
 }
 
-// A licence directory holding a SOURCE.md is hand-maintained: the sink must
-// never delete or overwrite it, must report it as hand-supplied rather than
-// missing, and must stop warning about a licence_missing it satisfies. An
-// un-annotated directory keeps the old behaviour: replaced when upstream ships
-// texts, removed when it ships none.
+// A licence directory holding a source.md, or the deprecated SOURCE.md, is
+// hand-maintained: the sink must never delete or overwrite it, must report it
+// as hand-supplied rather than missing, and must stop warning about a
+// licence_missing it satisfies. An un-annotated directory keeps the old
+// behaviour: replaced when upstream ships texts, removed when it ships none.
+// Every case runs once per marker spelling.
 func TestLicenceTextsHandSupplied(t *testing.T) {
+	for _, marker := range []string{HandSuppliedMarker, LegacyHandSuppliedMarker} {
+		t.Run(marker, func(t *testing.T) { testLicenceTextsHandSupplied(t, marker) })
+	}
+}
+
+func TestHandSuppliedMarkerSpellings(t *testing.T) {
+	if HandSuppliedMarker != "source.md" || LegacyHandSuppliedMarker != "SOURCE.md" {
+		t.Fatalf("markers = %q, %q; want source.md and the deprecated SOURCE.md", HandSuppliedMarker, LegacyHandSuppliedMarker)
+	}
+}
+
+func testLicenceTextsHandSupplied(t *testing.T, marker string) {
 	ofl := []byte("Copyright (c) James Walsh\r\nSIL OPEN FONT LICENSE Version 1.1\n")
 	source := []byte("# Source\n\nHand-supplied: upstream ships no licence file.\n")
 	upstreamMIT := []byte("MIT License\n\nCopyright (c) upstream\n")
@@ -126,25 +139,25 @@ func TestLicenceTextsHandSupplied(t *testing.T) {
 	}{
 		{
 			name:     "hand-supplied folder survives a sync and stops the licence_missing warning",
-			existing: map[string][]byte{"OFL.txt": ofl, "SOURCE.md": source},
+			existing: map[string][]byte{"OFL.txt": ofl, marker: source},
 			missing:  "npm academicons ships none",
-			want:     map[string][]byte{"OFL.txt": ofl, "SOURCE.md": source},
+			want:     map[string][]byte{"OFL.txt": ofl, marker: source},
 			status:   LicenceStatusHandSupplied,
 		},
 		{
 			name:      "hand-supplied folder is kept when upstream starts shipping a licence, with a warning to reconcile",
 			upstream:  map[string][]byte{"LICENSE": upstreamMIT},
-			existing:  map[string][]byte{"LICENSE": []byte("hand MIT text"), "SOURCE.md": source},
+			existing:  map[string][]byte{"LICENSE": []byte("hand MIT text"), marker: source},
 			missing:   "npm zondicons ships none",
-			want:      map[string][]byte{"LICENSE": []byte("hand MIT text"), "SOURCE.md": source},
+			want:      map[string][]byte{"LICENSE": []byte("hand MIT text"), marker: source},
 			status:    LicenceStatusHandSupplied,
 			reconcile: true,
 			warn:      "upstream now ships licence files; the hand-supplied folder is kept",
 		},
 		{
 			name:     "hand-supplied folder without licence_missing still fails, and is kept",
-			existing: map[string][]byte{"OFL.txt": ofl, "SOURCE.md": source},
-			want:     map[string][]byte{"OFL.txt": ofl, "SOURCE.md": source},
+			existing: map[string][]byte{"OFL.txt": ofl, marker: source},
+			want:     map[string][]byte{"OFL.txt": ofl, marker: source},
 			wantErr:  "holds a hand-supplied text (it is kept), but set licence_missing",
 		},
 		{
@@ -162,9 +175,23 @@ func TestLicenceTextsHandSupplied(t *testing.T) {
 			status:   LicenceStatusCopied,
 		},
 		{
-			name:     "a SOURCE.md directory is not the marker",
+			name:     "a marker-named directory is not the marker",
 			upstream: map[string][]byte{"LICENSE": upstreamMIT},
-			existing: map[string][]byte{"SOURCE.md/x": []byte("x")},
+			existing: map[string][]byte{marker + "/x": []byte("x")},
+			want:     map[string][]byte{"LICENSE": upstreamMIT},
+			status:   LicenceStatusCopied,
+		},
+		{
+			name:     "a folder with neither marker is replaced by upstream's texts",
+			upstream: map[string][]byte{"LICENSE": upstreamMIT},
+			existing: map[string][]byte{"LICENSE": []byte("hand MIT text"), "README.md": source},
+			want:     map[string][]byte{"LICENSE": upstreamMIT},
+			status:   LicenceStatusCopied,
+		},
+		{
+			name:     "a mixed-case Source.md is not the marker, even on a case-insensitive filesystem",
+			upstream: map[string][]byte{"LICENSE": upstreamMIT},
+			existing: map[string][]byte{"LICENSE": []byte("hand MIT text"), "Source.md": source},
 			want:     map[string][]byte{"LICENSE": upstreamMIT},
 			status:   LicenceStatusCopied,
 		},
