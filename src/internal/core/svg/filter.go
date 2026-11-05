@@ -55,8 +55,60 @@ func (p *Policy) Sanitise(raw []byte, alsoStripClass bool) ([]byte, []string, er
 
 	var removed []string
 	filterElement(p, root, &removed, alsoStripClass)
+	dropUnusedNamespaceDeclarations(root)
 
 	return Serialise(root), removed, nil
+}
+
+// dropUnusedNamespaceDeclarations removes every xmlns:<prefix> declaration
+// whose namespace no element or attribute left in the tree uses.
+//
+// Run after the policy has filtered the tree, because that is what strands
+// them: OpenMoji's Cornwall flag declares xmlns:sodipodi for the
+// sodipodi:docname the policy strips, and js-icon-components' generator
+// refuses the declaration left behind. The default xmlns stays whatever it
+// says, and a prefix that anything still uses -- xlink on an href, a prefixed
+// element -- stays. It is tidying rather than a policy decision, so it is not
+// reported as removed.
+func dropUnusedNamespaceDeclarations(root *Node) {
+	used := map[string]bool{}
+	var collect func(n *Node)
+	collect = func(n *Node) {
+		if n.Kind != ElementNode {
+			return
+		}
+		if n.Space != "" {
+			used[n.Space] = true
+		}
+		for _, a := range n.Attrs {
+			if !a.IsNamespaceDecl && a.Space != "" {
+				used[a.Space] = true
+			}
+		}
+		for _, c := range n.Children {
+			collect(c)
+		}
+	}
+	collect(root)
+
+	var prune func(n *Node)
+	prune = func(n *Node) {
+		if n.Kind != ElementNode {
+			return
+		}
+		kept := n.Attrs[:0]
+		for _, a := range n.Attrs {
+			if a.IsNamespaceDecl && a.Prefix == "xmlns" && !used[a.Value] {
+				continue
+			}
+			kept = append(kept, a)
+		}
+		n.Attrs = kept
+		for _, c := range n.Children {
+			prune(c)
+		}
+	}
+	prune(root)
 }
 
 // filterElement removes disallowed children, then filters this element's own
