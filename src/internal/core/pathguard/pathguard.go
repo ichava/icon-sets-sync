@@ -53,7 +53,7 @@ func Join(root string, elem ...string) (string, error) {
 		}
 		for _, part := range strings.FieldsFunc(e, func(r rune) bool { return r == '/' || r == '\\' }) {
 			if part == ".." {
-				return "", fmt.Errorf("%w: %q climbs with ..", ErrEscape, e)
+				return "", fmt.Errorf("%w: %q has a .. component", ErrEscape, e)
 			}
 		}
 	}
