@@ -93,7 +93,7 @@ sync-all-force: build-local  ## Sync every pack for real (commits + PRs). Be car
 	$(RUN) sync-all --concurrency=$(CONCURRENCY)
 
 .PHONY: build-emoji
-build-emoji: build-local  ## Run the icon-sets-emoji recipe (Twemoji + OpenMoji + Unicode taxonomy)
+build-emoji: build-local  ## Run the icon-sets-emoji recipe (Twemoji, on the Unicode taxonomy)
 	$(RUN) recipe icon-sets-emoji
 
 .PHONY: validate

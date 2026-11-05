@@ -118,6 +118,18 @@ var good = []string{
 	"archives/checksums.txt", "archives/icon-sets-sync_linux_amd64.tar.gz",
 }
 
+// The Linux launcher files `make cross` writes are named exceptions, each with
+// its reason in launcherFiles; they pass where they belong.
+func TestTheLauncherFilesPass(t *testing.T) {
+	_, problems, err := Check(tree(t, append([]string{"linux/icon-sets-sync.desktop", "linux/icon-sets-sync.png"}, good...)...))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(problems) != 0 {
+		t.Fatalf("the launcher files failed: %v", problems)
+	}
+}
+
 func TestTheLayoutPasses(t *testing.T) {
 	n, problems, err := Check(tree(t, good...))
 	if err != nil {
@@ -135,15 +147,19 @@ func TestTheLayoutPasses(t *testing.T) {
 // Every shape the old layouts left behind, and the ones the rule names.
 func TestEveryOtherShapeFails(t *testing.T) {
 	cases := map[string]string{
-		"build/dist/ (the 2026-08 layout)":        "dist/icon-sets-sync_linux_amd64",
-		"a binary at the root of build/":          "icon-sets-sync",
-		"a folder inside an OS folder":            "macos/icon-sets-sync_darwin_all/icon-sets-sync",
-		"a folder inside archives/":               "archives/sboms/x.json",
-		"a darwin folder":                         "darwin/icon-sets-sync_macos_arm64",
-		"GoReleaser metadata at the root":         "artifacts.json",
-		"another tool's output under build/":      "kind-suggestions/icon-sets-tabler.json",
-		"an empty folder nobody named":            "tmp/",
-		"a binary-named per-target folder in OS/": "linux/icon-sets-sync_linux_s390x/",
+		"build/dist/ (the 2026-08 layout)":         "dist/icon-sets-sync_linux_amd64",
+		"a binary at the root of build/":           "icon-sets-sync",
+		"a folder inside an OS folder":             "macos/icon-sets-sync_darwin_all/icon-sets-sync",
+		"a folder inside archives/":                "archives/sboms/x.json",
+		"a darwin folder":                          "darwin/icon-sets-sync_macos_arm64",
+		"GoReleaser metadata at the root":          "artifacts.json",
+		"another tool's output under build/":       "kind-suggestions/icon-sets-tabler.json",
+		"an empty folder nobody named":             "tmp/",
+		"a binary-named per-target folder in OS/":  "linux/icon-sets-sync_linux_s390x/",
+		"a stray file in an OS folder":             "linux/notes.txt",
+		"another program's binary in an OS folder": "windows/other_windows_amd64.exe",
+		"a binary named for another OS":            "linux/icon-sets-sync_windows_amd64.exe",
+		"a launcher in the wrong OS folder":        "windows/icon-sets-sync.desktop",
 	}
 	for name, extra := range cases {
 		t.Run(name, func(t *testing.T) {

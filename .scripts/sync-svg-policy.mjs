@@ -11,7 +11,7 @@
  * `icon-browser` is not listed. Its own `resources/js/core/svg-policy.json`
  * went when it took the react-icon-browser UI, and its copy of the policy is
  * now compiled into the vendored react-icon-browser build
- * (`resources/vendor/react-icon-browser`, pinned by VENDORED.json). It follows
+ * (`resources/vendor/react-icon-browser`, pinned by vendored.json). It follows
  * core through react-icon-browser: sync that copy here, then re-vendor the
  * build into icon-browser. Listing the old path made the check report it
  * MISSING on every run, and made --write recreate a file nothing reads.
