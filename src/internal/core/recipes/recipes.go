@@ -119,19 +119,16 @@ func build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.P
 		pack.Pack, pack.Source.Type)
 }
 
-// Select names the recipe a pack runs, or "" when none applies. A
-// manifest-pack is only ever chosen by its config saying so.
+// Select names the recipe a pack runs, or "" when none applies. Every recipe
+// but generic is chosen only by the config's `recipe` field; `auto` (or no
+// field) picks generic for a source it can fetch, and never looks at the
+// pack's name.
 func Select(pack *config.PackConfig) string {
 	switch pack.Recipe {
 	case RecipeGeneric, RecipeEmojiSets, RecipeOpenMojiSets, RecipeManifestPack:
 		return pack.Recipe
 	}
-	switch {
-	case pack.Name == "icon-sets-emoji":
-		return RecipeEmojiSets
-	case pack.Name == "icon-sets-openmoji":
-		return RecipeOpenMojiSets
-	case fetchable(pack.Source.Type):
+	if fetchable(pack.Source.Type) {
 		return RecipeGeneric
 	}
 	return ""

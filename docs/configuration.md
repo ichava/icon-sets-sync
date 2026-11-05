@@ -347,12 +347,12 @@ flags.
 
 ## Recipes
 
-A recipe turns a pack config into pipelines. `auto` picks by pack name, then by source type:
+A recipe turns a pack config into pipelines. Every recipe but `generic` runs only when the config names it in `recipe`; `auto`, the default, picks `generic` for an npm or `github-*` source and nothing otherwise, and never looks at the pack's name:
 
 | Recipe | Picked for | Builds |
 |---|---|---|
-| `emoji-sets` | `icon-sets-emoji` | Twemoji (npm) + OpenMoji colour and black (GitHub archive), categorised by the Unicode taxonomy, then one commit |
-| `openmoji-sets` | `icon-sets-openmoji` | OpenMoji colour and black from one pinned `hfg-gmuend/openmoji` release tag (no `v` prefix), categorised by the Unicode taxonomy, then one commit. Runs the same pipelines as the OpenMoji sets inside `emoji-sets`, plus three protections they lack (below) |
+| `emoji-sets` | `"recipe": "emoji-sets"` (`icon-sets-emoji`) | Twemoji (npm) + OpenMoji colour and black (GitHub archive), categorised by the Unicode taxonomy, then one commit |
+| `openmoji-sets` | `"recipe": "openmoji-sets"` (`icon-sets-openmoji`) | OpenMoji colour and black from one pinned `hfg-gmuend/openmoji` release tag (no `v` prefix), categorised by the Unicode taxonomy, then one commit. Runs the same pipelines as the OpenMoji sets inside `emoji-sets`, plus three protections they lack (below) |
 | `manifest-pack` | `"recipe": "manifest-pack"` | one pipeline per set in the pack's `<slug>.sets.json` set manifest, each from its own upstream, then one commit |
 | `generic` | any `npm` or `github-*` source | the config's own source, transforms and sinks |
 

@@ -90,7 +90,7 @@ Most packs don't need a custom recipe -- the `generic` recipe builds
 the pipeline from the pack config's source, transforms and sinks. Packs
 that mix sources (icon-sets-emoji) or aggregate many upstreams get a
 dedicated recipe in `internal/core/recipes`,
-dispatched by pack name or by the config's `recipe` key.
+chosen by the config's `recipe` key.
 
 ### 3. Workflow template
 

@@ -83,7 +83,7 @@ func TestOpenMojiPackResolvesAndPinsItsLicence(t *testing.T) {
 // transforms and write to the same relative paths for the same release.
 func TestOpenMojiAndEmojiBuildTheSameOpenMojiSets(t *testing.T) {
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/x",
+		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/x", Recipe: RecipeEmojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
@@ -198,7 +198,7 @@ func TestExplicitUnicodeVersionBeatsTheDerivedOne(t *testing.T) {
 // deprecated emoji pack keeps the exact-match, drop-and-count behaviour.
 func TestOpenMojiPackNeverDropsAnIconButEmojiIsUnchanged(t *testing.T) {
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/x",
+		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/x", Recipe: RecipeEmojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
