@@ -198,7 +198,12 @@ func (t Categorise) Execute(ctx *pipeline.Context) error {
 	}
 
 	var copied, missing, uncategorised int
-	placed := map[string]string{} // target path -> stem, to catch slug collisions
+	// target path -> what holds it, to catch slug collisions
+	type placement struct {
+		stem  string
+		exact bool
+	}
+	placed := map[string]placement{}
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -207,6 +212,7 @@ func (t Categorise) Execute(ctx *pipeline.Context) error {
 		stem := strings.ToLower(strings.TrimSuffix(name, filepath.Ext(name)))
 
 		entry, found := index[stem]
+		exact := found
 		if !found && t.Preserve {
 			entry, found = loose[withoutFE0F(stem)]
 		}
@@ -235,13 +241,28 @@ func (t Categorise) Execute(ctx *pipeline.Context) error {
 			return err
 		}
 		if prev, clash := placed[target]; clash && t.Preserve {
-			// Two emoji with one slug ("keycap: #" and "keycap: *" are both
-			// "keycap"). A rename would overwrite the first without a word.
-			// The later one keeps the name, as it always has; the earlier is
-			// moved to the uncategorised bucket under its upstream name.
-			moved := filepath.Join(root, UncategorisedDir, prev+".svg")
+			// Two files for one slug, and a rename would overwrite the first
+			// without a word. Either two emoji share a slug ("keycap: #" and
+			// "keycap: *" are both "keycap"), or OpenMoji ships the emoji both
+			// with and without its FE0F (1F3F3-FE0F.svg and 1F3F3.svg are both
+			// "white flag"). An exact match beats an FE0F-less one, so the
+			// fully-qualified artwork keeps the name; between equals the later
+			// keeps it, as it always has. The loser goes to the uncategorised
+			// bucket under its upstream name.
+			loser := prev.stem
+			if prev.exact && !exact {
+				loser = stem
+			}
+			moved := filepath.Join(root, UncategorisedDir, loser+".svg")
 			if err := os.MkdirAll(filepath.Dir(moved), 0o755); err != nil {
 				return err
+			}
+			if loser == stem {
+				if err := os.Rename(filepath.Join(staging, name), moved); err != nil {
+					return err
+				}
+				uncategorised++
+				continue
 			}
 			if err := os.Rename(target, moved); err != nil {
 				return err
@@ -249,7 +270,7 @@ func (t Categorise) Execute(ctx *pipeline.Context) error {
 			copied--
 			uncategorised++
 		}
-		placed[target] = stem
+		placed[target] = placement{stem: stem, exact: exact}
 		if err := os.Rename(filepath.Join(staging, name), target); err != nil {
 			return err
 		}
