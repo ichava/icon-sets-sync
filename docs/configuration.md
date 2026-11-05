@@ -283,8 +283,8 @@ it keeps those keys intact and can suggest where one may be wrong.
 | `metadata.data.items.<item path>.kind` | one item |
 
 An item path is the file's path under `files/` with `.svg` removed, for example
-`illustrations/office`. A key at the top level of the file (`items`, `kinds`, `categories`) is read as a
-fallback when the `metadata.data` one is absent or empty. Precedence, first hit wins: item, rule,
+`illustrations/office`. Only `metadata.data` is read: a key at the top level of the file (`items`,
+`kinds`, `categories`) is ignored, as it is by ichava/core. Precedence, first hit wins: item, rule,
 category, pack, then `icon`. A pack with none of these keys reads as all `icon`.
 
 **Globs** match the whole item path, case-sensitively. `*` is any run of characters except `/`, `?` is

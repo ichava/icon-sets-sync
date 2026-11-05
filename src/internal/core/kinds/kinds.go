@@ -267,19 +267,16 @@ func slug(s string) string {
 	return b.String()
 }
 
-// section is PackConfigData::section(): metadata.data.<key> when it is a
-// non-empty object, else the top-level <key> when that is an object, else
-// nothing.
+// section is PackConfigData::section(): metadata.data.<key> when it is an
+// object, else nothing. A top-level <key> is not read, as in core since
+// core#169.
 func section(doc map[string]any, key string) map[string]any {
 	if md, ok := doc["metadata"].(map[string]any); ok {
 		if data, ok := md["data"].(map[string]any); ok {
-			if documented, ok := data[key].(map[string]any); ok && len(documented) > 0 {
+			if documented, ok := data[key].(map[string]any); ok {
 				return documented
 			}
 		}
-	}
-	if legacy, ok := doc[key].(map[string]any); ok {
-		return legacy
 	}
 	return nil
 }
