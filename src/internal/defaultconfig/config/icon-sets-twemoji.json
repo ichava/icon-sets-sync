@@ -1,10 +1,10 @@
 {
   "_version_note": "current_version tracks @twemoji/svg on npm, whose latest is 15.0.0. It read 17.0.0, which has never been published -- `npm pack` failed with an empty message and the pack shipped zero SVGs (V4). It is NOT the Unicode emoji version (16.0) nor the OpenMoji release (17.0.0); all three move independently and version_check_url above is the authority for this one.",
-  "_note": "icon-sets-emoji runs the emoji-sets recipe, named in `recipe` (src/internal/core/recipes), which syncs Twemoji (npm) categorised by the Unicode emoji taxonomy; OpenMoji is icon-sets-openmoji's. The git-branch sink below is where that recipe commits; its Unicode version is the emoji.unicode_version setting.",
-  "name": "icon-sets-emoji",
-  "pack": "ichava/icon-sets-emoji",
-  "pack_root": "/work/icon-sets-emoji",
-  "recipe": "emoji-sets",
+  "_note": "icon-sets-twemoji runs the twemoji-sets recipe, named in `recipe` (src/internal/core/recipes), which syncs Twemoji (npm) categorised by the Unicode emoji taxonomy; OpenMoji is icon-sets-openmoji's. The git-branch sink below is where that recipe commits; its Unicode version is the emoji.unicode_version setting.",
+  "name": "icon-sets-twemoji",
+  "pack": "ichava/icon-sets-twemoji",
+  "pack_root": "/work/icon-sets-twemoji",
+  "recipe": "twemoji-sets",
   "current_version": "15.0.0",
   "version_check_url": "https://registry.npmjs.org/@twemoji/svg/latest",
   "source": {

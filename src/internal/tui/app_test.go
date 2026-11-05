@@ -107,10 +107,10 @@ func TestMenuActions(t *testing.T) {
 
 func TestConfirmViewNamesThePackAndTheDefault(t *testing.T) {
 	m := New(t.TempDir())
-	m.selected = &config.PackConfig{Name: "icon-sets-emoji"}
+	m.selected = &config.PackConfig{Name: "icon-sets-twemoji"}
 	m.screen = screenConfirm
 	view := m.View()
-	if !strings.Contains(view, "icon-sets-emoji") || !strings.Contains(view, "[y/N]") {
+	if !strings.Contains(view, "icon-sets-twemoji") || !strings.Contains(view, "[y/N]") {
 		t.Fatalf("view = %q", view)
 	}
 }

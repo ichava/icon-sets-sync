@@ -158,7 +158,7 @@ type Categorise struct {
 	By string
 
 	// Preserve opts into never dropping an icon. Off by default, which is the
-	// behaviour emoji-sets (Twemoji) relies on: exact match only, and an icon
+	// behaviour twemoji-sets (Twemoji) relies on: exact match only, and an icon
 	// with no taxonomy entry is dropped and counted missing.
 	//
 	// On, two things change. A file whose name differs from a taxonomy entry

@@ -8,12 +8,12 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 )
 
-// TestEmojiSetsBuildsTwemojiOnly: icon-sets-emoji ships Twemoji only since
+// TestTwemojiSetsBuildsTwemojiOnly: icon-sets-twemoji ships Twemoji only since
 // its OpenMoji copies were removed (OpenMoji lives in icon-sets-openmoji). A
 // sync that still built the two OpenMoji pipelines would put both sets back.
-func TestEmojiSetsBuildsTwemojiOnly(t *testing.T) {
+func TestTwemojiSetsBuildsTwemojiOnly(t *testing.T) {
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji", Recipe: RecipeEmojiSets,
+		Name: "icon-sets-twemoji", Pack: "ichava/icon-sets-twemoji", PackRoot: "/work/icon-sets-twemoji", Recipe: RecipeTwemojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
@@ -22,15 +22,15 @@ func TestEmojiSetsBuildsTwemojiOnly(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := []string{"emoji-sets:twemoji@15.0.0"}
+		want := []string{"twemoji-sets:twemoji@15.0.0"}
 		if !dry {
-			want = append(want, "emoji-sets:commit")
+			want = append(want, "twemoji-sets:commit")
 		}
 		var got []string
 		for _, p := range built {
 			got = append(got, p.Name())
 			if strings.Contains(strings.ToLower(p.Name()), "openmoji") {
-				t.Errorf("dry=%v: emoji-sets built %s", dry, p.Name())
+				t.Errorf("dry=%v: twemoji-sets built %s", dry, p.Name())
 			}
 		}
 		if strings.Join(got, ",") != strings.Join(want, ",") {

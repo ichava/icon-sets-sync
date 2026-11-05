@@ -27,7 +27,7 @@ import (
 //
 // Unknown keys are kept rather than rejected, and that is load-bearing: the
 // checker reads `version_field` out of them for `type: "url"`, and both shipped
-// url-typed packs (icon-sets-bundled, icon-sets-emoji) rely on it. Python
+// url-typed packs (icon-sets-bundled, icon-sets-twemoji) rely on it. Python
 // expressed this as `extra="allow"`.
 type SourceConfig struct {
 	Type       string   `json:"type"`

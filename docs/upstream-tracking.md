@@ -60,7 +60,7 @@ ichava::ichava-core.check-updates` wraps the service for humans + CI.
         "update_command": {
             "_note": "Dispatched by ichava/icon-sets-sync. `recipe` names a recipe in src/internal/core/recipes. Use `type: npm` (no recipe) for the common case where the pack just mirrors one npm package.",
             "type": "recipe",
-            "recipe": "icon-sets-emoji"
+            "recipe": "icon-sets-twemoji"
         }
     }
 }
@@ -99,7 +99,7 @@ When the checker finds a stale pack, it dispatches:
 
 ```php
 Simtabi\Laranail\Ichava\Events\IconPackUpdateAvailable
-    ->packageName    string   "ichava/icon-sets-emoji"
+    ->packageName    string   "ichava/icon-sets-twemoji"
     ->currentVersion ?string  "17.0.0"
     ->latestVersion  string   "17.1.0"
     ->releaseUrl     ?string  "https://github.com/.../releases/tag/v17.1.0"
@@ -133,7 +133,7 @@ public function handle(IconPackUpdateAvailable $event): void
 php artisan ichava::ichava-core.check-updates
 
 # Restrict to one
-php artisan ichava::ichava-core.check-updates --package=ichava/icon-sets-emoji
+php artisan ichava::ichava-core.check-updates --package=ichava/icon-sets-twemoji
 
 # Machine-readable for CI / cron
 php artisan ichava::ichava-core.check-updates --format=json --fail-on-stale
@@ -159,7 +159,7 @@ can read the pack's `cdn` block at runtime and serve from a CDN. A
 typical helper:
 
 ```php
-$cdn = config('ichava.icon-sets-emoji')['set']['cdn']['twemoji_jsdelivr'] ?? null;
+$cdn = config('ichava.icon-sets-twemoji')['set']['cdn']['twemoji_jsdelivr'] ?? null;
 $url = $cdn
     ? str_replace(['{version}', '{codepoint}'], [$version, $codepoint], $cdn)
     : null;

@@ -220,7 +220,7 @@ func TestResultSummaryDropsBytePayloads(t *testing.T) {
 
 func TestSlugify(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
-		{"emoji-sets:twemoji@17.0.0", "emoji-sets-twemoji-17-0-0"},
+		{"twemoji-sets:twemoji@17.0.0", "twemoji-sets-twemoji-17-0-0"},
 		{"icon-sets-flag@7.5.0", "icon-sets-flag-7-5-0"},
 		{"  ", "pipeline"},
 		{"!!!", "pipeline"},

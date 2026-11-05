@@ -54,7 +54,7 @@ func TestOracleIsIntact(t *testing.T) {
 	// The oracle is committed to a public repository, so it may only sample
 	// the public packs. Records from a private pack were dropped on
 	// 2026-10-26, leaving 1,238 of the 1,274 recorded.
-	public := map[string]int{"icon-sets-emoji": 0, "icon-sets-flag": 0, "icon-sets-tabler": 0}
+	public := map[string]int{"icon-sets-flag": 0, "icon-sets-openmoji": 0, "icon-sets-tabler": 0, "icon-sets-twemoji": 0}
 	for i, r := range doc.Records {
 		if len(r.SHA256) != 64 || (r.Error == "" && len(r.InventorySHA256) != 64) {
 			t.Fatalf("record %d (%s) is malformed", i, r.Path)

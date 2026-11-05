@@ -61,7 +61,7 @@ src/
         ├── svg/          the shared SVG policy and the parser that applies it
         ├── kinds/        a pack's icon/illustration kind keys, the glob, and the suggestion heuristic
         ├── sinks/        Filesystem, LicenceTexts, VersionStamp, GitBranch, Discard
-        ├── recipes/      config -> pipelines: generic, emoji-sets, manifest-pack
+        ├── recipes/      config -> pipelines: generic, twemoji-sets, manifest-pack
         └── manifestpack/ the aggregator pack's set manifest and audit
 ```
 
@@ -102,7 +102,7 @@ pipeline in every recipe now runs `FindLicences` straight after its source, whic
 | Recipe | Destination |
 |---|---|
 | `generic` | `resources/assets/svg/licenses/<upstream>`, the npm package with its scope folded in (`tabler-icons`, `flag-icons`) or the GitHub repository |
-| `emoji-sets` | `resources/assets/svg/licenses/twemoji` |
+| `twemoji-sets` | `resources/assets/svg/licenses/twemoji` |
 | `openmoji-sets` | `resources/assets/svg/licenses/openmoji`, one directory for both sets |
 | `manifest-pack` | `resources/assets/svg/licenses/<set>`, pairing with `files/<set>` |
 
@@ -163,7 +163,7 @@ or delete its `source.md` (and the set's `licence_missing`), so the next sync co
 ## Recipes
 
 A recipe assembles the pipelines for one pack. `generic` builds them from the config alone, which
-covers the common case and is what icon-sets-tabler and icon-sets-flag run. `emoji-sets` is three
+covers the common case and is what icon-sets-tabler and icon-sets-flag run. `twemoji-sets` is three
 upstreams feeding three filesystem sinks, then one trailing pipeline that only stamps and commits.
 `manifest-pack` is one pipeline per set in the manifest, each from its own upstream, so each set keeps its
 own SVG dialect, and a set absent from the manifest is never touched.

@@ -83,12 +83,12 @@ func TestDryRunDropsTheCommittingSinks(t *testing.T) {
 }
 
 // TestTheRecipeFieldBeatsTheSourceType is the trap the Python comment names.
-// icon-sets-emoji declares source.type "url" because that is how its version
+// icon-sets-twemoji declares source.type "url" because that is how its version
 // is discovered; its assets come from npm through a recipe only the config's
 // `recipe` field names. Checking the type first sends it to "no recipe wired".
 func TestTheRecipeFieldBeatsTheSourceType(t *testing.T) {
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji", Recipe: RecipeEmojiSets,
+		Name: "icon-sets-twemoji", Pack: "ichava/icon-sets-twemoji", PackRoot: "/work/icon-sets-twemoji", Recipe: RecipeTwemojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
@@ -104,11 +104,11 @@ func TestTheRecipeFieldBeatsTheSourceType(t *testing.T) {
 
 // TestEmojiCommitPipelineCarriesAVersion is the bug this port fixes. Python's
 // commit pipeline used a source that set nothing, so VersionStamp found no
-// fetched_version and silently skipped -- icon-sets-emoji was never stamped
+// fetched_version and silently skipped -- icon-sets-twemoji was never stamped
 // and its sync could not converge.
 func TestEmojiCommitPipelineCarriesAVersion(t *testing.T) {
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji", Recipe: RecipeEmojiSets,
+		Name: "icon-sets-twemoji", Pack: "ichava/icon-sets-twemoji", PackRoot: "/work/icon-sets-twemoji", Recipe: RecipeTwemojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
@@ -116,7 +116,7 @@ func TestEmojiCommitPipelineCarriesAVersion(t *testing.T) {
 	built, _ := buildFor(emoji, "15.0.0", false)
 	commit := built[len(built)-1]
 
-	if commit.Name() != "emoji-sets:commit" {
+	if commit.Name() != "twemoji-sets:commit" {
 		t.Fatalf("last pipeline is %q", commit.Name())
 	}
 	names := stageNames(commit)
@@ -130,7 +130,7 @@ func TestEmojiCommitPipelineCarriesAVersion(t *testing.T) {
 
 func TestEmojiDryRunHasNoCommitPipeline(t *testing.T) {
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji", Recipe: RecipeEmojiSets,
+		Name: "icon-sets-twemoji", Pack: "ichava/icon-sets-twemoji", PackRoot: "/work/icon-sets-twemoji", Recipe: RecipeTwemojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}

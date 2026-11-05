@@ -157,7 +157,7 @@ func TestExplicitUnicodeVersionBeatsTheDerivedOne(t *testing.T) {
 // the emoji pack (Twemoji) keeps the exact-match, drop-and-count behaviour.
 func TestOpenMojiPackNeverDropsAnIconButEmojiIsUnchanged(t *testing.T) {
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/x", Recipe: RecipeEmojiSets,
+		Name: "icon-sets-twemoji", Pack: "ichava/icon-sets-twemoji", PackRoot: "/work/x", Recipe: RecipeTwemojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}

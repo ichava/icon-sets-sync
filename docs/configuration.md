@@ -6,7 +6,7 @@ settings that resolve across five layers.
 ## The registry
 
 ```json
-{ "packs": ["icon-sets-tabler", "icon-sets-flag", "icon-sets-emoji", "icon-sets-openmoji"] }
+{ "packs": ["icon-sets-tabler", "icon-sets-flag", "icon-sets-twemoji", "icon-sets-openmoji"] }
 ```
 
 `config/packs.json` (or `packs.yaml`). Each slug maps to `config/<slug>.json`, `.yaml` or `.yml`.
@@ -80,7 +80,7 @@ turning it into `"16"`.
 | `source` | where the assets come from; see [Sources](#sources) |
 | `sinks` | where they land, in order; see [Sinks](#sinks) |
 | `transforms` | what happens in between; see [Transforms](#transforms) |
-| `recipe` | `auto` (default), `generic`, `emoji-sets`, `openmoji-sets` or `manifest-pack`; see [Recipes](#recipes) |
+| `recipe` | `auto` (default), `generic`, `twemoji-sets`, `openmoji-sets` or `manifest-pack`; see [Recipes](#recipes) |
 | `licence` | Optional SPDX id the upstream must keep: `Apache-2.0`, `CC-BY-3.0`, `CC-BY-4.0`, `CC-BY-SA-4.0`, `CC0-1.0`, `ISC` or `MIT`. A sync whose upstream licence text no longer opens with that licence's lines fails before the pack is touched; see [Upstream licence texts](architecture.md#upstream-licence-texts-travel-with-the-icons) |
 | `licence_sha256` | Optional SHA-256 one upstream licence file must have. A sync whose licence text changed by a byte fails before the pack is touched. For a licence with no standard text (Font Awesome Free, Material Design Icons, Game Icons), or to pin one exactly |
 | `licence_set` | the directory under `resources/assets/svg/licenses/` the licence texts go to; default named after the npm package or GitHub repository |
@@ -351,7 +351,7 @@ A recipe turns a pack config into pipelines. Every recipe but `generic` runs onl
 
 | Recipe | Picked for | Builds |
 |---|---|---|
-| `emoji-sets` | `"recipe": "emoji-sets"` (`icon-sets-emoji`) | Twemoji (npm), categorised by the Unicode taxonomy, then one commit. OpenMoji is not part of this pack |
+| `twemoji-sets` | `"recipe": "twemoji-sets"` (`icon-sets-twemoji`) | Twemoji (npm), categorised by the Unicode taxonomy, then one commit. OpenMoji is not part of this pack |
 | `openmoji-sets` | `"recipe": "openmoji-sets"` (`icon-sets-openmoji`) | OpenMoji colour and black from one pinned `hfg-gmuend/openmoji` release tag (no `v` prefix), categorised by the Unicode taxonomy, then one commit. With three protections against losing an icon (below) |
 | `manifest-pack` | `"recipe": "manifest-pack"` | one pipeline per set in the pack's `<slug>.sets.json` set manifest, each from its own upstream, then one commit |
 | `generic` | any `npm` or `github-*` source | the config's own source, transforms and sinks |
@@ -360,7 +360,7 @@ A recipe turns a pack config into pipelines. Every recipe but `generic` runs onl
 
 In both recipes, two emoji whose names slug alike each keep a file. The first in `emoji-test.txt` order keeps the base slug and a later one takes a name read from its own, with punctuation spelled out by name and anything else as `u` plus its hex code point: `keycap: #` is `keycap.svg` and `keycap: *` is `keycap-asterisk.svg`. `codepoints.json` and `names.json` use the same slugs.
 
-`emoji-sets` files a Twemoji icon only when its filename matches a `emoji-test.txt` entry exactly, and drops the rest (its log line says `missing=N`). `openmoji-sets` opts out of that:
+`twemoji-sets` files a Twemoji icon only when its filename matches a `emoji-test.txt` entry exactly, and drops the rest (its log line says `missing=N`). `openmoji-sets` opts out of that:
 
 - **Selector-insensitive match.** OpenMoji names about 200 emoji without the emoji-presentation selector (`2600.svg`, the sun; `emoji-test.txt` has `2600 FE0F`). They match their taxonomy entry anyway.
 - **An explicit bucket.** An icon still unmatched, such as an OpenMoji extra (`e380.svg`), an emoji newer than the taxonomy, or a component glyph, is kept as `uncategorised/<upstream-name>.svg`, with a warning and an `uncategorised` count. One emoji shipped twice (with and without its FE0F) keeps the fully-qualified file under the name and puts the other in the bucket.
@@ -428,7 +428,7 @@ emoji:
 
 ```json
 {
-  "name": "icon-sets-emoji",
+  "name": "icon-sets-twemoji",
   "settings": { "emoji": { "unicode_version": "16.0" }, "git": { "base": "main" } }
 }
 ```

@@ -86,7 +86,7 @@ func TestFindLicencesReadsTheRootOnly(t *testing.T) {
 // TestFindLicencesSurvivesARebuiltTree: Categorise wipes the fetched root and
 // refills it with SVGs only. Where that root is the whole upstream (Twemoji's
 // npm package), the LICENSE went with it and LicenceTexts failed every real
-// emoji-sets sync. The recorded files must outlive the tree, byte for byte and
+// twemoji-sets sync. The recorded files must outlive the tree, byte for byte and
 // under their upstream names.
 func TestFindLicencesSurvivesARebuiltTree(t *testing.T) {
 	root := t.TempDir()

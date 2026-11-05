@@ -112,7 +112,7 @@ const LicenceSnapshotDir = "licence-files"
 // transform may rebuild the fetched tree: Categorise wipes its root and
 // refills it with SVGs only, and where the root is the whole upstream (the
 // Twemoji npm package) that deleted the LICENSE before LicenceTexts read it,
-// failing every real emoji-sets sync. The copies cannot be touched by any
+// failing every real twemoji-sets sync. The copies cannot be touched by any
 // stage that rewrites the tree. With no working directory (a caller running
 // the stage outside a pipeline) the originals are recorded as before.
 func snapshotLicences(workingDir string, found []string) ([]string, error) {

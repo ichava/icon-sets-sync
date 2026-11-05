@@ -21,7 +21,7 @@ func TestValidateConfigsTheShippedConfigs(t *testing.T) {
 	for _, f := range findings {
 		text += f.Text + "\n"
 	}
-	for _, slug := range []string{"icon-sets-tabler", "icon-sets-flag", "icon-sets-emoji"} {
+	for _, slug := range []string{"icon-sets-tabler", "icon-sets-flag", "icon-sets-twemoji"} {
 		if !strings.Contains(text, slug) {
 			t.Errorf("no finding names %s:\n%s", slug, text)
 		}

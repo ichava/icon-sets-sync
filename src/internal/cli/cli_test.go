@@ -379,7 +379,7 @@ func TestConfigValidateTheShippedConfigs(t *testing.T) {
 	}
 	// Assert the size of what was inspected: a registry that matched nothing
 	// would otherwise validate cleanly.
-	for _, slug := range []string{"icon-sets-tabler", "icon-sets-flag", "icon-sets-emoji"} {
+	for _, slug := range []string{"icon-sets-tabler", "icon-sets-flag", "icon-sets-twemoji"} {
 		if !strings.Contains(out, slug) {
 			t.Errorf("validate did not report %s:\n%s", slug, out)
 		}

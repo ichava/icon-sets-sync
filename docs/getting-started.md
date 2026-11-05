@@ -75,7 +75,7 @@ which keeps a CI log in registry order.
 ## See the effective settings
 
 ```bash
-icon-sets-sync config print --pack=icon-sets-emoji --origins
+icon-sets-sync config print --pack=icon-sets-twemoji --origins
 ```
 
 The merged settings for that pack and the layer each value came from. See

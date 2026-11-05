@@ -342,7 +342,7 @@ func (c Compound) Execute(ctx *pipeline.Context) error {
 // than a rename. Each pipeline gets its own context, so nothing the emoji
 // recipe's three asset pipelines set reaches its trailing commit pipeline.
 // With a source that set nothing, VersionStamp found no fetched_version,
-// logged "skipping" and did nothing -- so icon-sets-emoji was never stamped at
+// logged "skipping" and did nothing -- so icon-sets-twemoji was never stamped at
 // all, and its sync could not converge. That is precisely the V49 failure the
 // vendored-version design exists to prevent, still live in the one recipe that
 // composes several pipelines.

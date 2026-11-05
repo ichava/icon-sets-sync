@@ -23,12 +23,12 @@ import (
 
 // Recipe names a pack config's `recipe` field may carry.
 const (
-	RecipeAuto      = "auto"
-	RecipeGeneric   = "generic"
-	RecipeEmojiSets = "emoji-sets"
+	RecipeAuto        = "auto"
+	RecipeGeneric     = "generic"
+	RecipeTwemojiSets = "twemoji-sets"
 
 	// RecipeOpenMojiSets syncs the two OpenMoji sets (colour, black) into
-	// ichava/icon-sets-openmoji, the only pack that ships OpenMoji. emoji-sets
+	// ichava/icon-sets-openmoji, the only pack that ships OpenMoji. twemoji-sets
 	// is Twemoji only.
 	RecipeOpenMojiSets = "openmoji-sets"
 
@@ -75,7 +75,7 @@ func (o Options) resolved() settings.Resolved {
 //
 // Dispatch is on the pack's `recipe` field when it names one, else on the pack
 // NAME first and the source type second -- reversing those breaks
-// icon-sets-emoji, which declares source.type "url" because that is how its
+// icon-sets-twemoji, which declares source.type "url" because that is how its
 // *version* is discovered while its assets come from three separate upstreams
 // that only the named recipe knows about.
 func Build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.Pipeline, error) {
@@ -96,8 +96,8 @@ func Build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.P
 
 func build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.Pipeline, error) {
 	switch Select(pack) {
-	case RecipeEmojiSets:
-		return buildEmojiSets(pack, version, opts)
+	case RecipeTwemojiSets:
+		return buildTwemojiSets(pack, version, opts)
 
 	case RecipeOpenMojiSets:
 		return buildOpenMojiSets(pack, version, opts)
@@ -126,7 +126,7 @@ func build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.P
 // pack's name.
 func Select(pack *config.PackConfig) string {
 	switch pack.Recipe {
-	case RecipeGeneric, RecipeEmojiSets, RecipeOpenMojiSets, RecipeManifestPack:
+	case RecipeGeneric, RecipeTwemojiSets, RecipeOpenMojiSets, RecipeManifestPack:
 		return pack.Recipe
 	}
 	if fetchable(pack.Source.Type) {
@@ -204,7 +204,7 @@ func firstSink(pack *config.PackConfig, typ string) *config.SinkConfig {
 	return nil
 }
 
-// buildEmojiSets composes the emoji pack: Twemoji from npm, categorised
+// buildTwemojiSets composes the emoji pack: Twemoji from npm, categorised
 // against the Unicode taxonomy, then a commit-only pipeline that stamps the
 // version and commits. The pack is Twemoji only; OpenMoji is
 // ichava/icon-sets-openmoji's, built by openmoji-sets.
@@ -213,9 +213,9 @@ func firstSink(pack *config.PackConfig, typ string) *config.SinkConfig {
 // release that exists. It once defaulted ahead of what Unicode had published,
 // so every taxonomy fetch 404'd and the pack shipped a tagged release
 // containing zero SVGs.
-func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options) ([]*pipeline.Pipeline, error) {
+func buildTwemojiSets(pack *config.PackConfig, twemojiVersion string, opts Options) ([]*pipeline.Pipeline, error) {
 	if twemojiVersion == "" {
-		return nil, fmt.Errorf("emoji-sets: a twemoji version is required")
+		return nil, fmt.Errorf("twemoji-sets: a twemoji version is required")
 	}
 	r := opts.resolved()
 	unicodeVersion := r.String("emoji.unicode_version")
@@ -225,7 +225,7 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 	cfg := packConfig(pack)
 	cldr := sources.UnicodeCldr{UnicodeVersion: unicodeVersion}
 
-	twemoji := pipeline.Named(fmt.Sprintf("emoji-sets:twemoji@%s", twemojiVersion)).
+	twemoji := pipeline.Named(fmt.Sprintf("twemoji-sets:twemoji@%s", twemojiVersion)).
 		Config(cfg).
 		Source(sources.Compound{
 			First:  cldr,
@@ -244,7 +244,7 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 
 	if !opts.DryRun {
 		pipelines = append(pipelines,
-			pipeline.Named("emoji-sets:commit").
+			pipeline.Named("twemoji-sets:commit").
 				Config(cfg).
 				// Carries the twemoji version forward. Each pipeline has its
 				// own context, so without this the stamp finds no version and
@@ -258,13 +258,13 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 }
 
 // openmojiPipeline is how an OpenMoji set is fetched, narrowed, cleaned,
-// categorised and written. openmoji-sets is its only caller since emoji-sets
-// became Twemoji only. licence is the SPDX id to guard the licence text with;
+// categorised and written. openmoji-sets is its only caller since the Twemoji
+// recipe (twemoji-sets) became Twemoji only. licence is the SPDX id to guard the licence text with;
 // empty means unguarded. guards carries the opt-in protections against losing
-// an icon, which openmoji-sets turns on. The pipeline keeps its historical
-// "emoji-sets:" name prefix, which run logs and metrics already carry.
+// an icon, which openmoji-sets turns on. The pipeline is named for its
+// recipe, "openmoji-sets:", as twemoji-sets' pipelines are for theirs.
 func openmojiPipeline(cfg map[string]any, cldr sources.UnicodeCldr, version, name, subdir, filesRoot, licenceRoot, licenceSet, licence string, guards openmojiGuards) *pipeline.Pipeline {
-	return pipeline.Named(fmt.Sprintf("emoji-sets:%s@%s", name, version)).
+	return pipeline.Named(fmt.Sprintf("openmoji-sets:%s@%s", name, version)).
 		Config(cfg).
 		Source(sources.Compound{
 			First: cldr,

@@ -51,8 +51,8 @@
     },
     "recipe": {
       "type": "string",
-      "enum": ["auto", "generic", "emoji-sets", "openmoji-sets", "manifest-pack"],
-      "description": "Which recipe builds the pipelines. `auto` (the default) picks `generic` for an npm or github-* source and nothing otherwise; it never looks at the pack's name. `emoji-sets`, `openmoji-sets` and `manifest-pack` are only ever chosen by naming them here. `manifest-pack` refreshes one pipeline per set in the pack's set manifest."
+      "enum": ["auto", "generic", "twemoji-sets", "openmoji-sets", "manifest-pack"],
+      "description": "Which recipe builds the pipelines. `auto` (the default) picks `generic` for an npm or github-* source and nothing otherwise; it never looks at the pack's name. `twemoji-sets`, `openmoji-sets` and `manifest-pack` are only ever chosen by naming them here. `manifest-pack` refreshes one pipeline per set in the pack's set manifest."
     },
     "licence": {
       "type": "string",

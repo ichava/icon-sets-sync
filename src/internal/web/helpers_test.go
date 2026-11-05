@@ -88,7 +88,7 @@ func newFakeEngine() *fakeEngine {
 			Source: config.SourceConfig{Type: "npm", Package: "@tabler/icons"}},
 		{Name: "icon-sets-flag", Pack: "ichava/icon-sets-flag", CurrentVersion: "7.2.3",
 			Source: config.SourceConfig{Type: "npm", Package: "flag-icons"}},
-		{Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", CurrentVersion: "16.0.1", Recipe: "emoji-sets",
+		{Name: "icon-sets-twemoji", Pack: "ichava/icon-sets-twemoji", CurrentVersion: "16.0.1", Recipe: "twemoji-sets",
 			Source: config.SourceConfig{Type: "url"}},
 	}}
 }
@@ -132,7 +132,7 @@ func (f *fakeEngine) PackStats(_ context.Context, p *config.PackConfig) PackStat
 	case "icon-sets-flag":
 		return PackStats{SVGs: 542, Branch: "chore/sync-upstream-7.2.3", Dirty: true}
 	}
-	return PackStats{Err: "open /work/icon-sets-emoji: no such file or directory"}
+	return PackStats{Err: "open /work/icon-sets-twemoji: no such file or directory"}
 }
 
 func (f *fakeEngine) Settings() SettingsView {

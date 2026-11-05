@@ -8,7 +8,7 @@ SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
 # Pack identifier for single-pack targets. Override:
-#   make sync PACK=icon-sets-emoji
+#   make sync PACK=icon-sets-twemoji
 PACK ?=
 
 # Packs synced at once by sync-all.
@@ -76,12 +76,12 @@ check: build-local  ## Check upstream status for every configured pack (no write
 
 .PHONY: check-pack
 check-pack: build-local  ## Check upstream status for one pack: PACK=<name>
-	@if [ -z "$(PACK)" ]; then echo "PACK= is required (e.g. make check-pack PACK=icon-sets-emoji)"; exit 2; fi
+	@if [ -z "$(PACK)" ]; then echo "PACK= is required (e.g. make check-pack PACK=icon-sets-twemoji)"; exit 2; fi
 	$(RUN) check --pack=$(PACK)
 
 .PHONY: sync
 sync: build-local  ## Sync upstream for one pack (refresh + commit + PR): PACK=<name>
-	@if [ -z "$(PACK)" ]; then echo "PACK= is required (e.g. make sync PACK=icon-sets-emoji)"; exit 2; fi
+	@if [ -z "$(PACK)" ]; then echo "PACK= is required (e.g. make sync PACK=icon-sets-twemoji)"; exit 2; fi
 	$(RUN) sync --pack=$(PACK)
 
 .PHONY: sync-all
@@ -92,9 +92,9 @@ sync-all: build-local  ## Dry-run every pack: fetch and report the diff, write n
 sync-all-force: build-local  ## Sync every pack for real (commits + PRs). Be careful.
 	$(RUN) sync-all --concurrency=$(CONCURRENCY)
 
-.PHONY: build-emoji
-build-emoji: build-local  ## Run the icon-sets-emoji recipe (Twemoji, on the Unicode taxonomy)
-	$(RUN) recipe icon-sets-emoji
+.PHONY: build-twemoji
+build-twemoji: build-local  ## Run the icon-sets-twemoji recipe (Twemoji, on the Unicode taxonomy)
+	$(RUN) recipe icon-sets-twemoji
 
 .PHONY: validate
 validate: build-local  ## Validate every pack config against config/schema/pack.schema.json

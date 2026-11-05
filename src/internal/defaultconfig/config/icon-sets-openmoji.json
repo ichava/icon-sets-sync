@@ -1,5 +1,5 @@
 {
-  "_note": "icon-sets-openmoji runs the openmoji-sets recipe, named in `recipe` (src/internal/core/recipes), which fetches one pinned OpenMoji release tag from hfg-gmuend/openmoji and writes the colour and black sets. It shares its pipelines with the deprecated openmoji sets inside icon-sets-emoji, so the two stay byte-identical. OpenMoji tags have no `v` prefix. `licence` is guarded: a sync whose upstream LICENSE.txt no longer opens as CC-BY-SA 4.0 fails before touching the pack.",
+  "_note": "icon-sets-openmoji runs the openmoji-sets recipe, named in `recipe` (src/internal/core/recipes), which fetches one pinned OpenMoji release tag from hfg-gmuend/openmoji and writes the colour and black sets. It shares its pipelines with the deprecated openmoji sets inside icon-sets-twemoji, so the two stay byte-identical. OpenMoji tags have no `v` prefix. `licence` is guarded: a sync whose upstream LICENSE.txt no longer opens as CC-BY-SA 4.0 fails before touching the pack.",
   "name": "icon-sets-openmoji",
   "pack": "ichava/icon-sets-openmoji",
   "pack_root": "/work/icon-sets-openmoji",
