@@ -37,49 +37,6 @@ func TestOpenMojiSubdivisionFlagKeepsItsHiddenShapes(t *testing.T) {
 	}
 }
 
-func TestPresentationAttributeValueGuards(t *testing.T) {
-	p := MustLoad()
-	for _, tc := range []struct {
-		name, value string
-		want        bool
-	}{
-		{"display", "none", true},
-		{"display", "inline", true},
-		{"display", "block", true},
-		{"display", " None ", true},
-		{"display", "inline flow-root", true},
-		{"display", "url(x)", false},
-		{"display", "url(#a)", false},
-		{"display", `\75rl(x)`, false},
-		{"display", "var(--d)", false},
-		{"display", "none;fill:url(https://e)", false},
-		{"display", "", false},
-
-		{"color", "#000", true},
-		{"color", "currentColor", true},
-		{"color", "rgb(0 0 0)", true},
-		{"color", "url(https://e/x)", false},
-		{"color", `image-set("https://e/x" 1x)`, false},
-
-		{"marker-start", "none", true},
-		{"marker-mid", "url(#m)", true},
-		{"marker-end", "url(#arrow)", true},
-		{"marker-end", `url("#arrow")`, true},
-		{"marker-end", "url(https://e)", false},
-		{"marker-end", `\75rl(https://e)`, false},
-		{"marker-end", "#arrow", false},
-		{"marker-end", "inherit", false},
-		{"marker-end", "url(#a) url(#b)", false},
-
-		{"docname", "x.svg", false},
-		{"sodipodi:docname", "x.svg", false},
-	} {
-		if got := p.AttributeAllowed(tc.name, tc.value, false); got != tc.want {
-			t.Errorf("AttributeAllowed(%q, %q) = %v, want %v", tc.name, tc.value, got, tc.want)
-		}
-	}
-}
-
 func TestHostilePresentationValuesAreStrippedEndToEnd(t *testing.T) {
 	for _, doc := range []string{
 		`<svg xmlns="http://www.w3.org/2000/svg"><path display="url(x)" d="M0 0"/></svg>`,

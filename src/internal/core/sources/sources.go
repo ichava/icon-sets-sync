@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pathguard"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 )
 
@@ -91,7 +92,11 @@ func (s NpmTarball) Execute(ctx *pipeline.Context) error {
 	}
 
 	target := filepath.Join(workDir, "extracted")
-	if err := ExtractTarGz(filepath.Join(workDir, tarball), target); err != nil {
+	archive, err := pathguard.Join(workDir, tarball)
+	if err != nil {
+		return fmt.Errorf("npm pack printed %q: %w", tarball, err)
+	}
+	if err := ExtractTarGz(archive, target); err != nil {
 		return err
 	}
 
@@ -357,24 +362,9 @@ func (s Static) Execute(ctx *pipeline.Context) error {
 
 // --- archive extraction ---
 
-// safeJoin resolves an archive member against its destination and refuses any
-// path that escapes it.
-//
-// A tar or zip entry named ../../etc/passwd is the Zip Slip traversal. Python
-// got this from tarfile's filter="data"; Go's archive packages do nothing, so
-// it has to be explicit.
-func safeJoin(dest, name string) (string, error) {
-	cleaned := filepath.Join(dest, filepath.Clean("/"+name))
-	if !strings.HasPrefix(cleaned, filepath.Clean(dest)+string(os.PathSeparator)) &&
-		cleaned != filepath.Clean(dest) {
-		return "", fmt.Errorf("archive entry %q escapes the destination", name)
-	}
-	return cleaned, nil
-}
-
 // ExtractLimits bounds what one archive may expand to (S6).
 //
-// Zip-slip is stopped by safeJoin; a decompression bomb is a different attack
+// Zip-slip is stopped by pathguard.Join; a decompression bomb is a different attack
 // and it is the size of the output that matters, not of the archive: gzip and
 // deflate both reach about 1000:1, so a few hundred KiB can ask for hundreds of
 // GiB. The inputs are pinned upstreams, so this needs a compromised one.
@@ -466,7 +456,7 @@ func extractTarGz(archive, dest string, limits ExtractLimits) error {
 		if err := budget.entry(hdr.Name); err != nil {
 			return err
 		}
-		path, err := safeJoin(dest, hdr.Name)
+		path, err := pathguard.Join(dest, hdr.Name)
 		if err != nil {
 			return err
 		}
@@ -504,7 +494,7 @@ func extractZip(archive, dest string, limits ExtractLimits) error {
 		if err := budget.entry(f.Name); err != nil {
 			return err
 		}
-		path, err := safeJoin(dest, f.Name)
+		path, err := pathguard.Join(dest, f.Name)
 		if err != nil {
 			return err
 		}

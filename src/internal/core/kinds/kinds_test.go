@@ -166,37 +166,38 @@ func TestV01ManifestWithNoKindKeys(t *testing.T) {
 	}
 }
 
-func TestLegacyTopLevelKeysAreReadAsAFallback(t *testing.T) {
+// Top-level items, kinds and categories are not read: PackConfigData::section()
+// in ichava/core reads metadata.data.<key> only since core#169, and this
+// reader must resolve a pack exactly as core does.
+func TestTopLevelKeysAreIgnored(t *testing.T) {
 	cfg := mustParse(t, `{
 	  "items": {"a/b": {"kind": "illustration"}},
 	  "kinds": {"rules": [{"match": "r/**", "kind": "illustration"}]},
 	  "categories": {"c": {"kind": "illustration"}}
 	}`)
-	for path, want := range map[string]Source{"a/b": SourceItem, "r/x": SourceRule, "c/x": SourceCategory} {
-		if got := cfg.Resolve(path); got.Kind != Illustration || got.Source != want {
-			t.Errorf("Resolve(%q) = %+v, want illustration from %s", path, got, want)
+	for _, path := range []string{"a/b", "r/x", "c/x"} {
+		if got := cfg.Resolve(path); got.Source != SourceDefault {
+			t.Errorf("Resolve(%q) = %+v, want the default: top-level keys are not read", path, got)
 		}
+	}
+
+	// An empty documented section does not fall through to the top level.
+	cfg = mustParse(t, `{"items": {"a/b": {"kind": "illustration"}}, "metadata": {"data": {"items": {}}}}`)
+	if got := cfg.Resolve("a/b"); got.Source != SourceDefault {
+		t.Errorf("an empty documented section fell back to the top level: %+v", got)
 	}
 }
 
-// The documented shape wins whenever it holds a non-empty section, exactly as
-// PackConfigData::section() does; the top level is only a fallback.
-func TestDocumentedShapeBeatsLegacyWhenNonEmpty(t *testing.T) {
-	cfg := mustParse(t, `{
-	  "items": {"a/b": {"kind": "illustration"}},
-	  "metadata": {"data": {"items": {"c/d": {"kind": "illustration"}}}}
-	}`)
-	if got := cfg.Resolve("a/b"); got.Source != SourceDefault {
-		t.Errorf("legacy item read although the documented section is non-empty: %+v", got)
-	}
-	if got := cfg.Resolve("c/d"); got.Source != SourceItem {
-		t.Errorf("documented item ignored: %+v", got)
-	}
-
-	// An empty documented section falls through to the legacy one.
-	cfg = mustParse(t, `{"items": {"a/b": {"kind": "illustration"}}, "metadata": {"data": {"items": {}}}}`)
-	if got := cfg.Resolve("a/b"); got.Source != SourceItem {
-		t.Errorf("empty documented section did not fall back: %+v", got)
+func TestDocumentedShapeIsRead(t *testing.T) {
+	cfg := mustParse(t, `{"metadata": {"data": {
+	  "items": {"c/d": {"kind": "illustration"}},
+	  "kinds": {"rules": [{"match": "r/**", "kind": "illustration"}]},
+	  "categories": {"k": {"kind": "illustration"}}
+	}}}`)
+	for path, want := range map[string]Source{"c/d": SourceItem, "r/x": SourceRule, "k/x": SourceCategory} {
+		if got := cfg.Resolve(path); got.Kind != Illustration || got.Source != want {
+			t.Errorf("Resolve(%q) = %+v, want illustration from %s", path, got, want)
+		}
 	}
 }
 

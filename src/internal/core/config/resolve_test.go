@@ -28,7 +28,10 @@ func repoLayout(t *testing.T) string {
 	return root
 }
 
-func TestResolveConfigDir(t *testing.T) {
+// TestResolveConfigSourceLayers covers the flag, env and cwd layers. A miss
+// on all of them falls through to the executable and embedded layers, which
+// source_test.go covers; here it must only not claim the cwd.
+func TestResolveConfigSourceLayers(t *testing.T) {
 	root := repoLayout(t)
 	empty := t.TempDir()
 	noEnv := func(string) string { return "" }
@@ -51,23 +54,29 @@ func TestResolveConfigDir(t *testing.T) {
 	}{
 		{"explicit flag wins over env and layout", "/flag/dir", envOf("ICHAVA_CONFIG_DIR", "/env/dir"), root, "/flag/dir"},
 		{"env wins over the layout", "", envOf("ICHAVA_CONFIG_DIR", "/env/dir"), root, "/env/dir"},
-		{"older env name still honoured", "", envOf("ICHAVA_DEV_CONFIG_DIR", "/old/dir"), root, "/old/dir"},
+		{"the removed ICHAVA_DEV_CONFIG_DIR is not read", "", envOf("ICHAVA_DEV_CONFIG_DIR", "/old/dir"), root, "config"},
 		{"cwd is the repo root", "", noEnv, root, "config"},
 		{"cwd is src/", "", noEnv, filepath.Join(root, "src"), filepath.Join(root, "config")},
 		{"cwd is src/cmd (two levels)", "", noEnv, nested, filepath.Join(root, "config")},
-		{"not found keeps the relative default", "", noEnv, empty, "config"},
+		{"not found is not the cwd", "", noEnv, empty, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := ResolveConfigDir(tc.explicit, tc.getenv, tc.cwd, "")
+			got, src := ResolveConfigSource(tc.explicit, tc.getenv, tc.cwd, "")
+			if tc.want == "" {
+				if src == SourceCwd || src == SourceEnv || src == SourceFlag {
+					t.Errorf("ResolveConfigSource = %q from %s, want no flag, env or cwd answer", got, src)
+				}
+				return
+			}
 			if got != tc.want {
-				t.Errorf("ResolveConfigDir = %q, want %q", got, tc.want)
+				t.Errorf("ResolveConfigSource = %q (%s), want %q", got, src, tc.want)
 			}
 		})
 	}
 }
 
-func TestResolveConfigDirStopsAtGitAndDepth(t *testing.T) {
+func TestResolveConfigSourceStopsAtGitAndDepth(t *testing.T) {
 	// A config/packs.json above a .git boundary must not be found.
 	outer := t.TempDir()
 	for _, d := range []string{"config", "src", "inner/.git", "inner/sub"} {
@@ -77,8 +86,7 @@ func TestResolveConfigDirStopsAtGitAndDepth(t *testing.T) {
 	}
 	must(t, os.WriteFile(filepath.Join(outer, "config", "packs.json"), []byte(`{}`), 0o644))
 	must(t, os.WriteFile(filepath.Join(outer, "src", "go.mod"), []byte("module x\n"), 0o644))
-	got := ResolveConfigDir("", func(string) string { return "" }, filepath.Join(outer, "inner", "sub"), "")
-	if got != "config" {
+	if got, src := ResolveConfigSource("", func(string) string { return "" }, filepath.Join(outer, "inner", "sub"), ""); src == SourceCwd {
 		t.Errorf("walked past .git: got %q", got)
 	}
 
@@ -88,7 +96,7 @@ func TestResolveConfigDirStopsAtGitAndDepth(t *testing.T) {
 	if err := os.MkdirAll(deep, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if got := ResolveConfigDir("", func(string) string { return "" }, deep, ""); got != "config" {
+	if got, src := ResolveConfigSource("", func(string) string { return "" }, deep, ""); src == SourceCwd {
 		t.Errorf("walked more than 5 levels: got %q", got)
 	}
 }

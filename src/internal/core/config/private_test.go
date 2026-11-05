@@ -101,17 +101,23 @@ func TestAMissingPrivateConfigDirIsAnError(t *testing.T) {
 func TestResolveFilePrefersThePrivateCopy(t *testing.T) {
 	defer SetPrivateConfigDir("")()
 	public := filepath.Join(publicConfigDir, "icon-sets-example.sets.json")
-	if got := ResolveFile(publicConfigDir, "icon-sets-example.sets.json"); got != public {
-		t.Errorf("no private dir: %s, want %s", got, public)
+	if got, err := ResolveFile(publicConfigDir, "icon-sets-example.sets.json"); err != nil || got != public {
+		t.Errorf("no private dir: %s, %v, want %s", got, err, public)
 	}
 	SetPrivateConfigDir(privateFixture)
-	// A name that could leave the directory is never looked up in it.
-	escaping := filepath.Join("..", "private-config", "icon-sets-example.sets.json")
-	if got := ResolveFile(filepath.Join(privateFixture, "nested"), escaping); strings.HasPrefix(got, privateFixture+string(filepath.Separator)+"icon-sets") {
-		t.Errorf("an escaping name resolved into the private dir: %s", got)
+	// A name that could leave the directory is refused, in the overlay and in
+	// the public directory alike.
+	for _, escaping := range []string{
+		filepath.Join("..", "private-config", "icon-sets-example.sets.json"),
+		"../icon-sets-example.sets.json",
+		"..",
+	} {
+		if got, err := ResolveFile(filepath.Join(privateFixture, "nested"), escaping); err == nil {
+			t.Errorf("an escaping name %q resolved to %s", escaping, got)
+		}
 	}
 	want := filepath.Join(privateFixture, "icon-sets-example.sets.json")
-	if got := ResolveFile(publicConfigDir, "icon-sets-example.sets.json"); got != want {
-		t.Errorf("private dir: %s, want %s", got, want)
+	if got, err := ResolveFile(publicConfigDir, "icon-sets-example.sets.json"); err != nil || got != want {
+		t.Errorf("private dir: %s, %v, want %s", got, err, want)
 	}
 }

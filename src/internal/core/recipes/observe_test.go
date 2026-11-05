@@ -2,6 +2,7 @@ package recipes
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"strings"
 	"testing"
@@ -38,7 +39,7 @@ func TestBuildWiresTheLoggerAndObserver(t *testing.T) {
 	if len(built) == 0 {
 		t.Fatal("no pipelines built")
 	}
-	result, err := built[0].Run()
+	result, err := built[0].RunContext(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

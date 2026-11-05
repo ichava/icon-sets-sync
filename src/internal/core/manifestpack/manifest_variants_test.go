@@ -12,7 +12,7 @@ func saveAndLoad(t *testing.T, sets map[string]SetSource) (*Manifest, error) {
 	t.Helper()
 	dir := t.TempDir()
 	m := &Manifest{Pack: "ichava/icon-sets-bundled", Sets: sets}
-	if err := m.Save(ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	return LoadManifest(dir, "icon-sets-bundled")
@@ -84,7 +84,7 @@ func TestManifestRefusesAVariantWithNoPath(t *testing.T) {
 func TestManifestRejectsAnUnknownKey(t *testing.T) {
 	dir := t.TempDir()
 	body := `{"pack":"ichava/icon-sets-bundled","sets":{"x":{"package":"x","variant":[]}}}`
-	if err := os.WriteFile(ManifestPath(dir, "icon-sets-bundled"), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(mustManifestPath(t, dir, "icon-sets-bundled"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := LoadManifest(dir, "icon-sets-bundled"); err == nil {

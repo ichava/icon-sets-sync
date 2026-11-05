@@ -20,12 +20,12 @@ func dryRunPacks(t *testing.T, packRoot string) (map[string]*config.PackConfig, 
 	generic.PackRoot = packRoot
 
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: packRoot,
+		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: packRoot, Recipe: RecipeEmojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
 	openmoji := &config.PackConfig{
-		Name: "icon-sets-openmoji", Pack: "ichava/icon-sets-openmoji", PackRoot: packRoot,
+		Name: "icon-sets-openmoji", Pack: "ichava/icon-sets-openmoji", PackRoot: packRoot, Recipe: RecipeOpenMojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"}, Licence: "CC-BY-SA-4.0",
 	}
@@ -34,7 +34,7 @@ func dryRunPacks(t *testing.T, packRoot string) (map[string]*config.PackConfig, 
 	m := &manifestpack.Manifest{Pack: "ichava/icon-sets-bundled", Sets: map[string]manifestpack.SetSource{
 		"demo": {Package: "demo", Path: "package"},
 	}}
-	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	bundled := &config.PackConfig{

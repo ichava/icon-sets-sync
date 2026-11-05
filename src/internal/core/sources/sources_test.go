@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,36 +13,43 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 )
 
-// TestSafeJoinRefusesTraversal is the Zip Slip guard.
+// TestExtractionRefusesTraversingNames is the Zip Slip guard.
 //
 // Python got this free from tarfile's filter="data"; Go's archive packages do
 // nothing about it, so an upstream tarball with an entry named
 // ../../../etc/something would otherwise be written wherever it pointed. The
 // toolkit runs against archives fetched from the internet, on a runner that
-// has the pack checkouts beside it, so it matters.
-func TestSafeJoinRefusesTraversal(t *testing.T) {
-	dest := "/tmp/extract"
-
+// has the pack checkouts beside it, so it matters. The rule itself is
+// pathguard.Join's; this holds both extractors to it.
+func TestExtractionRefusesTraversingNames(t *testing.T) {
 	for _, name := range []string{
 		"../escape.svg",
 		"../../etc/passwd",
 		"a/../../escape.svg",
 		"/absolute/escape.svg",
 	} {
-		got, err := safeJoin(dest, name)
-		// An absolute or traversing name must either be refused, or be clamped
-		// back inside the destination -- never resolve outside it.
-		if err == nil && !strings.HasPrefix(got, dest) {
-			t.Errorf("safeJoin(%q) = %q, which escapes %q", name, got, dest)
+		dir := t.TempDir()
+		dest := filepath.Join(dir, "out", "in")
+		tgz := filepath.Join(dir, "a.tgz")
+		writeTarGz(t, tgz, map[string]string{name: "<svg/>"})
+		if err := ExtractTarGz(tgz, dest); err == nil {
+			t.Errorf("ExtractTarGz accepted %q", name)
+		}
+		zp := filepath.Join(dir, "a.zip")
+		writeZip(t, zp, map[string]string{name: "<svg/>"})
+		if err := ExtractZip(zp, dest); err == nil {
+			t.Errorf("ExtractZip accepted %q", name)
 		}
 	}
 
-	ok, err := safeJoin(dest, "icons/home.svg")
-	if err != nil {
+	dir := t.TempDir()
+	tgz := filepath.Join(dir, "ok.tgz")
+	writeTarGz(t, tgz, map[string]string{"icons/home.svg": "<svg/>"})
+	if err := ExtractTarGz(tgz, filepath.Join(dir, "out")); err != nil {
 		t.Fatalf("an ordinary entry was refused: %v", err)
 	}
-	if ok != filepath.Join(dest, "icons/home.svg") {
-		t.Errorf("safeJoin = %q", ok)
+	if _, err := os.Stat(filepath.Join(dir, "out", "icons", "home.svg")); err != nil {
+		t.Errorf("an ordinary entry was not written: %v", err)
 	}
 }
 
@@ -319,7 +327,7 @@ func TestNpmTarballPassesIgnoreScripts(t *testing.T) {
 	_, _ = pipeline.Named("demo").
 		Source(NpmTarball{Package: "@tabler/icons", Version: "3.46.0"}).
 		Sink(nopSink{}).
-		Run()
+		RunContext(context.Background())
 
 	got, err := os.ReadFile(argsFile)
 	if err != nil {
@@ -341,6 +349,39 @@ func TestUnicodeCldrURLFollowsUnicodesLayout(t *testing.T) {
 	} {
 		if got := (UnicodeCldr{UnicodeVersion: tc.version}).URL(); got != tc.want {
 			t.Errorf("URL(%s) = %s, want %s", tc.version, got, tc.want)
+		}
+	}
+}
+
+// TestExtractionRefusesASymlinkEscape: a directory inside the destination that
+// is a symlink to somewhere else must not carry an entry out with it. The name
+// has no `..`, so only resolving the link catches it.
+func TestExtractionRefusesASymlinkEscape(t *testing.T) {
+	dir := t.TempDir()
+	outside := filepath.Join(dir, "outside")
+	dest := filepath.Join(dir, "out")
+	for _, d := range []string{outside, dest} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(outside, filepath.Join(dest, "link")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	tgz := filepath.Join(dir, "evil.tgz")
+	writeTarGz(t, tgz, map[string]string{"link/pwned.svg": "<svg/>"})
+	if err := ExtractTarGz(tgz, dest); err == nil {
+		t.Error("ExtractTarGz accepted an entry through a symlink out of the destination")
+	}
+	zp := filepath.Join(dir, "evil.zip")
+	writeZip(t, zp, map[string]string{"link/pwned2.svg": "<svg/>"})
+	if err := ExtractZip(zp, dest); err == nil {
+		t.Error("ExtractZip accepted an entry through a symlink out of the destination")
+	}
+	for _, name := range []string{"pwned.svg", "pwned2.svg"} {
+		if _, err := os.Stat(filepath.Join(outside, name)); err == nil {
+			t.Errorf("%s was written outside the destination", name)
 		}
 	}
 }

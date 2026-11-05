@@ -103,21 +103,18 @@ func TestLicenceTextsNeedsFindLicences(t *testing.T) {
 	}
 }
 
-// A licence directory holding a source.md, or the deprecated SOURCE.md, is
-// hand-maintained: the sink must never delete or overwrite it, must report it
-// as hand-supplied rather than missing, and must stop warning about a
-// licence_missing it satisfies. An un-annotated directory keeps the old
-// behaviour: replaced when upstream ships texts, removed when it ships none.
-// Every case runs once per marker spelling.
+// A licence directory holding a source.md is hand-maintained: the sink must
+// never delete or overwrite it, must report it as hand-supplied rather than
+// missing, and must stop warning about a licence_missing it satisfies. An
+// un-annotated directory keeps the old behaviour: replaced when upstream ships
+// texts, removed when it ships none.
 func TestLicenceTextsHandSupplied(t *testing.T) {
-	for _, marker := range []string{HandSuppliedMarker, LegacyHandSuppliedMarker} {
-		t.Run(marker, func(t *testing.T) { testLicenceTextsHandSupplied(t, marker) })
-	}
+	testLicenceTextsHandSupplied(t, HandSuppliedMarker)
 }
 
-func TestHandSuppliedMarkerSpellings(t *testing.T) {
-	if HandSuppliedMarker != "source.md" || LegacyHandSuppliedMarker != "SOURCE.md" {
-		t.Fatalf("markers = %q, %q; want source.md and the deprecated SOURCE.md", HandSuppliedMarker, LegacyHandSuppliedMarker)
+func TestHandSuppliedMarkerSpelling(t *testing.T) {
+	if HandSuppliedMarker != "source.md" {
+		t.Fatalf("marker = %q; want source.md", HandSuppliedMarker)
 	}
 }
 
@@ -185,6 +182,13 @@ func testLicenceTextsHandSupplied(t *testing.T, marker string) {
 			name:     "a folder with neither marker is replaced by upstream's texts",
 			upstream: map[string][]byte{"LICENSE": upstreamMIT},
 			existing: map[string][]byte{"LICENSE": []byte("hand MIT text"), "README.md": source},
+			want:     map[string][]byte{"LICENSE": upstreamMIT},
+			status:   LicenceStatusCopied,
+		},
+		{
+			name:     "the uppercase SOURCE.md the sink accepted first is no longer the marker",
+			upstream: map[string][]byte{"LICENSE": upstreamMIT},
+			existing: map[string][]byte{"LICENSE": []byte("hand MIT text"), "SOURCE.md": source},
 			want:     map[string][]byte{"LICENSE": upstreamMIT},
 			status:   LicenceStatusCopied,
 		},

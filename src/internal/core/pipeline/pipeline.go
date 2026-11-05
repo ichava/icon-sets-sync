@@ -381,11 +381,6 @@ func (p *Pipeline) setBuildErr(err error) {
 	}
 }
 
-// Run executes the stages in order with no cancellation. It is
-// RunContext(context.Background()), kept for every caller that has no context
-// to give.
-func (p *Pipeline) Run() (Result, error) { return p.RunContext(context.Background()) }
-
 // RunContext executes the stages in order and returns the result.
 //
 // A stage failure stops the run -- the remaining stages do not execute, which

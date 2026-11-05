@@ -82,13 +82,13 @@ func TestDryRunDropsTheCommittingSinks(t *testing.T) {
 	}
 }
 
-// TestDispatchIsByNameBeforeSourceType is the trap the Python comment names.
+// TestTheRecipeFieldBeatsTheSourceType is the trap the Python comment names.
 // icon-sets-emoji declares source.type "url" because that is how its version
-// is discovered; its assets come from three upstreams only the named recipe
-// knows about. Checking the type first sends it to "no recipe wired".
-func TestDispatchIsByNameBeforeSourceType(t *testing.T) {
+// is discovered; its assets come from npm through a recipe only the config's
+// `recipe` field names. Checking the type first sends it to "no recipe wired".
+func TestTheRecipeFieldBeatsTheSourceType(t *testing.T) {
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji",
+		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji", Recipe: RecipeEmojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
@@ -97,8 +97,8 @@ func TestDispatchIsByNameBeforeSourceType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a url-typed emoji pack must still reach its recipe: %v", err)
 	}
-	if len(built) != 4 {
-		t.Fatalf("got %d pipelines, want 4 (twemoji, two openmoji, commit)", len(built))
+	if len(built) != 2 {
+		t.Fatalf("got %d pipelines, want 2 (twemoji, commit)", len(built))
 	}
 }
 
@@ -108,7 +108,7 @@ func TestDispatchIsByNameBeforeSourceType(t *testing.T) {
 // and its sync could not converge.
 func TestEmojiCommitPipelineCarriesAVersion(t *testing.T) {
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji",
+		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji", Recipe: RecipeEmojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
@@ -130,13 +130,13 @@ func TestEmojiCommitPipelineCarriesAVersion(t *testing.T) {
 
 func TestEmojiDryRunHasNoCommitPipeline(t *testing.T) {
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji",
+		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji", Recipe: RecipeEmojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
 	built, _ := buildFor(emoji, "15.0.0", true)
-	if len(built) != 3 {
-		t.Fatalf("got %d pipelines, want 3 asset pipelines and no commit", len(built))
+	if len(built) != 1 {
+		t.Fatalf("got %d pipelines, want the twemoji pipeline and no commit", len(built))
 	}
 }
 
@@ -175,7 +175,7 @@ func TestManifestPackBuildsOnePipelinePerSet(t *testing.T) {
 			"feather-icons":   {Package: "feather-icons", Path: "package/dist/icons", Version: "4.29.2"},
 		},
 	}
-	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -225,7 +225,7 @@ func TestManifestPackDoesNotEnforceThePolicy(t *testing.T) {
 	m := &manifestpack.Manifest{Sets: map[string]manifestpack.SetSource{
 		"x": {Package: "x", Path: "package"},
 	}}
-	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
@@ -257,7 +257,7 @@ func TestManifestPackRefusesAManifestForAnotherPack(t *testing.T) {
 	m := &manifestpack.Manifest{Pack: "ichava/icon-sets-tabler", Sets: map[string]manifestpack.SetSource{
 		"x": {Package: "x", Path: "package"},
 	}}
-	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
@@ -338,7 +338,7 @@ func TestManifestPackRetentionFloorMatchesTheAuditFloor(t *testing.T) {
 	m := &manifestpack.Manifest{Sets: map[string]manifestpack.SetSource{
 		"x": {Package: "x", Path: "package"},
 	}}
-	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{
@@ -382,7 +382,7 @@ func TestManifestPackFlattensAVariantSet(t *testing.T) {
 			{Path: "16/solid", Prefix: "c-"},
 		}},
 	}}
-	if err := m.Save(manifestpack.ManifestPath(dir, "icon-sets-bundled")); err != nil {
+	if err := m.Save(mustManifestPath(t, dir, "icon-sets-bundled")); err != nil {
 		t.Fatal(err)
 	}
 	pack := &config.PackConfig{

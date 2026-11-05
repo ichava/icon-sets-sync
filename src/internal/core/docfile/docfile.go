@@ -17,6 +17,8 @@ import (
 	"strings"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/ichava/icon-sets-sync/src/internal/core/pathguard"
 )
 
 // Extensions are tried in this order. JSON first, because every shipped config
@@ -35,10 +37,17 @@ func IsYAML(path string) bool {
 // tabler.yaml means someone converted the file and forgot to delete the
 // original, and silently picking one runs a config nobody is editing.
 // Returns os.ErrNotExist (wrapped) when none exists.
+//
+// base names a file in dir and nothing else: one that would leave dir (a `..`,
+// an absolute path, a link out) is refused with pathguard.ErrEscape, because
+// a pack slug from the web UI reaches here.
 func Find(dir, base string) (string, error) {
 	var found []string
 	for _, ext := range Extensions {
-		candidate := filepath.Join(dir, base+ext)
+		candidate, err := pathguard.Join(dir, base+ext)
+		if err != nil {
+			return "", err
+		}
 		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
 			found = append(found, candidate)
 		}

@@ -212,9 +212,10 @@ func TestFromEnv(t *testing.T) {
 	}{
 		{"current name", map[string]string{"ICHAVA_DRY_RUN": "1"}, "dry_run", true, ""},
 		{"nested key", map[string]string{"ICHAVA_GIT_BASE": "trunk"}, "git.base", "trunk", ""},
-		{"legacy name still works", map[string]string{"ICHAVA_DEV_CONFIG_DIR": "/app/config"}, "config_dir", "/app/config", ""},
-		{"current beats legacy", map[string]string{"ICHAVA_CONFIG_DIR": "/new", "ICHAVA_DEV_CONFIG_DIR": "/old"}, "config_dir", "/new", ""},
-		{"legacy log level in Python's casing", map[string]string{"ICHAVA_DEV_LOG_LEVEL": "INFO"}, "log_level", "info", ""},
+		{"the removed ICHAVA_DEV_CONFIG_DIR is not read", map[string]string{"ICHAVA_DEV_CONFIG_DIR": "/app/config"}, "config_dir", nil, ""},
+		{"the removed ICHAVA_DEV_LOG_LEVEL is not read", map[string]string{"ICHAVA_DEV_LOG_LEVEL": "debug"}, "log_level", nil, ""},
+		{"log level in Python's casing", map[string]string{"ICHAVA_LOG_LEVEL": "INFO"}, "log_level", "info", ""},
+		{"core's warning spelling", map[string]string{"ICHAVA_LOG_LEVEL": "warning"}, "log_level", "warn", ""},
 		{"empty is unset", map[string]string{"ICHAVA_FORCE": ""}, "force", nil, ""},
 		{"bad value names the variable", map[string]string{"ICHAVA_CONCURRENCY": "x"}, "", nil, "ICHAVA_CONCURRENCY"},
 	}

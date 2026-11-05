@@ -27,8 +27,8 @@ const (
 	RecipeEmojiSets = "emoji-sets"
 
 	// RecipeOpenMojiSets syncs the two OpenMoji sets (colour, black) into
-	// ichava/icon-sets-openmoji, from the same upstream and with the same
-	// pipelines emoji-sets runs for its deprecated copies.
+	// ichava/icon-sets-openmoji, the only pack that ships OpenMoji. emoji-sets
+	// is Twemoji only.
 	RecipeOpenMojiSets = "openmoji-sets"
 
 	// RecipeManifestPack refreshes a pack set by set, each set from the
@@ -119,19 +119,16 @@ func build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.P
 		pack.Pack, pack.Source.Type)
 }
 
-// Select names the recipe a pack runs, or "" when none applies. A
-// manifest-pack is only ever chosen by its config saying so.
+// Select names the recipe a pack runs, or "" when none applies. Every recipe
+// but generic is chosen only by the config's `recipe` field; `auto` (or no
+// field) picks generic for a source it can fetch, and never looks at the
+// pack's name.
 func Select(pack *config.PackConfig) string {
 	switch pack.Recipe {
 	case RecipeGeneric, RecipeEmojiSets, RecipeOpenMojiSets, RecipeManifestPack:
 		return pack.Recipe
 	}
-	switch {
-	case pack.Name == "icon-sets-emoji":
-		return RecipeEmojiSets
-	case pack.Name == "icon-sets-openmoji":
-		return RecipeOpenMojiSets
-	case fetchable(pack.Source.Type):
+	if fetchable(pack.Source.Type) {
 		return RecipeGeneric
 	}
 	return ""
@@ -206,24 +203,21 @@ func firstSink(pack *config.PackConfig, typ string) *config.SinkConfig {
 	return nil
 }
 
-// buildEmojiSets composes the three-upstream emoji pack.
+// buildEmojiSets composes the emoji pack: Twemoji from npm, categorised
+// against the Unicode taxonomy, then a commit-only pipeline that stamps the
+// version and commits. The pack is Twemoji only; OpenMoji is
+// ichava/icon-sets-openmoji's, built by openmoji-sets.
 //
-// Twemoji from npm, OpenMoji colour and black from one GitHub archive each,
-// all categorised against the same Unicode taxonomy, then a fourth
-// commit-only pipeline so the three asset runs land in a single commit rather
-// than three.
-//
-// The Unicode and OpenMoji versions are settings (emoji.unicode_version,
-// emoji.openmoji_version), defaulting to releases that exist. unicode_version
-// once defaulted ahead of what Unicode had published, so every taxonomy fetch
-// 404'd and the pack shipped a tagged release containing zero SVGs.
+// The Unicode version is a setting (emoji.unicode_version), defaulting to a
+// release that exists. It once defaulted ahead of what Unicode had published,
+// so every taxonomy fetch 404'd and the pack shipped a tagged release
+// containing zero SVGs.
 func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options) ([]*pipeline.Pipeline, error) {
 	if twemojiVersion == "" {
 		return nil, fmt.Errorf("emoji-sets: a twemoji version is required")
 	}
 	r := opts.resolved()
 	unicodeVersion := r.String("emoji.unicode_version")
-	openmojiVersion := r.String("emoji.openmoji_version")
 
 	filesRoot := pack.PackRoot + "/resources/assets/svg/files"
 	licencesRoot := pack.PackRoot + "/resources/assets/svg/licenses"
@@ -245,15 +239,7 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 		Sink(sinks.Filesystem{Root: filesRoot + "/twemoji"}).
 		Sink(sinks.LicenceTexts{Root: licencesRoot + "/twemoji", Set: "twemoji"})
 
-	openmoji := func(name, subdir string) *pipeline.Pipeline {
-		return openmojiPipeline(cfg, cldr, openmojiVersion, name, subdir, filesRoot, licencesRoot+"/"+name, name, "", openmojiGuards{force: r.Bool("force")})
-	}
-
-	pipelines := []*pipeline.Pipeline{
-		twemoji,
-		openmoji("openmoji-color", "color/svg"),
-		openmoji("openmoji-black", "black/svg"),
-	}
+	pipelines := []*pipeline.Pipeline{twemoji}
 
 	if !opts.DryRun {
 		pipelines = append(pipelines,
@@ -270,17 +256,12 @@ func buildEmojiSets(pack *config.PackConfig, twemojiVersion string, opts Options
 	return pipelines, nil
 }
 
-// openmojiPipeline is the one definition of how an OpenMoji set is fetched,
-// narrowed, cleaned, categorised and written. emoji-sets (its deprecated
-// copies) and openmoji-sets (the new pack) both call it, which is what keeps
-// their outputs byte-identical rather than merely similar. licence is the SPDX
-// id to guard the licence text with; empty means unguarded.
-//
-// guards is the one place the two callers differ: emoji-sets passes only
-// --force, which there lifts nothing but Sanitise's stray-text limit (Preserve
-// and RefuseRemovals stay off, so Categorise and Filesystem ignore it), and
-// keeps its historical behaviour; openmoji-sets opts into never dropping an
-// icon.
+// openmojiPipeline is how an OpenMoji set is fetched, narrowed, cleaned,
+// categorised and written. openmoji-sets is its only caller since emoji-sets
+// became Twemoji only. licence is the SPDX id to guard the licence text with;
+// empty means unguarded. guards carries the opt-in protections against losing
+// an icon, which openmoji-sets turns on. The pipeline keeps its historical
+// "emoji-sets:" name prefix, which run logs and metrics already carry.
 func openmojiPipeline(cfg map[string]any, cldr sources.UnicodeCldr, version, name, subdir, filesRoot, licenceRoot, licenceSet, licence string, guards openmojiGuards) *pipeline.Pipeline {
 	return pipeline.Named(fmt.Sprintf("emoji-sets:%s@%s", name, version)).
 		Config(cfg).

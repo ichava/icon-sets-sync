@@ -41,7 +41,7 @@ func TestObserverSeesEveryStageInOrder(t *testing.T) {
 		Transform(flaggingTransform{fired: &fired}).
 		Sink(copyingSink{fired: new(bool), target: filepath.Join(t.TempDir(), "out.svg")}).
 		Observer(obs).
-		Run()
+		RunContext(context.Background())
 	if err != nil || !result.Success {
 		t.Fatalf("result %+v, err %v", result, err)
 	}
@@ -65,7 +65,7 @@ func TestObserverSeesTheFailureAndNothingAfter(t *testing.T) {
 		Transform(failingTransform{}).
 		Sink(copyingSink{fired: new(bool), target: filepath.Join(t.TempDir(), "out.svg")}).
 		Observer(obs).
-		Run()
+		RunContext(context.Background())
 	if result.Success {
 		t.Fatal("a failing transform succeeded")
 	}
@@ -109,7 +109,7 @@ func TestAPerRunLoggerReceivesStageLinesAndTheDefaultDoesNot(t *testing.T) {
 	_, err := Named("demo").Source(loggingSource{}).
 		Sink(copyingSink{fired: new(bool), target: filepath.Join(t.TempDir(), "out.svg")}).
 		Logger(slog.New(slog.NewTextHandler(&run, nil))).
-		Run()
+		RunContext(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

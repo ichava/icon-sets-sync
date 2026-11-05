@@ -158,8 +158,8 @@ type Categorise struct {
 	By string
 
 	// Preserve opts into never dropping an icon. Off by default, which is the
-	// historical behaviour the deprecated emoji pack relies on: exact match
-	// only, and an icon with no taxonomy entry is dropped and counted missing.
+	// behaviour emoji-sets (Twemoji) relies on: exact match only, and an icon
+	// with no taxonomy entry is dropped and counted missing.
 	//
 	// On, two things change. A file whose name differs from a taxonomy entry
 	// only by the emoji-presentation selector (FE0F) is matched to it --

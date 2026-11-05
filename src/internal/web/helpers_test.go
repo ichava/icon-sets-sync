@@ -88,7 +88,7 @@ func newFakeEngine() *fakeEngine {
 			Source: config.SourceConfig{Type: "npm", Package: "@tabler/icons"}},
 		{Name: "icon-sets-flag", Pack: "ichava/icon-sets-flag", CurrentVersion: "7.2.3",
 			Source: config.SourceConfig{Type: "npm", Package: "flag-icons"}},
-		{Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", CurrentVersion: "16.0.1",
+		{Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", CurrentVersion: "16.0.1", Recipe: "emoji-sets",
 			Source: config.SourceConfig{Type: "url"}},
 	}}
 }

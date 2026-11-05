@@ -112,7 +112,7 @@ func TestUpstreamLicenceReachesThePack(t *testing.T) {
 				Sink(sinks.Filesystem{Root: "{pack_root}/resources/assets/svg/files"}).
 				Sink(sinks.LicenceTexts{Root: LicencesRoot + "/demo", Set: "demo"})
 
-			res, err := p.Run()
+			res, err := p.RunContext(context.Background())
 			if err == nil {
 				err = res.Err // a stage failure is reported on the result
 			}
@@ -221,7 +221,7 @@ func TestEveryManifestPackSetShipsItsLicence(t *testing.T) {
 
 func TestEmojiAndSingleUpstreamPacksShipTheirLicences(t *testing.T) {
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji",
+		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji", Recipe: RecipeEmojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 	}
@@ -229,7 +229,7 @@ func TestEmojiAndSingleUpstreamPacksShipTheirLicences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"twemoji", "openmoji-color", "openmoji-black"}
+	want := []string{"twemoji"}
 	if len(built) != len(want) {
 		t.Fatalf("got %d emoji pipelines, want %d", len(built), len(want))
 	}

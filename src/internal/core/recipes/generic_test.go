@@ -38,7 +38,10 @@ func TestSelect(t *testing.T) {
 	}{
 		{"npm is generic", config.PackConfig{Name: "icon-sets-tabler", Source: config.SourceConfig{Type: "npm"}}, RecipeGeneric},
 		{"github-release is generic", config.PackConfig{Name: "x", Source: config.SourceConfig{Type: "github-release"}}, RecipeGeneric},
-		{"emoji by name", config.PackConfig{Name: "icon-sets-emoji", Source: config.SourceConfig{Type: "url"}}, RecipeEmojiSets},
+		{"emoji is not chosen by name", config.PackConfig{Name: "icon-sets-emoji", Source: config.SourceConfig{Type: "url"}}, ""},
+		{"openmoji is not chosen by name", config.PackConfig{Name: "icon-sets-openmoji", Source: config.SourceConfig{Type: "url"}}, ""},
+		{"emoji-sets named in config", config.PackConfig{Name: "icon-sets-emoji", Recipe: RecipeEmojiSets, Source: config.SourceConfig{Type: "url"}}, RecipeEmojiSets},
+		{"openmoji-sets named in config", config.PackConfig{Name: "icon-sets-openmoji", Recipe: RecipeOpenMojiSets, Source: config.SourceConfig{Type: "url"}}, RecipeOpenMojiSets},
 		{"the manifest pack is not chosen by name", config.PackConfig{Name: "icon-sets-bundled", Source: config.SourceConfig{Type: "url"}}, ""},
 		{"manifest-pack named in config", config.PackConfig{Name: "icon-sets-example", Recipe: RecipeManifestPack, Source: config.SourceConfig{Type: "url"}}, RecipeManifestPack},
 		{"the removed bundled recipe selects nothing", config.PackConfig{Name: "icon-sets-example", Recipe: "bundled", Source: config.SourceConfig{Type: "url"}}, ""},
@@ -46,7 +49,7 @@ func TestSelect(t *testing.T) {
 		{"url has none", config.PackConfig{Name: "x", Source: config.SourceConfig{Type: "url"}}, ""},
 		{"script has none", config.PackConfig{Name: "x", Source: config.SourceConfig{Type: "script"}}, ""},
 		{"explicit recipe wins over name", config.PackConfig{Name: "icon-sets-emoji", Recipe: RecipeGeneric, Source: config.SourceConfig{Type: "npm"}}, RecipeGeneric},
-		{"auto is the default", config.PackConfig{Name: "icon-sets-emoji", Recipe: RecipeAuto}, RecipeEmojiSets},
+		{"auto picks by source type, not by name", config.PackConfig{Name: "icon-sets-emoji", Recipe: RecipeAuto, Source: config.SourceConfig{Type: "npm"}}, RecipeGeneric},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -255,23 +258,19 @@ func TestGitBranchCarriesTheResolvedGitSettings(t *testing.T) {
 	}
 }
 
-func TestEmojiVersionsComeFromSettings(t *testing.T) {
+func TestEmojiUnicodeVersionComesFromSettings(t *testing.T) {
 	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji",
+		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji", Recipe: RecipeEmojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
 		Source: config.SourceConfig{Type: "url"},
 		Sinks:  []config.SinkConfig{{Type: "git-branch", Branch: "chore/emoji-{version}"}},
 	}
 	r := settings.Resolve(settings.LayerValues{Layer: settings.LayerFlag, Values: settings.Values{
-		"emoji.unicode_version":  "15.1",
-		"emoji.openmoji_version": "15.0.0",
+		"emoji.unicode_version": "15.1",
 	}})
 	built, err := Build(emoji, "15.0.0", Options{Settings: &r})
 	if err != nil {
 		t.Fatal(err)
-	}
-	if got := built[1].Name(); got != "emoji-sets:openmoji-color@15.0.0" {
-		t.Errorf("openmoji pipeline = %q, want the settings version", got)
 	}
 	compound, ok := built[0].Stages()[0].(sources.Compound)
 	if !ok {
@@ -280,7 +279,7 @@ func TestEmojiVersionsComeFromSettings(t *testing.T) {
 	if cldr, _ := compound.First.(sources.UnicodeCldr); cldr.UnicodeVersion != "15.1" {
 		t.Errorf("unicode version = %q, want 15.1", cldr.UnicodeVersion)
 	}
-	if g := findGitBranch(t, built[3]); g.Branch != "chore/emoji-{version}" {
+	if g := findGitBranch(t, built[len(built)-1]); g.Branch != "chore/emoji-{version}" {
 		t.Errorf("emoji commit ignores the config's git-branch sink: %q", g.Branch)
 	}
 }

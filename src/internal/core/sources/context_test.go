@@ -59,7 +59,7 @@ func TestSourcesLogToTheRunLogger(t *testing.T) {
 		Source(GithubArchive{Owner: "o", Repo: "r", Version: "1.0.0", HTTP: d}).
 		Sink(nopSink{}).
 		Logger(slog.New(slog.NewTextHandler(&buf, nil))).
-		Run()
+		RunContext(context.Background())
 	if !strings.Contains(buf.String(), "msg=downloading") {
 		t.Fatalf("the run's logger lacks the source's line:\n%s", buf.String())
 	}

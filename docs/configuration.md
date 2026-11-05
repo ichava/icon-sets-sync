@@ -85,7 +85,7 @@ turning it into `"16"`.
 | `licence_sha256` | Optional SHA-256 one upstream licence file must have. A sync whose licence text changed by a byte fails before the pack is touched. For a licence with no standard text (Font Awesome Free, Material Design Icons, Game Icons), or to pin one exactly |
 | `licence_set` | the directory under `resources/assets/svg/licenses/` the licence texts go to; default named after the npm package or GitHub repository |
 | `licence_from` | the upstream directory, relative to its root, the licence files are read from; default the root. Noto Emoji's SVGs carry their own `2D/svg/LICENSE` |
-| `licence_missing` | why the upstream ships no licence file, with the evidence. The sync runs and reports the gap; the pack supplies the text by hand beside a `source.md` (the deprecated `SOURCE.md` still works), which keeps the sink from removing it |
+| `licence_missing` | why the upstream ships no licence file, with the evidence. The sync runs and reports the gap; the pack supplies the text by hand beside a `source.md`, which keeps the sink from removing it |
 | `settings` | this pack's layer of the [settings](#settings) |
 | `version_file` | pack-repo-relative file recording the vendored version; default `resources/assets/svg/config.json` |
 | `version_keys` | dot-paths inside that file; default `upstream.current_version`, `package.upstream_version` |
@@ -283,8 +283,8 @@ it keeps those keys intact and can suggest where one may be wrong.
 | `metadata.data.items.<item path>.kind` | one item |
 
 An item path is the file's path under `files/` with `.svg` removed, for example
-`illustrations/office`. A key at the top level of the file (`items`, `kinds`, `categories`) is read as a
-fallback when the `metadata.data` one is absent or empty. Precedence, first hit wins: item, rule,
+`illustrations/office`. Only `metadata.data` is read: a key at the top level of the file (`items`,
+`kinds`, `categories`) is ignored, as it is by ichava/core. Precedence, first hit wins: item, rule,
 category, pack, then `icon`. A pack with none of these keys reads as all `icon`.
 
 **Globs** match the whole item path, case-sensitively. `*` is any run of characters except `/`, `?` is
@@ -347,12 +347,12 @@ flags.
 
 ## Recipes
 
-A recipe turns a pack config into pipelines. `auto` picks by pack name, then by source type:
+A recipe turns a pack config into pipelines. Every recipe but `generic` runs only when the config names it in `recipe`; `auto`, the default, picks `generic` for an npm or `github-*` source and nothing otherwise, and never looks at the pack's name:
 
 | Recipe | Picked for | Builds |
 |---|---|---|
-| `emoji-sets` | `icon-sets-emoji` | Twemoji (npm) + OpenMoji colour and black (GitHub archive), categorised by the Unicode taxonomy, then one commit |
-| `openmoji-sets` | `icon-sets-openmoji` | OpenMoji colour and black from one pinned `hfg-gmuend/openmoji` release tag (no `v` prefix), categorised by the Unicode taxonomy, then one commit. Runs the same pipelines as the OpenMoji sets inside `emoji-sets`, plus three protections they lack (below) |
+| `emoji-sets` | `"recipe": "emoji-sets"` (`icon-sets-emoji`) | Twemoji (npm), categorised by the Unicode taxonomy, then one commit. OpenMoji is not part of this pack |
+| `openmoji-sets` | `"recipe": "openmoji-sets"` (`icon-sets-openmoji`) | OpenMoji colour and black from one pinned `hfg-gmuend/openmoji` release tag (no `v` prefix), categorised by the Unicode taxonomy, then one commit. With three protections against losing an icon (below) |
 | `manifest-pack` | `"recipe": "manifest-pack"` | one pipeline per set in the pack's `<slug>.sets.json` set manifest, each from its own upstream, then one commit |
 | `generic` | any `npm` or `github-*` source | the config's own source, transforms and sinks |
 
@@ -360,7 +360,7 @@ A recipe turns a pack config into pipelines. `auto` picks by pack name, then by 
 
 In both recipes, two emoji whose names slug alike each keep a file. The first in `emoji-test.txt` order keeps the base slug and a later one takes a name read from its own, with punctuation spelled out by name and anything else as `u` plus its hex code point: `keycap: #` is `keycap.svg` and `keycap: *` is `keycap-asterisk.svg`. `codepoints.json` and `names.json` use the same slugs.
 
-The deprecated `emoji-sets` recipe files an icon only when its filename matches a `emoji-test.txt` entry exactly, and drops the rest (its log line says `missing=N`). `openmoji-sets` opts out of that:
+`emoji-sets` files a Twemoji icon only when its filename matches a `emoji-test.txt` entry exactly, and drops the rest (its log line says `missing=N`). `openmoji-sets` opts out of that:
 
 - **Selector-insensitive match.** OpenMoji names about 200 emoji without the emoji-presentation selector (`2600.svg`, the sun; `emoji-test.txt` has `2600 FE0F`). They match their taxonomy entry anyway.
 - **An explicit bucket.** An icon still unmatched, such as an OpenMoji extra (`e380.svg`), an emoji newer than the taxonomy, or a component glyph, is kept as `uncategorised/<upstream-name>.svg`, with a warning and an `uncategorised` count. One emoji shipped twice (with and without its FE0F) keeps the fully-qualified file under the name and puts the other in the bucket.
@@ -384,9 +384,9 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 
 | Setting | Default | Environment | Per pack | Meaning |
 |---|---|---|---|---|
-| `config_dir` | `config/` beside the binary, else the checkout found walking up from the working directory, then from the binary, else the configs embedded in the binary | `ICHAVA_CONFIG_DIR` (older: `ICHAVA_DEV_CONFIG_DIR`) | no | where the registry and pack configs live |
+| `config_dir` | `config/` beside the binary, else the checkout found walking up from the working directory, then from the binary, else the configs embedded in the binary | `ICHAVA_CONFIG_DIR` | no | where the registry and pack configs live |
 | `private_config_dir` | none | `ICHAVA_PRIVATE_CONFIG_DIR` | no | private pack configs merged over `config_dir` at run time; see [Private packs](#private-packs) |
-| `log_level` | `info` | `ICHAVA_LOG_LEVEL` (older: `ICHAVA_DEV_LOG_LEVEL`) | no | `debug`, `info`, `warn`, `error` |
+| `log_level` | `info` | `ICHAVA_LOG_LEVEL` | no | `debug`, `info`, `warn`, `error` |
 | `concurrency` | `1` | `ICHAVA_CONCURRENCY` | no | packs synced at once by `sync-all` |
 | `workspace` | none | `ICHAVA_WORKSPACE` | no | directory a relative `pack_root` resolves against |
 | `allowed_hosts` | none | `ICHAVA_ALLOWED_HOSTS` | no | extra upstream hosts the client may fetch from, comma separated; see [Upstream hosts and https](#upstream-hosts-and-https) |
@@ -399,7 +399,6 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `git.commit_body` | `Automated sync from upstream {pack} {old} -> {new}. ...` | `ICHAVA_GIT_COMMIT_BODY` | yes | commit and pull request body |
 | `git.open_pr` | `true` | `ICHAVA_GIT_OPEN_PR` | yes | open a pull request after pushing |
 | `emoji.unicode_version` | `16.0` | `ICHAVA_EMOJI_UNICODE_VERSION` | yes | Unicode release whose `emoji-test.txt` drives categorisation; must exist at unicode.org (up to 16.0 under `Public/emoji/<v>/`, from 17.0 under `Public/<v>.0/emoji/`). `openmoji-sets` follows its OpenMoji release instead (17.0.0 uses 17.0; never older than this default, so 15.1.0 uses 16.0) unless this is set |
-| `emoji.openmoji_version` | `15.1.0` | `ICHAVA_EMOJI_OPENMOJI_VERSION` | yes | OpenMoji release tag |
 
 The run-wide settings (the four marked "no") cannot appear in a pack config's `settings`.
 

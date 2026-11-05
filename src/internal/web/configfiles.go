@@ -77,9 +77,10 @@ func (e *AppEngine) ConfigFiles() ([]ConfigFile, error) {
 				out = append(out, ConfigFile{Name: filepath.Base(path), Path: path, Kind: KindPack, Slug: slug})
 			}
 			if slug == app.ManifestPack {
-				m := manifestpack.ManifestPath(dir, slug)
-				if _, err := os.Stat(m); err == nil {
-					out = append(out, ConfigFile{Name: filepath.Base(m), Path: m, Kind: KindManifest, Slug: slug})
+				if m, err := manifestpack.ManifestPath(dir, slug); err == nil {
+					if _, err := os.Stat(m); err == nil {
+						out = append(out, ConfigFile{Name: filepath.Base(m), Path: m, Kind: KindManifest, Slug: slug})
+					}
 				}
 			}
 		}

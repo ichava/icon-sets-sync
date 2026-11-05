@@ -32,7 +32,7 @@ func TestManifestPackDispatchIsTheSameForEveryPack(t *testing.T) {
 					"feather-icons":   {Package: "feather-icons", Path: "package/dist/icons", Version: "4.29.2"},
 				},
 			}
-			if err := m.Save(manifestpack.ManifestPath(dir, tt.name)); err != nil {
+			if err := m.Save(mustManifestPath(t, dir, tt.name)); err != nil {
 				t.Fatal(err)
 			}
 			pack := &config.PackConfig{

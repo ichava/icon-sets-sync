@@ -79,9 +79,9 @@ Strategies recognised (the source's `type`):
 | `type` | What it does | Used by |
 |---|---|---|
 | `npm` | `npm pack {package}@{version}` then extract `package/{source_path}/*.svg` via the `NpmTarball` source | icon-sets-flag, icon-sets-tabler |
-| `github-archive` | Downloads `{archive_url}` (interpolated), extracts the matching subdir via the `GithubArchive` source | OpenMoji (icon-sets-openmoji; also within the deprecated icon-sets-emoji copies) |
+| `github-archive` | Downloads `{archive_url}` (interpolated), extracts the matching subdir via the `GithubArchive` source | OpenMoji (icon-sets-openmoji) |
 | `github-release` / `github-tag` | Same but resolves the version through the releases/tags API | (any pack without an npm mirror) |
-| `recipe` (config key) | Hand off to a named recipe in `internal/core/recipes` -- used when a pack composes multiple sources / custom taxonomies (icon-sets-emoji blends Twemoji + OpenMoji + Unicode CLDR) | icon-sets-emoji, the aggregator pack; icon-sets-openmoji |
+| `recipe` (config key) | Hand off to a named recipe in `internal/core/recipes` -- used when a pack composes multiple sources / custom taxonomies (icon-sets-emoji categorises Twemoji by the Unicode CLDR taxonomy) | icon-sets-emoji, the aggregator pack; icon-sets-openmoji |
 | `url` | Custom JSON endpoint; `source.version_field` is a dot-path | escape hatch for non-registry vendors |
 
 ### 2. Per-pack recipes (in the toolkit, not the pack)
@@ -90,7 +90,7 @@ Most packs don't need a custom recipe -- the `generic` recipe builds
 the pipeline from the pack config's source, transforms and sinks. Packs
 that mix sources (icon-sets-emoji) or aggregate many upstreams get a
 dedicated recipe in `internal/core/recipes`,
-dispatched by pack name or by the config's `recipe` key.
+chosen by the config's `recipe` key.
 
 ### 3. Workflow template
 

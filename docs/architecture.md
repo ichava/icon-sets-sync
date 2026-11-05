@@ -102,7 +102,7 @@ pipeline in every recipe now runs `FindLicences` straight after its source, whic
 | Recipe | Destination |
 |---|---|
 | `generic` | `resources/assets/svg/licenses/<upstream>`, the npm package with its scope folded in (`tabler-icons`, `flag-icons`) or the GitHub repository |
-| `emoji-sets` | `resources/assets/svg/licenses/{twemoji,openmoji-color,openmoji-black}` |
+| `emoji-sets` | `resources/assets/svg/licenses/twemoji` |
 | `openmoji-sets` | `resources/assets/svg/licenses/openmoji`, one directory for both sets |
 | `manifest-pack` | `resources/assets/svg/licenses/<set>`, pairing with `files/<set>` |
 
@@ -142,12 +142,9 @@ instead of missing, in its log line and its `licence_texts` metric (`status`), a
 directory is treated as before: replaced from upstream, or removed when upstream ships none.
 
 The marker name is matched exactly, as a regular file. `source.md` is the lowercase slug the estate
-names files with. The uppercase `SOURCE.md` the sink accepted first still works, and logs an info
-line asking for the rename.
-
-> **Deprecated:** the `SOURCE.md` spelling. Rename it `source.md`; the uppercase name is accepted
-> until 0.3.0 at the earliest. Any other casing (`Source.md`) is not a marker on any filesystem,
-> including a case-insensitive one, so a sync on macOS treats a folder as the Linux runners do.
+names files with, and it is the only spelling: the uppercase `SOURCE.md` the sink accepted first is
+no longer a marker, and nor is any other casing (`Source.md`), on any filesystem. A case-insensitive
+one included, so a sync on macOS treats a folder as the Linux runners do.
 
 | Upstream ships a licence | `source.md` | `licence_missing` | Result |
 |---|---|---|---|

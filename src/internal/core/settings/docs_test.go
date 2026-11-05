@@ -19,7 +19,7 @@ func TestEverySettingIsDocumented(t *testing.T) {
 	doc := string(data)
 	checked := 0
 	for _, k := range Keys {
-		for _, want := range append([]string{"`" + k.Name + "`", k.Env}, k.LegacyEnv...) {
+		for _, want := range []string{"`" + k.Name + "`", k.Env} {
 			checked++
 			if !strings.Contains(doc, want) {
 				t.Errorf("%s does not mention %s", path, want)

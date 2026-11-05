@@ -86,14 +86,18 @@ type SetSource struct {
 }
 
 // ManifestPath is the conventional location beside a pack config: the
-// private config directory's copy when it has one, else configDir's.
-func ManifestPath(configDir, packName string) string {
+// private config directory's copy when it has one, else configDir's. A pack
+// name that would leave the directory is refused (see config.ResolveFile).
+func ManifestPath(configDir, packName string) (string, error) {
 	return config.ResolveFile(configDir, packName+".sets.json")
 }
 
 // LoadManifest reads the manifest for a pack.
 func LoadManifest(configDir, packName string) (*Manifest, error) {
-	path := ManifestPath(configDir, packName)
+	path, err := ManifestPath(configDir, packName)
+	if err != nil {
+		return nil, err
+	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
