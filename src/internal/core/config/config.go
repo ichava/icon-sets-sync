@@ -229,7 +229,7 @@ type PackConfig struct {
 	// LicenceMissing records, with the evidence, that the upstream ships no
 	// licence file at its root, so a sync may run and the gap is reported
 	// instead of failing it. The text is then supplied by hand in the pack,
-	// beside a SOURCE.md saying where it came from.
+	// beside a source.md saying where it came from.
 	LicenceMissing string `json:"licence_missing,omitempty"`
 
 	// Settings is the pack layer of the settings precedence. It is kept as a

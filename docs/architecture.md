@@ -134,14 +134,22 @@ run, unless the directory is hand-supplied (below). CC-BY and CC-BY-SA upstreams
 require visible credit wherever the icons are shown, which no sync can provide and which each pack's
 `ATTRIBUTION.md` and the site's licences page carry.
 
-**A licence directory holding a `SOURCE.md` is hand-maintained, and no sync deletes or overwrites
+**A licence directory holding a `source.md` is hand-maintained, and no sync deletes or overwrites
 it.** That is how a `licence_missing` set gets its text: a maintainer adds it by hand to
-`resources/assets/svg/licenses/<set>`, beside a `SOURCE.md` saying where it came from. The sink then reports the set as `hand-supplied`
+`resources/assets/svg/licenses/<set>`, beside a `source.md` saying where it came from. The sink then reports the set as `hand-supplied`
 instead of missing, in its log line and its `licence_texts` metric (`status`), and the
-`licence_missing` warning stops, because the exception is satisfied. Without a `SOURCE.md` the
+`licence_missing` warning stops, because the exception is satisfied. Without a marker the
 directory is treated as before: replaced from upstream, or removed when upstream ships none.
 
-| Upstream ships a licence | `SOURCE.md` | `licence_missing` | Result |
+The marker name is matched exactly, as a regular file. `source.md` is the lowercase slug the estate
+names files with. The uppercase `SOURCE.md` the sink accepted first still works, and logs an info
+line asking for the rename.
+
+> **Deprecated:** the `SOURCE.md` spelling. Rename it `source.md`; the uppercase name is accepted
+> until 0.3.0 at the earliest. Any other casing (`Source.md`) is not a marker on any filesystem,
+> including a case-insensitive one, so a sync on macOS treats a folder as the Linux runners do.
+
+| Upstream ships a licence | `source.md` | `licence_missing` | Result |
 |---|---|---|---|
 | no | yes | set | folder kept, `hand-supplied`, no warning |
 | no | yes | unset | run fails, folder kept; record the evidence in `licence_missing` |
@@ -153,7 +161,7 @@ When an upstream starts shipping a licence for a hand-supplied set, the sink kee
 warns rather than switching or failing. The hand-supplied text may be the better one, a fuller
 copyright line for instance, and only a person can tell; a scheduled run should not stop over a
 pack that is still correctly licensed. To reconcile, compare the texts, then either keep the folder
-or delete its `SOURCE.md` (and the set's `licence_missing`), so the next sync copies upstream's.
+or delete its `source.md` (and the set's `licence_missing`), so the next sync copies upstream's.
 
 ## Recipes
 
