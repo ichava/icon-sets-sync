@@ -1,0 +1,47 @@
+{
+  "_note": "@fluentui/svg-icons' icons/ holds <name>_<size>_<style>.svg for sizes 10-48 and four styles. The pack keeps size 24, regular and filled, as regular/<slug> and filled/<slug>: split-variants names only the _24_regular and _24_filled suffixes, so every other file is dropped. The npm package ships no licence file (licence_missing); licenses/fluentui-system-icons/ needs a SOURCE.md before the first real sync, or the sink removes the hand-supplied texts. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 4,992 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-fluent",
+  "pack": "ichava/icon-sets-fluent",
+  "pack_root": "/work/icon-sets-fluent",
+  "current_version": "1.1.345",
+  "version_check_url": "https://registry.npmjs.org/@fluentui/svg-icons/latest",
+  "licence_set": "fluentui-system-icons",
+  "licence_missing": "@fluentui/svg-icons 1.1.345 on npm ships no licence file; the pack carries LICENSE from microsoft/fluentui-system-icons at commit 73ec879377 (MIT), SHA-256 69bc45dc42b9acb96a69823adbc6ae538374e3c0bde169b855b32c48eaaef52f.",
+  "source": {
+    "type": "npm",
+    "package": "@fluentui/svg-icons",
+    "source_path": "icons"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    },
+    {
+      "type": "split-variants",
+      "variants": [
+        {
+          "path": "regular",
+          "suffix": "_24_regular"
+        },
+        {
+          "path": "filled",
+          "suffix": "_24_filled"
+        }
+      ]
+    },
+    {
+      "type": "slugify"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

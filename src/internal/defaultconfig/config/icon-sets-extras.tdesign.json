@@ -1,0 +1,35 @@
+{
+  "_note": "One of the 20 sets of ichava/icon-sets-extras, each refreshed by its own config into files/<set>/ and licenses/<set>/, with its version recorded at upstream.sets.<set>.current_version in the pack's config.json. src/*.svg, unchanged names. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 2,358 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-extras.tdesign",
+  "pack": "ichava/icon-sets-extras",
+  "pack_root": "/work/icon-sets-extras",
+  "current_version": "0.4.8",
+  "version_keys": [
+    "upstream.sets.tdesign.current_version"
+  ],
+  "version_check_url": "https://registry.npmjs.org/tdesign-icons-svg/latest",
+  "licence": "MIT",
+  "licence_sha256": "b3dbcb89dcf4a11abf1b70d043795a3da0c458af16fefd2ff315d9ff5875312f",
+  "licence_set": "tdesign",
+  "source": {
+    "type": "npm",
+    "package": "tdesign-icons-svg",
+    "source_path": "src"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files/tdesign"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-tdesign-{version}"
+    }
+  ]
+}

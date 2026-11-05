@@ -1,0 +1,43 @@
+{
+  "_note": "One of the 20 sets of ichava/icon-sets-extras, each refreshed by its own config into files/<set>/ and licenses/<set>/, with its version recorded at upstream.sets.<set>.current_version in the pack's config.json. icons/<tech>/<file>.svg flattened; upstream names already carry the tech and the style. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 2,120 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-extras.devicon",
+  "pack": "ichava/icon-sets-extras",
+  "pack_root": "/work/icon-sets-extras",
+  "current_version": "2.18.0",
+  "version_keys": [
+    "upstream.sets.devicon.current_version"
+  ],
+  "version_check_url": "https://registry.npmjs.org/devicon/latest",
+  "licence": "MIT",
+  "licence_sha256": "121194741d4a915b9f5890fdd6dd95121f9b1f816517c792358d72d7c838d664",
+  "licence_set": "devicon",
+  "source": {
+    "type": "npm",
+    "package": "devicon",
+    "source_path": "icons"
+  },
+  "transforms": [
+    {
+      "type": "flatten-variants",
+      "variants": [
+        {
+          "path": "."
+        }
+      ]
+    },
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files/devicon"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-devicon-{version}"
+    }
+  ]
+}

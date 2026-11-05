@@ -1,0 +1,58 @@
+{
+  "_note": "@primer/octicons' build/svg holds <name>-<size>.svg flat. split-variants keeps the 16 and 24 grids as 16px/ and 24px/ (12, 48 and 96 are dropped), and exclude drops GitHub's trademarks, the names the pack's config.json lists under upstream.excluded. Pinned to 19.33.0 (pack-plan.md); npm latest is ahead, so a scheduled sync proposes the bump for review. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 716 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-octicons",
+  "pack": "ichava/icon-sets-octicons",
+  "pack_root": "/work/icon-sets-octicons",
+  "current_version": "19.33.0",
+  "version_check_url": "https://registry.npmjs.org/@primer/octicons/latest",
+  "licence": "MIT",
+  "licence_sha256": "da259c8bd0de62713ccdcf88910aebca810644f98c2c912bad814fc79ea778df",
+  "source": {
+    "type": "npm",
+    "package": "@primer/octicons",
+    "source_path": "build/svg"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    },
+    {
+      "type": "split-variants",
+      "variants": [
+        {
+          "path": "16px",
+          "suffix": "-16"
+        },
+        {
+          "path": "24px",
+          "suffix": "-24"
+        }
+      ]
+    },
+    {
+      "type": "exclude",
+      "names": [
+        "mark-github",
+        "logo-github",
+        "logo-gist",
+        "lockup-github",
+        "copilot",
+        "copilot-error",
+        "copilot-warning",
+        "dependabot",
+        "hubot"
+      ]
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

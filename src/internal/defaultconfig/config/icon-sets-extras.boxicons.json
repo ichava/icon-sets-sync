@@ -1,0 +1,49 @@
+{
+  "_note": "One of the 20 sets of ichava/icon-sets-extras, each refreshed by its own config into files/<set>/ and licenses/<set>/, with its version recorded at upstream.sets.<set>.current_version in the pack's config.json. svg/regular, svg/solid and svg/logos merged; the bx-/bxs-/bxl- prefixes already keep names apart. The bxl- logos depict trademarks. The package offers CC-BY-4.0, OFL-1.1 or MIT; the LICENSE it ships, and the option taken, is MIT. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 1,634 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-extras.boxicons",
+  "pack": "ichava/icon-sets-extras",
+  "pack_root": "/work/icon-sets-extras",
+  "current_version": "2.1.4",
+  "version_keys": [
+    "upstream.sets.boxicons.current_version"
+  ],
+  "version_check_url": "https://registry.npmjs.org/boxicons/latest",
+  "licence": "MIT",
+  "licence_sha256": "1676a8bdd036382b7bdb8a9ec26a55af6bf15035dd4d405169da2ee45b066e22",
+  "licence_set": "boxicons",
+  "source": {
+    "type": "npm",
+    "package": "boxicons",
+    "source_path": "svg"
+  },
+  "transforms": [
+    {
+      "type": "flatten-variants",
+      "variants": [
+        {
+          "path": "regular"
+        },
+        {
+          "path": "solid"
+        },
+        {
+          "path": "logos"
+        }
+      ]
+    },
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files/boxicons"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-boxicons-{version}"
+    }
+  ]
+}

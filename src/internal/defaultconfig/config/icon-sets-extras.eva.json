@@ -1,0 +1,45 @@
+{
+  "_note": "One of the 20 sets of ichava/icon-sets-extras, each refreshed by its own config into files/<set>/ and licenses/<set>/, with its version recorded at upstream.sets.<set>.current_version in the pack's config.json. fill/svg and outline/svg merged; upstream already names outline icons <name>-outline. The sprites and font are left out. Unmaintained upstream (last push 2023). The npm package ships no licence file (licence_missing): licenses/eva/ needs a SOURCE.md before the first real sync. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 490 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-extras.eva",
+  "pack": "ichava/icon-sets-extras",
+  "pack_root": "/work/icon-sets-extras",
+  "current_version": "1.1.3",
+  "version_keys": [
+    "upstream.sets.eva.current_version"
+  ],
+  "version_check_url": "https://registry.npmjs.org/eva-icons/latest",
+  "licence_set": "eva",
+  "licence_missing": "eva-icons 1.1.3 on npm ships no licence file; the pack carries LICENSE.txt from akveo/eva-icons at tag v1.1.3 (MIT), SHA-256 4788c563f8871931bce41ede59379a5277ac1a473e289f9100924149ce8bd311.",
+  "source": {
+    "type": "npm",
+    "package": "eva-icons",
+    "source_path": "."
+  },
+  "transforms": [
+    {
+      "type": "flatten-variants",
+      "variants": [
+        {
+          "path": "fill/svg"
+        },
+        {
+          "path": "outline/svg"
+        }
+      ]
+    },
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files/eva"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-eva-{version}"
+    }
+  ]
+}

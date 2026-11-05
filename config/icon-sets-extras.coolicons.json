@@ -1,0 +1,50 @@
+{
+  "_note": "One of the 20 sets of ichava/icon-sets-extras, each refreshed by its own config into files/<set>/ and licenses/<set>/, with its version recorded at upstream.sets.<set>.current_version in the pack's config.json. icons/svg/{line,fill}/regular flattened to <name>-line/-fill. The other 13 style folders (bulk, duotone, duocolor; round and sharp corners) are the same drawings restyled and are not vendored. v5 is MIT; v4 was CC-BY-4.0. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 2,648 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-extras.coolicons",
+  "pack": "ichava/icon-sets-extras",
+  "pack_root": "/work/icon-sets-extras",
+  "current_version": "5.2.0",
+  "version_keys": [
+    "upstream.sets.coolicons.current_version"
+  ],
+  "version_check_url": "https://api.github.com/repos/krystonschwarze/coolicons/tags",
+  "licence": "MIT",
+  "licence_sha256": "35d8a4a8e1793b261198949d213583904b11e3826be8618ae9b9dbc6b70f50cc",
+  "licence_set": "coolicons",
+  "source": {
+    "type": "github-archive",
+    "owner": "krystonschwarze",
+    "repo": "coolicons",
+    "archive_url": "https://github.com/krystonschwarze/coolicons/archive/refs/tags/v{version}.tar.gz",
+    "source_path": "icons/svg"
+  },
+  "transforms": [
+    {
+      "type": "flatten-variants",
+      "variants": [
+        {
+          "path": "line/regular",
+          "suffix": "-line"
+        },
+        {
+          "path": "fill/regular",
+          "suffix": "-fill"
+        }
+      ]
+    },
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files/coolicons"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-coolicons-{version}"
+    }
+  ]
+}

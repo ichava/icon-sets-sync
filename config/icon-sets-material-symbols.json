@@ -1,0 +1,69 @@
+{
+  "_note": "@material-symbols/svg-400 (weight 400 only, to keep the pack under its size cap). Each of outlined/, rounded/ and sharp/ holds <name>.svg and <name>-fill.svg; split-variants writes <style>/ and <style>-fill/, and slugify turns underscores into hyphens. licenses/material-symbols/ also holds a pack-written NOTICE that upstream does not ship: a real sync replaces the directory, so the pack must move it or mark the directory hand-supplied (SOURCE.md) before the first one. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 23,640 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-material-symbols",
+  "pack": "ichava/icon-sets-material-symbols",
+  "pack_root": "/work/icon-sets-material-symbols",
+  "current_version": "0.48.3",
+  "version_check_url": "https://registry.npmjs.org/@material-symbols/svg-400/latest",
+  "licence": "Apache-2.0",
+  "licence_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "licence_set": "material-symbols",
+  "source": {
+    "type": "npm",
+    "package": "@material-symbols/svg-400"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    },
+    {
+      "type": "split-variants",
+      "variants": [
+        {
+          "path": "outlined",
+          "from": "outlined",
+          "suffix": ""
+        },
+        {
+          "path": "outlined-fill",
+          "from": "outlined",
+          "suffix": "-fill"
+        },
+        {
+          "path": "rounded",
+          "from": "rounded",
+          "suffix": ""
+        },
+        {
+          "path": "rounded-fill",
+          "from": "rounded",
+          "suffix": "-fill"
+        },
+        {
+          "path": "sharp",
+          "from": "sharp",
+          "suffix": ""
+        },
+        {
+          "path": "sharp-fill",
+          "from": "sharp",
+          "suffix": "-fill"
+        }
+      ]
+    },
+    {
+      "type": "slugify"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}
