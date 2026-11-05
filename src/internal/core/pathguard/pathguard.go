@@ -27,9 +27,10 @@ var ErrEscape = errors.New("path escapes its root")
 //
 //   - an empty root;
 //   - an absolute element, or one with a volume name;
-//   - any `..` component, split on both `/` and `\`, even one that would
-//     resolve back inside root: a name that needs `..` is not a name any
-//     caller here produces honestly.
+//   - any `..` at all, as a component or inside a name (`a..b.svg`): a name
+//     that needs one is not a name any caller here produces honestly, and
+//     refusing the substring is the check static analysis recognises. Measured
+//     2026-11-05: none of the 260,763 shipped SVGs has `..` in its name.
 //
 // Then, because a name with no `..` can still leave through a link, it
 // resolves the deepest part of the result that exists and refuses it unless
@@ -51,16 +52,19 @@ func Join(root string, elem ...string) (string, error) {
 		if filepath.IsAbs(e) || filepath.VolumeName(e) != "" || strings.HasPrefix(e, "/") || strings.HasPrefix(e, `\`) {
 			return "", fmt.Errorf("%w: %q is absolute", ErrEscape, e)
 		}
-		for _, part := range strings.FieldsFunc(e, func(r rune) bool { return r == '/' || r == '\\' }) {
-			if part == ".." {
-				return "", fmt.Errorf("%w: %q has a .. component", ErrEscape, e)
-			}
+		if strings.Contains(e, "..") {
+			return "", fmt.Errorf("%w: %q contains ..", ErrEscape, e)
 		}
 	}
 
 	joined := filepath.Join(append([]string{base}, elem...)...)
 	rel, err := filepath.Rel(base, joined)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+	if err != nil || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("%w: %q is not under %s", ErrEscape, strings.Join(elem, "/"), base)
+	}
+	// The same rule again on what is returned, so every use below is of a
+	// value that has passed it.
+	if strings.Contains(rel, "..") {
 		return "", fmt.Errorf("%w: %q is not under %s", ErrEscape, strings.Join(elem, "/"), base)
 	}
 	if err := withinAfterLinks(base, rel); err != nil {

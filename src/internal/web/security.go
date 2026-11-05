@@ -155,7 +155,8 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			if !isLocalURL(target) {
 				// "//host/x" and "/\host/x" name another host. Land on the
 				// home page instead of following the request off site.
-				target = "/"
+				http.Redirect(w, r, "/", http.StatusSeeOther)
+				return
 			}
 			http.Redirect(w, r, target, http.StatusSeeOther)
 			return
