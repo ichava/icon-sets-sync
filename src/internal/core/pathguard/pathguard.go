@@ -53,7 +53,7 @@ func Join(root string, elem ...string) (string, error) {
 			return "", fmt.Errorf("%w: %q is absolute", ErrEscape, e)
 		}
 		if strings.Contains(e, "..") {
-			return "", fmt.Errorf("%w: %q contains ..", ErrEscape, e)
+			return "", fmt.Errorf("%w: %q contains a .. sequence", ErrEscape, e)
 		}
 	}
 
