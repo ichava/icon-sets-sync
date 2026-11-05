@@ -271,8 +271,24 @@ func sha256File(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// checkFlat refuses any directory inside an OS folder or archives/, except
-// the app bundle in macos/, which checkBundle inspects.
+// launcherFiles are the files beside the binaries that are not binaries: the
+// double-click launchers `make cross` and `make app` write. Each is a named
+// exception with its reason, because the estate rule says an OS folder holds
+// binaries only, and no recorded owner decision covers these yet (measured
+// 2026-11-05: one .app bundle in macos/, one .desktop and one .png in linux/,
+// in this repository and no other). They are listed for the owner.
+var launcherFiles = map[string]map[string]string{
+	"macos": {AppBundle: "macOS opens a bare executable inside Terminal; the app bundle is the double-click launcher"},
+	"linux": {
+		Binary + ".desktop": "the desktop entry a Linux file manager double-clicks",
+		Binary + ".png":     "the icon that desktop entry names",
+	},
+}
+
+// checkFlat holds an OS folder to its binaries: {binary}_{os}_{arch}[.exe],
+// the host build {binary}[.exe], and the named launcherFiles. archives/ may
+// hold any file. Neither may hold a folder, except the app bundle in macos/,
+// which checkBundle inspects.
 func checkFlat(dir, label string) (int, []string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -280,14 +296,30 @@ func checkFlat(dir, label string) (int, []string, error) {
 	}
 	var problems []string
 	for _, e := range entries {
-		if e.IsDir() && label == "macos" && e.Name() == AppBundle {
+		name := e.Name()
+		if _, ok := launcherFiles[label][name]; ok && e.IsDir() == (name == AppBundle) {
 			continue
 		}
 		if e.IsDir() {
-			problems = append(problems, fmt.Sprintf("build/%s/%s/: %s/ holds files only, never a folder", label, e.Name(), label))
+			problems = append(problems, fmt.Sprintf("build/%s/%s/: %s/ holds files only, never a folder", label, name, label))
+			continue
 		}
+		if label == ArchivesDir || osMetadata[name] || isBinaryFor(label, name) {
+			continue
+		}
+		problems = append(problems, fmt.Sprintf("build/%s/%s: an OS folder holds %s_%s_<arch> binaries, the host %s, and the named launchers only", label, name, Binary, label, Binary))
 	}
 	return len(entries), problems, nil
+}
+
+// isBinaryFor reports whether name is this program's binary for the OS folder label.
+func isBinaryFor(label, name string) bool {
+	base := strings.TrimSuffix(name, ".exe")
+	if base == Binary {
+		return true
+	}
+	arch, ok := strings.CutPrefix(base, Binary+"_"+label+"_")
+	return ok && arch != "" && !strings.ContainsAny(arch, "_/.")
 }
 
 func allowedDirs() string {
