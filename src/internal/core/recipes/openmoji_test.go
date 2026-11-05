@@ -156,6 +156,30 @@ func TestUnicodeVersionIsDerivedFromTheOpenMojiRelease(t *testing.T) {
 	}
 }
 
+// The derived taxonomy never falls below the default. OpenMoji 15.1.0 against
+// the 15.1 taxonomy put crab, lobster, oyster, shrimp and squid back in
+// food-drink, from the animals-nature that Unicode 16.0 moved them to and the
+// pack ships, and the removal guard refused every run.
+func TestTheDerivedTaxonomyNeverFallsBelowTheDefault(t *testing.T) {
+	for _, tc := range []struct{ release, floor, want string }{
+		{"15.1.0", "16.0", "16.0"}, {"16.0.0", "16.0", "16.0"}, {"17.0.0", "16.0", "17.0"},
+		{"9.0.0", "16.0", "16.0"}, {"nightly", "16.0", "16.0"}, {"16.10.0", "16.9", "16.10"},
+	} {
+		if got := taxonomyFor(tc.release, tc.floor); got != tc.want {
+			t.Errorf("taxonomyFor(%q, %q) = %q, want %q", tc.release, tc.floor, got, tc.want)
+		}
+	}
+
+	built, err := buildFor(openmojiPack(t), "15.1.0", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cldr := built[0].Stages()[0].(sources.Compound).First.(sources.UnicodeCldr)
+	if cldr.UnicodeVersion != settings.DefaultUnicodeVersion {
+		t.Errorf("OpenMoji 15.1.0 is categorised against Unicode %q, want the default %s", cldr.UnicodeVersion, settings.DefaultUnicodeVersion)
+	}
+}
+
 // An explicit emoji.unicode_version always wins over the derived one.
 func TestExplicitUnicodeVersionBeatsTheDerivedOne(t *testing.T) {
 	r := settings.Resolve(settings.LayerValues{Layer: settings.LayerEnv, Values: settings.Values{"emoji.unicode_version": "16.0"}})

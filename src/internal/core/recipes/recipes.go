@@ -334,6 +334,59 @@ func unicodeVersionFor(openmoji string) string {
 	return parts[0] + "." + parts[1]
 }
 
+// taxonomyFor is the Unicode emoji taxonomy an OpenMoji release is
+// categorised against: the release's own (unicodeVersionFor), or floor when
+// that is older or the tag is not of that shape. A newer taxonomy still names
+// every older emoji, and it is the one whose categories Unicode publishes now,
+// so an older release never needs an older taxonomy.
+func taxonomyFor(openmoji, floor string) string {
+	derived := unicodeVersionFor(openmoji)
+	if derived == "" || compareMajorMinor(derived, floor) < 0 {
+		return floor
+	}
+	return derived
+}
+
+// compareMajorMinor orders two "major.minor" versions numerically; a version
+// that does not parse sorts first, so the other wins.
+func compareMajorMinor(a, b string) int {
+	pa, okA := parseMajorMinor(a)
+	pb, okB := parseMajorMinor(b)
+	switch {
+	case !okA && !okB:
+		return 0
+	case !okA:
+		return -1
+	case !okB:
+		return 1
+	}
+	for i := range pa {
+		if pa[i] != pb[i] {
+			if pa[i] < pb[i] {
+				return -1
+			}
+			return 1
+		}
+	}
+	return 0
+}
+
+func parseMajorMinor(v string) ([2]int, bool) {
+	parts := strings.Split(v, ".")
+	if len(parts) < 2 {
+		return [2]int{}, false
+	}
+	var out [2]int
+	for i := range out {
+		n, err := strconv.Atoi(parts[i])
+		if err != nil {
+			return [2]int{}, false
+		}
+		out[i] = n
+	}
+	return out, true
+}
+
 // buildOpenMojiSets composes ichava/icon-sets-openmoji: the colour and black
 // sets from one OpenMoji release, then a commit-only pipeline so both land in a
 // single commit. The release is the version the checker discovered, not a
@@ -347,11 +400,13 @@ func buildOpenMojiSets(pack *config.PackConfig, version string, opts Options) ([
 	cfg := packConfig(pack)
 	unicodeVersion := r.String("emoji.unicode_version")
 	if r.Origin("emoji.unicode_version") == settings.LayerDefault {
-		// Not chosen by anyone: follow the release. Categorising OpenMoji 17
-		// against the 16.0 taxonomy left its 163 Unicode 17 emoji uncategorised.
-		if derived := unicodeVersionFor(version); derived != "" {
-			unicodeVersion = derived
-		}
+		// Not chosen by anyone: follow the release, but never below the
+		// default. Categorising OpenMoji 17 against the 16.0 taxonomy left its
+		// 163 Unicode 17 emoji uncategorised; categorising OpenMoji 15.1.0
+		// against 15.1 moved crab, lobster, oyster, shrimp and squid back out
+		// of animals-nature, where Unicode 16.0 put them and the pack ships
+		// them, and the removal guard refused the run.
+		unicodeVersion = taxonomyFor(version, unicodeVersion)
 	}
 	cldr := sources.UnicodeCldr{UnicodeVersion: unicodeVersion}
 	guards := openmojiGuards{preserve: true, maxUncategorised: maxUncategorisedShare, force: r.Bool("force")}
