@@ -140,6 +140,10 @@ type GithubArchive struct {
 	Repo       string
 	Version    string
 
+	// MaxDownloadBytes raises the download cap for this archive; zero keeps
+	// httpx's default. Only read when HTTP is nil.
+	MaxDownloadBytes int64
+
 	HTTP Downloader
 	Log  *slog.Logger
 }
@@ -169,7 +173,11 @@ func (s GithubArchive) Execute(ctx *pipeline.Context) error {
 	}
 	client := s.HTTP
 	if client == nil {
-		client = httpx.New()
+		c := httpx.New()
+		if s.MaxDownloadBytes > 0 {
+			c.MaxDownloadBytes = s.MaxDownloadBytes
+		}
+		client = c
 	}
 
 	url := s.URL()

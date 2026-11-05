@@ -20,22 +20,41 @@ import (
 // icons without the text MIT, ISC, Apache-2.0, BSD and OFL require to travel
 // with them. So this runs first, looks only at the root, and hands the paths
 // forward for the LicenceTexts sink. It reads nothing and changes nothing.
+//
+// It also records the untouched root as upstream_root, for the stages that
+// read an upstream data file after the tree has been narrowed.
 type FindLicences struct {
 	pipeline.TransformKind
+
+	// Dir is where the licence files sit, relative to the root, for an
+	// upstream whose icons carry a licence of their own in a sub-directory.
+	// Noto Emoji is the case: its root LICENSE is the OFL and covers the
+	// fonts, while 2D/svg/LICENSE is the Apache-2.0 notice governing the
+	// SVGs. Empty means the root.
+	Dir string
 }
 
 func (FindLicences) Name() string { return "FindLicences" }
 
-func (FindLicences) Execute(ctx *pipeline.Context) error {
+func (t FindLicences) Execute(ctx *pipeline.Context) error {
 	root, ok := ctx.FetchedPath()
 	if !ok {
 		return fmt.Errorf("FindLicences: fetched_path not set; needs a source upstream")
 	}
-	found, err := LicenceFiles(root)
+	dir := root
+	if t.Dir != "" {
+		rel := filepath.Clean(filepath.FromSlash(t.Dir))
+		if filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("FindLicences: %q is outside the upstream", t.Dir)
+		}
+		dir = filepath.Join(root, rel)
+	}
+	found, err := LicenceFiles(dir)
 	if err != nil {
 		return fmt.Errorf("FindLicences: %w", err)
 	}
 	ctx.SetString(pipeline.KeyLicenceFiles, strings.Join(found, "\n"))
+	ctx.SetString(pipeline.KeyUpstreamRoot, root)
 	ctx.Metric("find_licences", map[string]any{"files": len(found)})
 	return nil
 }

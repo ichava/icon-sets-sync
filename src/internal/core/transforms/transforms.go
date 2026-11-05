@@ -98,6 +98,14 @@ type Sanitise struct {
 	MaxStrayTextFiles int
 	Force             bool
 
+	// DropUnparsable removes a file the sanitiser cannot parse instead of
+	// leaving it as upstream shipped it. Off by default. It is the stricter
+	// choice, not a looser one: a file that cannot be parsed cannot be
+	// checked, so with it on such a file never reaches the pack. Noto Emoji
+	// needs it, for 170 SVGs that declare Adobe Illustrator entities in an
+	// internal DTD. The count is in the run's metrics and logged per file.
+	DropUnparsable bool
+
 	Log *slog.Logger
 }
 
@@ -125,7 +133,7 @@ func (t Sanitise) Execute(ctx *pipeline.Context) error {
 	}
 
 	var cleaned, unparsable, strayFiles, strayNodes int
-	var violations []string
+	var violations, drops []string
 	type pendingWrite struct {
 		path string
 		data []byte
@@ -144,7 +152,10 @@ func (t Sanitise) Execute(ctx *pipeline.Context) error {
 			// Dropping it would silently shrink the pack; rewriting a guess at
 			// it would be worse.
 			unparsable++
-			log.Warn("sanitise: cannot parse", "file", path, "error", err)
+			log.Warn("sanitise: cannot parse", "file", path, "error", err, "dropped", t.DropUnparsable && !t.ReportOnly)
+			if t.DropUnparsable && !t.ReportOnly {
+				drops = append(drops, path)
+			}
 			continue
 		}
 
@@ -188,13 +199,18 @@ func (t Sanitise) Execute(ctx *pipeline.Context) error {
 			return err
 		}
 	}
+	for _, path := range drops {
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+	}
 
 	// `cleaned` counts files the policy would change; in report-only mode none
 	// of them were written, which the metric records so a reader of the run
 	// summary cannot mistake one mode for the other.
 	ctx.Metric("sanitise", map[string]any{
 		"scanned": len(files), "cleaned": cleaned,
-		"unparsable": unparsable, "violations": len(violations),
+		"unparsable": unparsable, "dropped_unparsable": len(drops), "violations": len(violations),
 		"report_only":      t.ReportOnly,
 		"stray_text_files": strayFiles, "stray_text_nodes": strayNodes,
 	})
@@ -216,14 +232,28 @@ var (
 
 // Slugify lowercases and hyphenates SVG filenames in place.
 //
-// Not used by either shipped recipe -- both upstreams already ship slugged
-// names -- but kept because a new pack from a less tidy upstream is exactly
-// when it is needed, and it is four lines.
-type Slugify struct{ pipeline.TransformKind }
+// The default rule keeps dots, so `lucene.net.svg` stays as it is. Two options
+// widen it for upstreams whose names need more: HyphenateDots slugs the stem
+// with SlugifyName, the rule the indexer uses (`lucene.net` becomes
+// `lucene-net`), and Dirs slugs every directory name by the same rule, for an
+// upstream that keeps its categories in folders such as `Game & Sports`.
+//
+// Two names that slug to one fail the run, naming both. Renaming over an
+// existing file would drop one of them at an unchanged count, which nothing
+// later in the run would notice.
+type Slugify struct {
+	pipeline.TransformKind
+
+	// Dirs slugs directory names as well as file names.
+	Dirs bool
+
+	// HyphenateDots turns a dot inside the stem into a hyphen too.
+	HyphenateDots bool
+}
 
 func (Slugify) Name() string { return "Slugify" }
 
-func (Slugify) Execute(ctx *pipeline.Context) error {
+func (t Slugify) Execute(ctx *pipeline.Context) error {
 	root, ok := ctx.FetchedPath()
 	if !ok {
 		return fmt.Errorf("Slugify: fetched_path not set; needs a source upstream")
@@ -237,23 +267,110 @@ func (Slugify) Execute(ctx *pipeline.Context) error {
 	renamed := 0
 	for _, path := range files {
 		dir, base := filepath.Split(path)
-		lowered := strings.ToLower(base)
-
-		slug := strings.Trim(slugPattern.ReplaceAllString(lowered, "-"), "-.")
-		if !strings.HasSuffix(lowered, ".svg") {
-			slug += ".svg"
+		slug, err := t.fileSlug(base)
+		if err != nil {
+			return fmt.Errorf("Slugify: %s: %w", path, err)
 		}
 		if slug == base {
 			continue
 		}
-		if err := os.Rename(path, filepath.Join(dir, slug)); err != nil {
-			return err
+		if err := renameNoClobber(path, filepath.Join(dir, slug)); err != nil {
+			return fmt.Errorf("Slugify: %w", err)
 		}
 		renamed++
 	}
 
-	ctx.Metric("slugify", map[string]any{"renamed": renamed})
+	dirsRenamed := 0
+	if t.Dirs {
+		if dirsRenamed, err = t.slugDirs(root); err != nil {
+			return fmt.Errorf("Slugify: %w", err)
+		}
+	}
+
+	ctx.Metric("slugify", map[string]any{"renamed": renamed, "dirs_renamed": dirsRenamed})
 	return nil
+}
+
+// fileSlug is the slugged form of one filename.
+func (t Slugify) fileSlug(base string) (string, error) {
+	lowered := strings.ToLower(base)
+	if !t.HyphenateDots {
+		slug := strings.Trim(slugPattern.ReplaceAllString(lowered, "-"), "-.")
+		if !strings.HasSuffix(lowered, ".svg") {
+			slug += ".svg"
+		}
+		return slug, nil
+	}
+	stem := strings.TrimSuffix(lowered, ".svg")
+	slug := SlugifyName(stem)
+	if slug == "" {
+		return "", fmt.Errorf("%q has no letters or digits to keep", base)
+	}
+	return slug + ".svg", nil
+}
+
+// dirSlug is the slugged form of one directory name.
+func (t Slugify) dirSlug(name string) string {
+	if t.HyphenateDots {
+		return SlugifyName(name)
+	}
+	return strings.Trim(slugPattern.ReplaceAllString(strings.ToLower(name), "-"), "-.")
+}
+
+// slugDirs renames every directory under root, deepest first, so a parent's
+// rename never invalidates a child path still to be visited.
+func (t Slugify) slugDirs(root string) (int, error) {
+	var dirs []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() && path != root {
+			dirs = append(dirs, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	sort.Slice(dirs, func(i, j int) bool {
+		di, dj := strings.Count(dirs[i], string(filepath.Separator)), strings.Count(dirs[j], string(filepath.Separator))
+		if di != dj {
+			return di > dj
+		}
+		return dirs[i] < dirs[j]
+	})
+
+	renamed := 0
+	for _, path := range dirs {
+		parent, name := filepath.Split(path)
+		slug := t.dirSlug(name)
+		if slug == "" {
+			return renamed, fmt.Errorf("directory %q has no letters or digits to keep", path)
+		}
+		if slug == name {
+			continue
+		}
+		if err := renameNoClobber(path, filepath.Join(parent, slug)); err != nil {
+			return renamed, err
+		}
+		renamed++
+	}
+	return renamed, nil
+}
+
+// renameNoClobber renames from to to, refusing when to is another file.
+//
+// A case-only rename on a case-insensitive filesystem finds to already there
+// -- it is the same file -- so that one is allowed.
+func renameNoClobber(from, to string) error {
+	if info, err := os.Stat(to); err == nil {
+		src, serr := os.Stat(from)
+		if serr != nil || !os.SameFile(src, info) {
+			return fmt.Errorf("%s and %s slug to the same name", from, to)
+		}
+	}
+	return os.Rename(from, to)
 }
 
 // SlugifyName is the shared name-to-slug rule, exported because the CLDR

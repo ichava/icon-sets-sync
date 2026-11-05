@@ -465,3 +465,108 @@ func TestSanitiseRefusesTooManyStrayTextFiles(t *testing.T) {
 		t.Errorf("report-only writes nothing, so it is not refused: %v", err)
 	}
 }
+
+// TestSlugifyOptions is the table for the rules the v0.1.0 packs need beyond
+// the default: directory names (Remix's `Game & Sports`) and dots inside a
+// stem (gilbarbara/logos' `lucene.net`).
+func TestSlugifyOptions(t *testing.T) {
+	cases := []struct {
+		name  string
+		t     Slugify
+		files []string
+		want  []string
+	}{
+		{"default keeps dots", Slugify{}, []string{"lucene.net.svg", "Web.Dev-Icon.svg"}, []string{"lucene.net.svg", "web.dev-icon.svg"}},
+		{"hyphenate_dots", Slugify{HyphenateDots: true}, []string{"lucene.net.svg", "daisyUI-icon.svg", "khan_academy.svg"},
+			[]string{"daisyui-icon.svg", "khan-academy.svg", "lucene-net.svg"}},
+		{"dirs", Slugify{Dirs: true}, []string{"Game & Sports/Ball.svg", "User & Faces/a/B c.svg"},
+			[]string{"game-sports/ball.svg", "user-faces/a/b-c.svg"}},
+		{"dirs off leaves directories", Slugify{}, []string{"Game & Sports/Ball.svg"}, []string{"Game & Sports/ball.svg"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			files := map[string]string{}
+			for _, f := range tc.files {
+				files[f] = "<svg/>"
+			}
+			ctx, root := tree(t, files)
+			if err := tc.t.Execute(ctx); err != nil {
+				t.Fatal(err)
+			}
+			got := listTree(t, root)
+			if strings.Join(got, "|") != strings.Join(tc.want, "|") {
+				t.Fatalf("got %v\nwant %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestSlugifyRefusesACollision: renaming onto an existing file would lose one
+// icon at an unchanged count.
+func TestSlugifyRefusesACollision(t *testing.T) {
+	cases := []struct {
+		name  string
+		t     Slugify
+		files []string
+	}{
+		{"two files", Slugify{HyphenateDots: true}, []string{"a.b.svg", "a-b.svg"}},
+		{"two directories", Slugify{Dirs: true}, []string{"A B/x.svg", "a-b/y.svg"}},
+		{"a name with nothing to keep", Slugify{HyphenateDots: true}, []string{"!.svg"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			files := map[string]string{}
+			for _, f := range tc.files {
+				files[f] = "<svg/>"
+			}
+			ctx, _ := tree(t, files)
+			if err := tc.t.Execute(ctx); err == nil {
+				t.Fatal("want an error")
+			}
+		})
+	}
+}
+
+// TestFlattenSlugsTheStemBeforeTheAffix is Health Icons: `!.svg` was
+// committed as `-filled.svg`, which only slugging before the suffix produces.
+func TestFlattenSlugsTheStemBeforeTheAffix(t *testing.T) {
+	ctx, _ := tree(t, map[string]string{
+		"filled/blood/!.svg":            "<svg/>",
+		"filled/blood/Blood_A_N.svg":    "<svg/>",
+		"outline/zoonoses/mosquito.svg": "<svg/>",
+	})
+	err := FlattenVariants{Slug: true, Variants: []Variant{
+		{Subdir: "filled", Suffix: "-filled"}, {Subdir: "outline", Suffix: "-outline"},
+	}}.Execute(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _ := ctx.FetchedPath()
+	got := strings.Join(flattened(t, out), " ")
+	if got != "-filled.svg blood-a-n-filled.svg mosquito-outline.svg" {
+		t.Fatalf("got %v", got)
+	}
+}
+
+// TestSanitiseDropUnparsable: with the option a file that cannot be checked
+// never reaches the pack; without it the file is left alone, as before.
+func TestSanitiseDropUnparsable(t *testing.T) {
+	bad := `<!DOCTYPE svg [<!ENTITY ns_ai "http://ns.adobe.com/AdobeIllustrator/10.0/">]><svg xmlns:x="&ns_ai;"/>`
+	for _, drop := range []bool{false, true} {
+		ctx, root := tree(t, map[string]string{"bad.svg": bad, "good.svg": `<svg xmlns="http://www.w3.org/2000/svg"/>`})
+		if err := (Sanitise{DropUnparsable: drop}).Execute(ctx); err != nil {
+			t.Fatal(err)
+		}
+		_, err := os.Stat(filepath.Join(root, "bad.svg"))
+		if drop != os.IsNotExist(err) {
+			t.Errorf("drop_unparsable=%v: bad.svg present=%v", drop, err == nil)
+		}
+		if _, err := os.Stat(filepath.Join(root, "good.svg")); err != nil {
+			t.Errorf("drop_unparsable=%v removed a parsable file", drop)
+		}
+		m, _ := ctx.Metrics["sanitise"].(map[string]any)
+		if want := map[bool]int{false: 0, true: 1}[drop]; m["dropped_unparsable"] != want {
+			t.Errorf("drop_unparsable=%v: metric %v, want %d", drop, m["dropped_unparsable"], want)
+		}
+	}
+}

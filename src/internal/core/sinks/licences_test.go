@@ -338,3 +338,108 @@ func TestLicenceTextsGuardRefusesAChangedLicence(t *testing.T) {
 		})
 	}
 }
+
+// TestLicenceSignatures pins each declarable licence against the opening of
+// the real texts the v0.1.0 packs ship, and against the near misses that must
+// not pass for it.
+func TestLicenceSignatures(t *testing.T) {
+	apache := "\n                                 Apache License\n                           Version 2.0, January 2004\n                        http://www.apache.org/licenses/\n"
+	cases := []struct {
+		licence string
+		body    string
+		ok      bool
+	}{
+		{"Apache-2.0", apache, true},
+		{"Apache-2.0", "Apache License\nVersion 1.1\n", false},
+		{"Apache-2.0", "MIT License\n", false},
+		{"CC0-1.0", "CC0 1.0 Universal\n\nStatement of Purpose\n", true},                // gilbarbara/logos
+		{"CC0-1.0", "Creative Commons Legal Code\n\nCC0 1.0 Universal\n", true},         // pinhead
+		{"CC0-1.0", "# CC0 1.0 Universal\n\n## Statement of Purpose\n", true},           // simple-icons, Markdown
+		{"CC0-1.0", "Creative Commons Legal Code\n\nAttribution 3.0 Unported\n", false}, // CC-BY-3.0 shares the first line
+		{"CC-BY-3.0", "Creative Commons Legal Code\n\nAttribution 3.0 Unported\n", true},
+		{"CC-BY-3.0", "Creative Commons Legal Code\n\nCC0 1.0 Universal\n", false},
+		{"CC-BY-4.0", "Attribution 4.0 International\n", true},
+		{"MIT", "The MIT License (MIT)\n\nCopyright (c) 2019 The Bootstrap Authors\n", true},
+		{"MIT", " MIT License\r\n Copyright (c) Microsoft Corporation.\r\n", true},
+		{"MIT", "ISC License\n", false},
+		{"ISC", "ISC License\n\nCopyright (c) 2026 Lucide Icons and Contributors\n", true},
+	}
+	for _, c := range cases {
+		t.Run(c.licence+"/"+strings.Fields(c.body)[0], func(t *testing.T) {
+			p := filepath.Join(t.TempDir(), "LICENSE")
+			if err := os.WriteFile(p, []byte(c.body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			err := checkLicence(c.licence, []string{p})
+			if c.ok && err != nil {
+				t.Fatalf("want accepted, got %v", err)
+			}
+			if !c.ok && (err == nil || !strings.Contains(err.Error(), "licence changed")) {
+				t.Fatalf("want a licence-changed refusal, got %v", err)
+			}
+		})
+	}
+}
+
+// TestLicenceDigestGuard is the pack-plan licence-change guard: the upstream
+// licence text pinned to its SHA-256, failing on a one-byte change before the
+// pack's existing text is touched.
+func TestLicenceDigestGuard(t *testing.T) {
+	text := []byte("Pictogrammers Free License\r\n--------------------------\r\n")
+	const digest = "c2e1d9c6e6f2df4b7e6be4e5a8f6eec8b6b2f2a1c8a0c3c5f0b1e5b1f9c1d2e3" // deliberately wrong
+	sum := func(b []byte) string {
+		p := filepath.Join(t.TempDir(), "x")
+		if err := os.WriteFile(p, b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		// Through the guard itself, so the test does not restate the hash.
+		err := checkLicenceDigest(digest, []string{p})
+		got := err.Error()
+		i := strings.Index(got, "x=")
+		return got[i+2 : i+66]
+	}
+	good := sum(text)
+
+	cases := []struct {
+		name    string
+		body    []byte
+		sha     string
+		wantErr string
+	}{
+		{name: "matching text copies", body: text, sha: good},
+		{name: "upper-case digest is the same digest", body: text, sha: strings.ToUpper(good)},
+		{name: "a one-byte change blocks", body: append(append([]byte{}, text...), ' '), sha: good, wantErr: "licence changed"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			src := t.TempDir()
+			p := filepath.Join(src, "LICENSE")
+			if err := os.WriteFile(p, c.body, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			dest := filepath.Join(t.TempDir(), "licenses", "mdi-svg")
+			if err := os.MkdirAll(dest, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dest, "LICENSE"), []byte("kept"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			ctx := ctxFor(t, src)
+			ctx.SetString(pipeline.KeyLicenceFiles, p)
+
+			err := LicenceTexts{Root: dest, Set: "mdi-svg", SHA256: c.sha}.Execute(ctx)
+			if c.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+					t.Fatalf("err = %v, want it to contain %q", err, c.wantErr)
+				}
+				if b, _ := os.ReadFile(filepath.Join(dest, "LICENSE")); string(b) != "kept" {
+					t.Fatal("a refused sync must leave the existing licence text untouched")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
