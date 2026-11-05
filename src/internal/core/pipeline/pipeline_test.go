@@ -80,7 +80,7 @@ func TestPipelineRunsEachStageInOrder(t *testing.T) {
 		Source(recordingSource{}).
 		Transform(flaggingTransform{fired: &transformFired}).
 		Sink(copyingSink{fired: &sinkFired, target: target}).
-		Run()
+		RunContext(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,14 +102,14 @@ func TestPipelineRunsEachStageInOrder(t *testing.T) {
 
 func TestPipelineRequiresASource(t *testing.T) {
 	var fired bool
-	_, err := Named("demo").Sink(copyingSink{fired: &fired}).Run()
+	_, err := Named("demo").Sink(copyingSink{fired: &fired}).RunContext(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "no source") {
 		t.Fatalf("err = %v, want one naming the missing source", err)
 	}
 }
 
 func TestPipelineRequiresASink(t *testing.T) {
-	_, err := Named("demo").Source(recordingSource{}).Run()
+	_, err := Named("demo").Source(recordingSource{}).RunContext(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "no sinks") {
 		t.Fatalf("err = %v, want one naming the missing sinks", err)
 	}
@@ -124,7 +124,7 @@ func TestPipelineCapturesStageFailure(t *testing.T) {
 		Source(recordingSource{}).
 		Transform(failingTransform{}).
 		Sink(copyingSink{fired: &sinkFired, target: filepath.Join(t.TempDir(), "out.svg")}).
-		Run()
+		RunContext(context.Background())
 	if err != nil {
 		t.Fatalf("a stage failure is a Result, not a Run error: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestPipelineDoubleSourceIsAnError(t *testing.T) {
 		Source(recordingSource{}).
 		Source(recordingSource{}).
 		Sink(copyingSink{fired: &fired}).
-		Run()
+		RunContext(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "already has a source") {
 		t.Fatalf("err = %v, want one naming the duplicate source", err)
 	}
@@ -166,7 +166,7 @@ func TestPipelineRemovesOnlyTheDirectoryItCreated(t *testing.T) {
 		Source(recordingSource{}).
 		Sink(copyingSink{fired: &fired, target: filepath.Join(supplied, "out.svg")}).
 		WorkingDir(supplied).
-		Run(); err != nil {
+		RunContext(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(supplied); err != nil {
@@ -176,7 +176,7 @@ func TestPipelineRemovesOnlyTheDirectoryItCreated(t *testing.T) {
 	// And the opposite: one the pipeline created is gone afterwards.
 	var captured string
 	capture := capturingSink{path: &captured}
-	if _, err := Named("demo").Source(recordingSource{}).Sink(capture).Run(); err != nil {
+	if _, err := Named("demo").Source(recordingSource{}).Sink(capture).RunContext(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if captured == "" {

@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -326,7 +327,7 @@ func TestNpmTarballPassesIgnoreScripts(t *testing.T) {
 	_, _ = pipeline.Named("demo").
 		Source(NpmTarball{Package: "@tabler/icons", Version: "3.46.0"}).
 		Sink(nopSink{}).
-		Run()
+		RunContext(context.Background())
 
 	got, err := os.ReadFile(argsFile)
 	if err != nil {

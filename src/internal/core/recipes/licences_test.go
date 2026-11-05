@@ -112,7 +112,7 @@ func TestUpstreamLicenceReachesThePack(t *testing.T) {
 				Sink(sinks.Filesystem{Root: "{pack_root}/resources/assets/svg/files"}).
 				Sink(sinks.LicenceTexts{Root: LicencesRoot + "/demo", Set: "demo"})
 
-			res, err := p.Run()
+			res, err := p.RunContext(context.Background())
 			if err == nil {
 				err = res.Err // a stage failure is reported on the result
 			}
