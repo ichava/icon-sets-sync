@@ -10,6 +10,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"github.com/ichava/icon-sets-sync/src/internal/core/text"
 	"strings"
 	"time"
 
@@ -396,9 +397,9 @@ func (m *Model) viewDetail() string {
 	rows := [][]string{
 		{"composer", p.Pack},
 		{"pack root", p.PackRoot},
-		{"vendored", orDash(config.ReadVendoredVersion(p))},
-		{"config fallback", orDash(p.CurrentVersion)},
-		{"resolved", orDash(config.ResolvedCurrentVersion(p))},
+		{"vendored", text.OrDash(config.ReadVendoredVersion(p))},
+		{"config fallback", text.OrDash(p.CurrentVersion)},
+		{"resolved", text.OrDash(config.ResolvedCurrentVersion(p))},
 		{"source", p.Source.Type},
 		{"check url", p.VersionCheckURL},
 		{"version file", p.VersionFile},
@@ -420,13 +421,6 @@ func (m *Model) viewConfirm() string {
 	// opens a pull request, so the answer has to be typed.
 	return fmt.Sprintf("Refresh %s from upstream + open a PR? %s\n",
 		titleStyle.Render(m.selected.Name), subtitleStyle.Render("[y/N]"))
-}
-
-func orDash(s string) string {
-	if s == "" {
-		return "-"
-	}
-	return s
 }
 
 func (m *Model) help() string {

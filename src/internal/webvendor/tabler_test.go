@@ -1,4 +1,4 @@
-package tabler
+package webvendor
 
 import (
 	"archive/tar"
@@ -229,5 +229,21 @@ func TestCheckReportsAPinBehindTheRegistry(t *testing.T) {
 	}
 	if behind, err := v.Check(); err != nil || len(behind) != 0 {
 		t.Fatalf("an up-to-date pin reported %v %v", behind, err)
+	}
+}
+
+// G-03: the vendor fetches through httpx, so the upstream allowlist, the
+// https-only redirect guard and the size caps apply here too. A host off
+// the allowlist is refused before any request is sent.
+func TestHTTPFetcherRefusesAHostOffTheAllowlist(t *testing.T) {
+	_, err := HTTPFetcher{}.Get("https://not-on-the-allowlist.invalid/pkg.tgz")
+	if err == nil || !strings.Contains(err.Error(), "not on the upstream allowlist") {
+		t.Fatalf("err = %v, want an allowlist refusal", err)
+	}
+}
+
+func TestHTTPFetcherRefusesPlainHTTP(t *testing.T) {
+	if _, err := (HTTPFetcher{}).Get("http://registry.npmjs.org/x"); err == nil {
+		t.Fatal("plain http to a non-loopback host was not refused")
 	}
 }

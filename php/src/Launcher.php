@@ -17,29 +17,54 @@ final class Launcher
     public static function main(array $arguments): int
     {
         try {
-            $local = self::localBinary();
-            if ($local !== null) {
-                return self::exec($local, $arguments);
-            }
-
-            $installer = new Installer(
-                fetcher: new HttpFetcher,
-                platform: Platform::detect(),
-                cacheDir: dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . '.cache' . DIRECTORY_SEPARATOR . 'bin',
-                tag: self::tag(),
-                requireSignature: in_array(getenv('ICHAVA_ICON_SETS_SYNC_REQUIRE_SIGNATURE'), ['1', 'true'], true),
-                cosign: self::which('cosign'),
-            );
-
-            return self::exec($installer->ensure(), $arguments);
+            return self::exec(self::binary(), $arguments);
         } catch (Throwable $e) {
             fwrite(STDERR, 'icon-sets-sync: ' . $e->getMessage() . PHP_EOL);
-            fwrite(STDERR, 'icon-sets-sync: no release binary is published yet. Build from source '
+            fwrite(STDERR, 'icon-sets-sync: build from source '
                 . '(git clone https://github.com/ichava/icon-sets-sync.git && make -C icon-sets-sync build-local) '
                 . 'and set ICHAVA_ICON_SETS_SYNC_BIN to the built binary.' . PHP_EOL);
 
             return 1;
         }
+    }
+
+    /**
+     * The binary to run: the one ICHAVA_ICON_SETS_SYNC_BIN names, or, only
+     * when ICHAVA_ICON_SETS_SYNC_DOWNLOAD opts in, a verified release binary.
+     * Go releases are git only until the owner says otherwise, so the
+     * download is never the default (G-06).
+     *
+     * @throws LauncherException when neither is available
+     */
+    public static function binary(): string
+    {
+        $local = self::localBinary();
+        if ($local !== null) {
+            return $local;
+        }
+
+        if (! self::downloadAllowed()) {
+            throw new LauncherException('no binary is named, and downloading a release needs ICHAVA_ICON_SETS_SYNC_DOWNLOAD=1.');
+        }
+
+        $installer = new Installer(
+            fetcher: new HttpFetcher,
+            platform: Platform::detect(),
+            cacheDir: dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . '.cache' . DIRECTORY_SEPARATOR . 'bin',
+            tag: self::tag(),
+            requireSignature: in_array(getenv('ICHAVA_ICON_SETS_SYNC_REQUIRE_SIGNATURE'), ['1', 'true'], true),
+            cosign: self::which('cosign'),
+        );
+
+        return $installer->ensure();
+    }
+
+    /** Whether ICHAVA_ICON_SETS_SYNC_DOWNLOAD (or $value) opts in to the release download. */
+    public static function downloadAllowed(?string $value = null): bool
+    {
+        $value ??= getenv('ICHAVA_ICON_SETS_SYNC_DOWNLOAD') ?: null;
+
+        return in_array($value, ['1', 'true'], true);
     }
 
     /**

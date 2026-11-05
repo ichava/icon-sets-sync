@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/ichava/icon-sets-sync/src/internal/core/text"
 	"os"
 	"path/filepath"
 	"sort"
@@ -234,14 +235,14 @@ func (s LicenceTexts) Execute(ctx *pipeline.Context) error {
 		// upstream does.
 		if len(files) > 0 {
 			ctx.Logger().Warn("licence texts: upstream now ships licence files; the hand-supplied folder is kept, reconcile it by hand",
-				"set", s.Set, "source", orDefault(src, "(unknown source)"), "upstream_files", baseNames(files), "target", target,
+				"set", s.Set, "source", text.OrDefault(src, "(unknown source)"), "upstream_files", baseNames(files), "target", target,
 				"hint", "compare the texts, then either keep the folder or delete its "+HandSuppliedMarker+" (and any licence_missing) so the sync copies upstream's")
 			ctx.Metric("licence_texts", map[string]any{"set": s.Set, "files": 0, "status": LicenceStatusHandSupplied,
 				"upstream_files": len(files), "reconcile": true, "target": target})
 			return nil
 		}
 		if s.MissingReason == "" {
-			return fmt.Errorf("LicenceTexts %s: upstream %s ships no LICENSE, LICENCE, COPYING, NOTICE or OFL file at its root; %s holds a hand-supplied text (it is kept), but set licence_missing with the evidence too", s.Set, orDefault(src, "(unknown source)"), target)
+			return fmt.Errorf("LicenceTexts %s: upstream %s ships no LICENSE, LICENCE, COPYING, NOTICE or OFL file at its root; %s holds a hand-supplied text (it is kept), but set licence_missing with the evidence too", s.Set, text.OrDefault(src, "(unknown source)"), target)
 		}
 		ctx.Logger().Info("licence texts: upstream ships none; hand-supplied", "set", s.Set, "target", target)
 		ctx.Metric("licence_texts", map[string]any{"set": s.Set, "files": 0, "status": LicenceStatusHandSupplied, "target": target})
@@ -258,7 +259,7 @@ func (s LicenceTexts) Execute(ctx *pipeline.Context) error {
 		return os.RemoveAll(target)
 	}
 	if len(files) == 0 {
-		return fmt.Errorf("LicenceTexts %s: upstream %s ships no LICENSE, LICENCE, COPYING, NOTICE or OFL file at its root; set licence_missing with the evidence, and add the text by hand", s.Set, orDefault(src, "(unknown source)"))
+		return fmt.Errorf("LicenceTexts %s: upstream %s ships no LICENSE, LICENCE, COPYING, NOTICE or OFL file at its root; set licence_missing with the evidence, and add the text by hand", s.Set, text.OrDefault(src, "(unknown source)"))
 	}
 
 	if s.Licence != "" {

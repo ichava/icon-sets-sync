@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
-	"github.com/ichava/icon-sets-sync/src/internal/tabler"
+	"github.com/ichava/icon-sets-sync/src/internal/webvendor"
 )
 
 type settingsData struct {
@@ -44,8 +44,8 @@ func (s *Server) handleLicenses(w http.ResponseWriter, r *http.Request) {
 	s.render(w, http.StatusOK, "licenses", s.newView(r, "licenses", "Licences", out))
 }
 
-func (s *Server) embeddedLicences() ([]tabler.Licence, error) {
-	vers, err := tabler.ParseVersions(s.assets.files["vendor/"+tabler.VersionFile])
+func (s *Server) embeddedLicences() ([]webvendor.Licence, error) {
+	vers, err := webvendor.ParseVersions(s.assets.files["vendor/"+webvendor.VersionFile])
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (s *Server) embeddedLicences() ([]tabler.Licence, error) {
 			texts[rest] = body
 		}
 	}
-	return tabler.Licences(vers, texts), nil
+	return webvendor.Licences(vers, texts), nil
 }
 
 // handleSchema serves the pack schema the loader validates against.

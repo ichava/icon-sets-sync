@@ -2,6 +2,7 @@ package transforms
 
 import (
 	"fmt"
+	"github.com/ichava/icon-sets-sync/src/internal/core/text"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -89,7 +90,7 @@ func (t SplitVariants) Execute(ctx *pipeline.Context) error {
 		dir := filepath.Join(root, filepath.FromSlash(g.from))
 		info, err := os.Stat(dir)
 		if err != nil || !info.IsDir() {
-			return fmt.Errorf("SplitVariants: source directory %q not found under %s", orDefault(g.from, "."), root)
+			return fmt.Errorf("SplitVariants: source directory %q not found under %s", text.OrDefault(g.from, "."), root)
 		}
 
 		files, err := splitSources(dir, g.flatten)
@@ -102,7 +103,7 @@ func (t SplitVariants) Execute(ctx *pipeline.Context) error {
 
 			v, name := t.claim(g, stem)
 			if v < 0 {
-				dropped[orDefault(g.from, ".")]++
+				dropped[text.OrDefault(g.from, ".")]++
 				continue
 			}
 			if subdir != "" {
@@ -123,7 +124,7 @@ func (t SplitVariants) Execute(ctx *pipeline.Context) error {
 		if n == 0 {
 			v := t.Variants[i]
 			return fmt.Errorf("SplitVariants: variant %q (from %q, suffix %q) matched no files; "+
-				"upstream has probably renamed its layout", v.Path, orDefault(v.From, "."), v.Suffix)
+				"upstream has probably renamed its layout", v.Path, text.OrDefault(v.From, "."), v.Suffix)
 		}
 	}
 
@@ -182,7 +183,7 @@ func (t SplitVariants) groups() ([]splitGroup, error) {
 		}
 		key := from + "\x00" + v.Suffix
 		if seenPath[key] {
-			return nil, fmt.Errorf("SplitVariants: two variants read %q with suffix %q; a file can only go one way", orDefault(from, "."), v.Suffix)
+			return nil, fmt.Errorf("SplitVariants: two variants read %q with suffix %q; a file can only go one way", text.OrDefault(from, "."), v.Suffix)
 		}
 		seenPath[key] = true
 
@@ -192,7 +193,7 @@ func (t SplitVariants) groups() ([]splitGroup, error) {
 			byFrom[from] = g
 			order = append(order, from)
 		} else if g.flatten != v.FlattenPrefix {
-			return nil, fmt.Errorf("SplitVariants: the variants reading %q disagree on flatten_prefix", orDefault(from, "."))
+			return nil, fmt.Errorf("SplitVariants: the variants reading %q disagree on flatten_prefix", text.OrDefault(from, "."))
 		}
 		g.variants = append(g.variants, i)
 	}
@@ -256,11 +257,4 @@ func splitSources(dir string, recursive bool) ([]string, error) {
 	})
 	sort.Strings(files)
 	return files, err
-}
-
-func orDefault(s, def string) string {
-	if s == "" {
-		return def
-	}
-	return s
 }
