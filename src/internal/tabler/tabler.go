@@ -10,17 +10,15 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"crypto/sha512"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -29,6 +27,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
 )
 
 // Package names, as TABLER_VERSION records them.
@@ -50,36 +50,27 @@ type Fetcher interface {
 	Get(url string) ([]byte, error)
 }
 
-// HTTPFetcher fetches over the network.
+// HTTPFetcher fetches over the network through httpx, the one egress path:
+// the upstream allowlist (registry.npmjs.org is on it), the https-only
+// redirect guard, retries and the download size cap apply here as they do to
+// every other fetch, and SSL_CERT_FILE is honoured by httpx's transport.
 type HTTPFetcher struct{}
 
 func (HTTPFetcher) Get(u string) ([]byte, error) {
-	c := &http.Client{Timeout: 2 * time.Minute, Transport: transport()}
-	resp, err := c.Get(u)
+	dir, err := os.MkdirTemp("", "ichava-webvendor-")
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GET %s: %s", u, resp.Status)
-	}
-	return io.ReadAll(io.LimitReader(resp.Body, 64<<20))
-}
+	defer func() { _ = os.RemoveAll(dir) }()
 
-// transport honours SSL_CERT_FILE on every platform. Go reads it only off
-// macOS, where it uses the system verifier instead -- which rejects the
-// certificate of a TLS-intercepting proxy that a CA bundle would accept.
-func transport() http.RoundTripper {
-	t := http.DefaultTransport.(*http.Transport).Clone()
-	if file := os.Getenv("SSL_CERT_FILE"); file != "" {
-		if pem, err := os.ReadFile(file); err == nil {
-			pool := x509.NewCertPool()
-			if pool.AppendCertsFromPEM(pem) {
-				t.TLSClientConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
-			}
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	path, err := httpx.New().Download(ctx, u, filepath.Join(dir, "body"), true)
+	if err != nil {
+		return nil, err
 	}
-	return t
+	return os.ReadFile(path)
 }
 
 // Vendor writes the vendored tree.
