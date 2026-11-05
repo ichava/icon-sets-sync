@@ -386,28 +386,114 @@ func TestCategoriseWithoutPreserveIsUnchanged(t *testing.T) {
 	}
 }
 
-// Two emoji can slug to one name ("keycap: #" and "keycap: *"). Renaming the
-// second over the first dropped an icon without a word.
-func TestCategorisePreserveKeepsBothSidesOfASlugCollision(t *testing.T) {
-	ctx, root := tree(t, map[string]string{"0023-FE0F-20E3.svg": "<svg id='hash'/>", "002A-FE0F-20E3.svg": "<svg id='star'/>"})
-	ctx.SetString(pipeline.KeyCLDRText, `# group: Symbols
+const keycapCLDR = `# group: Symbols
 
-0023 FE0F 20E3 ; fully-qualified # # E0.6 keycap
-002A FE0F 20E3 ; fully-qualified # * E2.0 keycap
-`)
-	if err := (Categorise{By: "cldr", Preserve: true}).Execute(ctx); err != nil {
+0023 FE0F 20E3 ; fully-qualified # #️⃣ E0.6 keycap: #
+002A FE0F 20E3 ; fully-qualified # *️⃣ E2.0 keycap: *
+`
+
+// Two emoji can slug to one name ("keycap: #" and "keycap: *" are both
+// "keycap"). Renaming the second over the first dropped an icon without a word,
+// and the later one used to keep the name. Now the first-seen keeps the base
+// slug, which is what the shipped packs carry as keycap.svg, and the later one
+// gets a readable name taken from its own: keycap-asterisk. With or without
+// Preserve, nothing is dropped or filed as uncategorised.
+func TestCategoriseKeepsBothSidesOfASlugCollision(t *testing.T) {
+	for _, preserve := range []bool{true, false} {
+		ctx, root := tree(t, map[string]string{"0023-FE0F-20E3.svg": "<svg id='hash'/>", "002A-FE0F-20E3.svg": "<svg id='star'/>"})
+		ctx.SetString(pipeline.KeyCLDRText, keycapCLDR)
+		if err := (Categorise{By: "cldr", Preserve: preserve}).Execute(ctx); err != nil {
+			t.Fatal(err)
+		}
+		kept, err := os.ReadFile(filepath.Join(root, "symbols", "keycap.svg"))
+		if err != nil || !strings.Contains(string(kept), "hash") {
+			t.Errorf("preserve=%v: the first-seen emoji, keycap: #, should keep keycap.svg: %q %v", preserve, kept, err)
+		}
+		star, err := os.ReadFile(filepath.Join(root, "symbols", "keycap-asterisk.svg"))
+		if err != nil || !strings.Contains(string(star), "star") {
+			t.Errorf("preserve=%v: keycap: * should be keycap-asterisk.svg: %q %v", preserve, star, err)
+		}
+		if _, err := os.Stat(filepath.Join(root, UncategorisedDir)); err == nil {
+			t.Errorf("preserve=%v: a slug collision between two emoji filed one as uncategorised", preserve)
+		}
+		m, _ := ctx.Metrics["categorise"].(map[string]any)
+		if m["copied"] != 2 || m["missing"] != 0 {
+			t.Errorf("preserve=%v: metrics = %v, want copied=2 missing=0", preserve, m)
+		}
+	}
+}
+
+// The disambiguator is generic: taken from the colliding emoji's own name, a
+// named symbol where there is one and the hex code point where there is not,
+// with the codepoint key as the last resort. First-seen keeps the base slug.
+func TestResolveNameSlugs(t *testing.T) {
+	records := []CLDRRecord{
+		{Codepoints: []string{"0023", "FE0F", "20E3"}, Name: "keycap: #"},
+		{Codepoints: []string{"002A", "FE0F", "20E3"}, Name: "keycap: *"},
+		{Codepoints: []string{"1F600"}, Name: "grinning face"},
+		{Codepoints: []string{"E001"}, Name: "mark: \u00c5"},
+		{Codepoints: []string{"E002"}, Name: "mark: \u2042"},
+		{Codepoints: []string{"E003"}, Name: "Mark"},
+		{Codepoints: []string{"E004"}, Name: "keycap #"},
+	}
+	got := ResolveNameSlugs(records)
+	for key, want := range map[string]string{
+		"0023-fe0f-20e3": "keycap",
+		"002a-fe0f-20e3": "keycap-asterisk",
+		"1f600":          "grinning-face",
+		"e001":           "mark",
+		"e002":           "mark-u2042",
+		"e003":           "mark-e003",
+		"e004":           "keycap-number-sign",
+	} {
+		if got[key] != want {
+			t.Errorf("slug for %s = %q, want %q", key, got[key], want)
+		}
+	}
+	seen := map[string]string{}
+	for k, s := range got {
+		if other, dup := seen[s]; dup {
+			t.Errorf("%s and %s both resolved to %q", k, other, s)
+		}
+		seen[s] = k
+	}
+}
+
+// The lookups the Indexer writes name the same files Categorise wrote: both
+// keycaps, under the slugs they were given.
+func TestIndexerNamesBothSidesOfASlugCollision(t *testing.T) {
+	ctx, root := tree(t, map[string]string{"0023-FE0F-20E3.svg": "<svg/>", "002A-FE0F-20E3.svg": "<svg/>"})
+	ctx.SetString(pipeline.KeyCLDRText, keycapCLDR)
+	if err := (Categorise{By: "cldr"}).Execute(ctx); err != nil {
 		t.Fatal(err)
 	}
-	kept, err := os.ReadFile(filepath.Join(root, "symbols", "keycap.svg"))
-	if err != nil || !strings.Contains(string(kept), "star") {
-		t.Errorf("the later emoji should keep the name, as before: %q %v", kept, err)
+	if err := (Indexer{Targets: []string{"codepoints", "names"}}).Execute(ctx); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(root, UncategorisedDir, "0023-fe0f-20e3.svg")); err != nil {
-		t.Errorf("the displaced icon was dropped: %v", err)
+	dir := filepath.Dir(root)
+	raw, err := os.ReadFile(filepath.Join(dir, "codepoints.json"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	m, _ := ctx.Metrics["categorise"].(map[string]any)
-	if m["copied"] != 1 || m["uncategorised"] != 1 {
-		t.Errorf("metrics = %v", m)
+	var cps map[string]string
+	if err := json.Unmarshal(raw, &cps); err != nil {
+		t.Fatal(err)
+	}
+	if cps["0023-FE0F-20E3"] != "symbols/keycap" || cps["002A-FE0F-20E3"] != "symbols/keycap-asterisk" {
+		t.Errorf("codepoints.json = %v", cps)
+	}
+	raw, err = os.ReadFile(filepath.Join(dir, "names.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names map[string]struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(raw, &names); err != nil {
+		t.Fatal(err)
+	}
+	if names["keycap"].Name != "keycap: #" || names["keycap-asterisk"].Name != "keycap: *" {
+		t.Errorf("names.json = %v", names)
 	}
 }
 
