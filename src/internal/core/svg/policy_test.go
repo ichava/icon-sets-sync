@@ -15,10 +15,11 @@ import (
 // see that core has moved on, which is what .scripts/sync-svg-policy.mjs is
 // for -- that script is the cross-repo gate and now lists this copy too.
 func TestVendoredPolicyHasNotDrifted(t *testing.T) {
-	// 7a7c07fd adds display, color and marker-start/-mid/-end to
-	// allowedAttributes (2026-11-04). It is ahead of core until core takes the
-	// same bytes; .scripts/sync-svg-policy.mjs reports the drift until then.
-	const want = "7a7c07fdf4263c4d901b18f31955bde9fe797f3f135567ed6dddbddb64e1d705"
+	// 49ee43ce allows the <marker> element and its refX, refY, markerWidth,
+	// markerHeight, orient and markerUnits (2026-11-04), so the US and UM flags
+	// keep their stars. It is ahead of core until core takes the same bytes;
+	// .scripts/sync-svg-policy.mjs reports the drift until then.
+	const want = "49ee43cea254be2c1fcec2a1fdd37a097889df78466ffe6e9c2e653f65f8fd06"
 
 	sum := sha256.Sum256(policyJSON)
 	if got := hex.EncodeToString(sum[:]); got != want {
