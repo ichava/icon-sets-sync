@@ -411,6 +411,38 @@ func TestCategorisePreserveKeepsBothSidesOfASlugCollision(t *testing.T) {
 	}
 }
 
+// OpenMoji 15.1.0 ships white flag twice: 1F3F3-FE0F.svg, the fully-qualified
+// artwork the pack has always shipped, and 1F3F3.svg, which matches only with
+// the selector left off. Sorted, the FE0F-less file comes second, and taking
+// the later one replaced the shipped flag with the other drawing. An exact
+// match must keep the name whichever order the files arrive in.
+func TestCategorisePreserveAnExactMatchBeatsOneWithoutItsSelector(t *testing.T) {
+	cldr := `# group: Flags
+
+1F3F3 FE0F ; fully-qualified # flag E0.7 white flag
+`
+	for _, files := range []map[string]string{
+		{"1F3F3-FE0F.svg": "<svg id='qualified'/>", "1F3F3.svg": "<svg id='bare'/>"},
+		{"1F3F3-FE0F.svg": "<svg id='qualified'/>", "1F3F3-a.svg": "<svg/>", "1F3F3.svg": "<svg id='bare'/>"},
+	} {
+		ctx, root := tree(t, files)
+		ctx.SetString(pipeline.KeyCLDRText, cldr)
+		if err := (Categorise{By: "cldr", Preserve: true, MaxUncategorised: 1}).Execute(ctx); err != nil {
+			t.Fatal(err)
+		}
+		kept, err := os.ReadFile(filepath.Join(root, "flags", "white-flag.svg"))
+		if err != nil || !strings.Contains(string(kept), "qualified") {
+			t.Errorf("white-flag.svg = %q (%v), want the fully-qualified artwork", kept, err)
+		}
+		if _, err := os.Stat(filepath.Join(root, UncategorisedDir, "1f3f3.svg")); err != nil {
+			t.Errorf("the FE0F-less duplicate was dropped instead of kept uncategorised: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(root, UncategorisedDir, "1f3f3-fe0f.svg")); err == nil {
+			t.Error("the fully-qualified artwork was displaced into the uncategorised bucket")
+		}
+	}
+}
+
 func strayTree(t *testing.T, n int) (*pipeline.Context, string) {
 	t.Helper()
 	files := map[string]string{"clean.svg": `<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>`}

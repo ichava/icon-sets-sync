@@ -86,7 +86,9 @@ const (
 	KeyPRURL          = "pr_url"
 
 	// KeyLicenceFiles is the newline-separated list of upstream licence files
-	// FindLicences found at the root of the fetched tree, as absolute paths.
+	// FindLicences found at the root of the fetched tree, as absolute paths to
+	// copies it keeps in the working directory, so a stage that rebuilds the
+	// fetched tree cannot delete them.
 	// Present and empty means it looked and found none.
 	KeyLicenceFiles = "licence_files"
 

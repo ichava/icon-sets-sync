@@ -53,7 +53,11 @@ func (t FindLicences) Execute(ctx *pipeline.Context) error {
 	if err != nil {
 		return fmt.Errorf("FindLicences: %w", err)
 	}
-	ctx.SetString(pipeline.KeyLicenceFiles, strings.Join(found, "\n"))
+	kept, err := snapshotLicences(ctx.WorkingDir, found)
+	if err != nil {
+		return fmt.Errorf("FindLicences: %w", err)
+	}
+	ctx.SetString(pipeline.KeyLicenceFiles, strings.Join(kept, "\n"))
 	ctx.SetString(pipeline.KeyUpstreamRoot, root)
 	ctx.Metric("find_licences", map[string]any{"files": len(found)})
 	return nil
@@ -97,4 +101,39 @@ func LicenceFiles(root string) ([]string, error) {
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+// LicenceSnapshotDir is where FindLicences copies the licence files it found,
+// inside the pipeline's working directory but outside the fetched tree.
+const LicenceSnapshotDir = "licence-files"
+
+// snapshotLicences copies the licence files out of the fetched tree, byte for
+// byte under their upstream names, and returns the copies' paths. A later
+// transform may rebuild the fetched tree: Categorise wipes its root and
+// refills it with SVGs only, and where the root is the whole upstream (the
+// Twemoji npm package) that deleted the LICENSE before LicenceTexts read it,
+// failing every real emoji-sets sync. The copies cannot be touched by any
+// stage that rewrites the tree. With no working directory (a caller running
+// the stage outside a pipeline) the originals are recorded as before.
+func snapshotLicences(workingDir string, found []string) ([]string, error) {
+	if workingDir == "" || len(found) == 0 {
+		return found, nil
+	}
+	dir, err := os.MkdirTemp(workingDir, LicenceSnapshotDir+"-")
+	if err != nil {
+		return nil, err
+	}
+	kept := make([]string, 0, len(found))
+	for _, f := range found {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			return nil, err
+		}
+		dest := filepath.Join(dir, filepath.Base(f))
+		if err := os.WriteFile(dest, b, 0o644); err != nil {
+			return nil, err
+		}
+		kept = append(kept, dest)
+	}
+	return kept, nil
 }

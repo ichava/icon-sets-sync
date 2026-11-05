@@ -362,7 +362,7 @@ The deprecated `emoji-sets` recipe files an icon only when its filename matches 
 
 - **Selector-insensitive match.** OpenMoji names about 200 emoji without the emoji-presentation selector (`2600.svg`, the sun; `emoji-test.txt` has `2600 FE0F`). They match their taxonomy entry anyway.
 - **An explicit bucket.** An icon still unmatched, such as an OpenMoji extra (`e380.svg`), an emoji newer than the taxonomy, or a component glyph, is kept as `uncategorised/<upstream-name>.svg`, with a warning and an `uncategorised` count. Two emoji that slug to one name (`keycap: #` and `keycap: *`) keep both: the later takes the name, the earlier goes to the bucket.
-- **The taxonomy follows the release.** `emoji.unicode_version` defaults to the OpenMoji release's major and minor, unless something above the built-in default sets it.
+- **The taxonomy follows the release, never below the default.** `emoji.unicode_version` defaults to the OpenMoji release's major and minor, or to the built-in default (`16.0`) when that is newer, unless something above the built-in default sets it. OpenMoji 15.1.0 therefore uses 16.0, the taxonomy the pack shipped with, and 17.0.0 uses 17.0.
 - **Two guards, both lifted by `--force`.** The run fails if more than 20% of the icons are uncategorised (a taxonomy of the wrong release), and the file sink refuses, before it wipes anything, to remove an icon the pack ships today. Removing one on purpose (upstream retired it) needs `--force`; the removals are logged.
 
 
@@ -396,7 +396,7 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `git.commit_subject` | `chore(upstream): bump {pack} to v{new}` | `ICHAVA_GIT_COMMIT_SUBJECT` | yes | commit and pull request title |
 | `git.commit_body` | `Automated sync from upstream {pack} {old} -> {new}. ...` | `ICHAVA_GIT_COMMIT_BODY` | yes | commit and pull request body |
 | `git.open_pr` | `true` | `ICHAVA_GIT_OPEN_PR` | yes | open a pull request after pushing |
-| `emoji.unicode_version` | `16.0` | `ICHAVA_EMOJI_UNICODE_VERSION` | yes | Unicode release whose `emoji-test.txt` drives categorisation; must exist at unicode.org (up to 16.0 under `Public/emoji/<v>/`, from 17.0 under `Public/<v>.0/emoji/`). `openmoji-sets` follows its OpenMoji release instead (17.0.0 uses 17.0) unless this is set |
+| `emoji.unicode_version` | `16.0` | `ICHAVA_EMOJI_UNICODE_VERSION` | yes | Unicode release whose `emoji-test.txt` drives categorisation; must exist at unicode.org (up to 16.0 under `Public/emoji/<v>/`, from 17.0 under `Public/<v>.0/emoji/`). `openmoji-sets` follows its OpenMoji release instead (17.0.0 uses 17.0; never older than this default, so 15.1.0 uses 16.0) unless this is set |
 | `emoji.openmoji_version` | `15.1.0` | `ICHAVA_EMOJI_OPENMOJI_VERSION` | yes | OpenMoji release tag |
 
 The run-wide settings (the four marked "no") cannot appear in a pack config's `settings`.
