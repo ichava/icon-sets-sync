@@ -1,0 +1,42 @@
+{
+  "_note": "simple-icons' icons/ into files/, less every icon whose data/simple-icons.json entry carries a `license` other than CC0-1.0 (212 at 16.36.0), read from the data file on each sync rather than from a copied list. The pack's ExcludedIconsTest holds the same rule. The artwork is CC0; the marks are trademarks (pack README). Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 3,255 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-simple-icons",
+  "pack": "ichava/icon-sets-simple-icons",
+  "pack_root": "/work/icon-sets-simple-icons",
+  "current_version": "16.36.0",
+  "version_check_url": "https://registry.npmjs.org/simple-icons/latest",
+  "licence": "CC0-1.0",
+  "licence_sha256": "9046848b63a5c92bff14e4accca80bd987e0623b74adf9226ce5198d312b79d5",
+  "source": {
+    "type": "npm",
+    "package": "simple-icons",
+    "source_path": "icons"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    },
+    {
+      "type": "exclude",
+      "metadata": {
+        "file": "data/simple-icons.json",
+        "name": "slug",
+        "field": "license.type",
+        "allow": [
+          "CC0-1.0"
+        ]
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

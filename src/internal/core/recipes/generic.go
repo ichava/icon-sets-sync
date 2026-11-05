@@ -74,7 +74,7 @@ func buildGeneric(pack *config.PackConfig, version string, opts Options) (*pipel
 		Source(src)
 
 	// Before anything narrows the tree: the licence sits at the upstream root.
-	p.Transform(transforms.FindLicences{})
+	p.Transform(transforms.FindLicences{Dir: pack.LicenceFrom})
 	if pack.Source.SourcePath != "" {
 		p.Transform(transforms.SubsetTo{Subdir: pack.Source.SourcePath})
 	}
@@ -95,8 +95,14 @@ func buildGeneric(pack *config.PackConfig, version string, opts Options) (*pipel
 				Incremental:  sink.Incremental,
 				MinRetention: sink.MinRetention,
 			})
-			set := licenceSet(pack.Source)
-			p.Sink(sinks.LicenceTexts{Root: LicencesRoot + "/" + set, Set: set, Licence: pack.Licence})
+			set := pack.LicenceSet
+			if set == "" {
+				set = licenceSet(pack.Source)
+			}
+			p.Sink(sinks.LicenceTexts{
+				Root: LicencesRoot + "/" + set, Set: set,
+				Licence: pack.Licence, SHA256: pack.LicenceSHA256, MissingReason: pack.LicenceMissing,
+			})
 			added += 2
 
 		case "git-branch":
@@ -159,6 +165,7 @@ func assetSource(src config.SourceConfig, version string) (pipeline.Source, erro
 		}
 		return sources.GithubArchive{
 			ArchiveURL: src.ArchiveURL, Owner: src.Owner, Repo: src.Repo, Version: version,
+			MaxDownloadBytes: src.MaxDownloadBytes,
 		}, nil
 	}
 	return nil, fmt.Errorf("source.type=%q has no fetch strategy; set `recipe`, or use an npm or github-* source", src.Type)
@@ -174,17 +181,33 @@ type transformConfig struct {
 	AlsoStripClass bool `json:"also_strip_class"`
 	Strict         bool `json:"strict"`
 	ReportOnly     bool `json:"report_only"`
+	DropUnparsable bool `json:"drop_unparsable"`
+
+	Dirs          bool `json:"dirs"`
+	HyphenateDots bool `json:"hyphenate_dots"`
 
 	By string `json:"by"`
 
 	Targets []string `json:"targets"`
 
 	Variants []struct {
-		Path   string `json:"path"`
-		Prefix string `json:"prefix"`
-		Suffix string `json:"suffix"`
+		Path          string `json:"path"`
+		From          string `json:"from"`
+		Prefix        string `json:"prefix"`
+		Suffix        string `json:"suffix"`
+		FlattenPrefix bool   `json:"flatten_prefix"`
 	} `json:"variants"`
 	Separator string `json:"separator"`
+	Slug      bool   `json:"slug"`
+
+	Names       []string `json:"names"`
+	Directories []string `json:"directories"`
+	Metadata    *struct {
+		File  string   `json:"file"`
+		Name  string   `json:"name"`
+		Field string   `json:"field"`
+		Allow []string `json:"allow"`
+	} `json:"metadata"`
 }
 
 // buildTransforms turns the pack's declared transforms into stages, and says
@@ -209,9 +232,10 @@ func buildTransforms(raw []map[string]any) ([]pipeline.Transform, bool, error) {
 		case "sanitise":
 			out = append(out, transforms.Sanitise{
 				AlsoStripClass: tc.AlsoStripClass, Strict: tc.Strict, ReportOnly: tc.ReportOnly,
+				DropUnparsable: tc.DropUnparsable,
 			})
 		case "slugify":
-			out = append(out, transforms.Slugify{})
+			out = append(out, transforms.Slugify{Dirs: tc.Dirs, HyphenateDots: tc.HyphenateDots})
 		case "categorise":
 			by := orDefault(tc.By, "passthrough")
 			if by == "cldr" {
@@ -225,7 +249,19 @@ func buildTransforms(raw []map[string]any) ([]pipeline.Transform, bool, error) {
 			for j, v := range tc.Variants {
 				vs[j] = transforms.Variant{Subdir: v.Path, Prefix: v.Prefix, Suffix: v.Suffix}
 			}
-			out = append(out, transforms.FlattenVariants{Variants: vs, Separator: tc.Separator})
+			out = append(out, transforms.FlattenVariants{Variants: vs, Separator: tc.Separator, Slug: tc.Slug})
+		case "split-variants":
+			vs := make([]transforms.SplitVariant, len(tc.Variants))
+			for j, v := range tc.Variants {
+				vs[j] = transforms.SplitVariant{Path: v.Path, From: v.From, Suffix: v.Suffix, FlattenPrefix: v.FlattenPrefix}
+			}
+			out = append(out, transforms.SplitVariants{Variants: vs})
+		case "exclude":
+			ex := transforms.Exclude{Names: tc.Names, Dirs: tc.Directories}
+			if m := tc.Metadata; m != nil {
+				ex.Metadata = &transforms.ExcludeMetadata{File: m.File, Name: m.Name, Field: m.Field, Allow: m.Allow}
+			}
+			out = append(out, ex)
 		default:
 			return nil, false, fmt.Errorf("transforms[%d]: unknown type %q", i, tc.Type)
 		}

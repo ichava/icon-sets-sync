@@ -1,0 +1,42 @@
+{
+  "_note": "One of the 20 sets of ichava/icon-sets-extras, each refreshed by its own config into files/<set>/ and licenses/<set>/, with its version recorded at upstream.sets.<set>.current_version in the pack's config.json. 2D/svg/emoji_u<codepoints>.svg, slugged (emoji-u1f600). The root LICENSE is the OFL and covers the fonts; 2D/svg/LICENSE is the Apache-2.0 notice that governs the SVGs, so the licence is read from there (licence_from) and pinned by SHA-256. 170 SVGs declare Adobe Illustrator entities in an internal DTD, which the sanitiser cannot parse, so they cannot be checked and are dropped (drop_unparsable). The tagged archive is 1.2 GB, almost all of it 3D PNGs, so this source raises the download cap to 2 GiB. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 3,580 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-extras.noto-emoji",
+  "pack": "ichava/icon-sets-extras",
+  "pack_root": "/work/icon-sets-extras",
+  "current_version": "2026-09-24-unicode18_0",
+  "version_keys": [
+    "upstream.sets.noto-emoji.current_version"
+  ],
+  "version_check_url": "https://api.github.com/repos/googlefonts/noto-emoji/releases/latest",
+  "licence_sha256": "611ceab36dae96644ca84e8ace6873821790192bf6f73b0d0624a21b24b4b332",
+  "licence_set": "noto-emoji",
+  "licence_from": "2D/svg",
+  "source": {
+    "type": "github-archive",
+    "owner": "googlefonts",
+    "repo": "noto-emoji",
+    "archive_url": "https://github.com/googlefonts/noto-emoji/archive/refs/tags/v{version}.tar.gz",
+    "source_path": "2D/svg",
+    "max_download_bytes": 2147483648
+  },
+  "transforms": [
+    {
+      "type": "sanitise",
+      "drop_unparsable": true
+    },
+    {
+      "type": "slugify"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files/noto-emoji"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-noto-emoji-{version}"
+    }
+  ]
+}

@@ -118,6 +118,17 @@ func TestGenericStagesFollowTheConfig(t *testing.T) {
 			},
 			want: "NpmTarball,FindLicences,FlattenVariants,Filesystem,LicenceTexts,VersionStamp,GitBranch",
 		},
+		{
+			name: "split-variants and exclude",
+			mutate: func(p *config.PackConfig) {
+				p.Transforms = []map[string]any{
+					{"type": "split-variants", "variants": []any{map[string]any{"path": "16px", "suffix": "-16"}}},
+					{"type": "exclude", "names": []any{"mark-github"}},
+					{"type": "sanitise"},
+				}
+			},
+			want: "NpmTarball,FindLicences,SubsetTo,SplitVariants,Exclude,Sanitise,Filesystem,LicenceTexts,VersionStamp,GitBranch",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -271,6 +282,39 @@ func TestEmojiVersionsComeFromSettings(t *testing.T) {
 	}
 	if g := findGitBranch(t, built[3]); g.Branch != "chore/emoji-{version}" {
 		t.Errorf("emoji commit ignores the config's git-branch sink: %q", g.Branch)
+	}
+}
+
+// TestBuildTransformsCarriesEveryOption: an option the schema admits but the
+// recipe drops is a config that validates and then does something else.
+func TestBuildTransformsCarriesEveryOption(t *testing.T) {
+	got, _, err := buildTransforms([]map[string]any{
+		{"type": "sanitise", "drop_unparsable": true},
+		{"type": "slugify", "dirs": true, "hyphenate_dots": true},
+		{"type": "flatten-variants", "slug": true, "variants": []any{map[string]any{"path": "a", "suffix": "-a"}}},
+		{"type": "split-variants", "variants": []any{map[string]any{"path": "p", "from": "32", "suffix": "-s", "flatten_prefix": true}}},
+		{"type": "exclude", "names": []any{"n"}, "directories": []any{"d"},
+			"metadata": map[string]any{"file": "f.json", "name": "slug", "field": "license.type", "allow": []any{"CC0-1.0"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := got[0].(transforms.Sanitise); !s.DropUnparsable {
+		t.Error("sanitise lost drop_unparsable")
+	}
+	if s := got[1].(transforms.Slugify); !s.Dirs || !s.HyphenateDots {
+		t.Errorf("slugify got %+v", s)
+	}
+	if f := got[2].(transforms.FlattenVariants); !f.Slug || f.Variants[0].Suffix != "-a" {
+		t.Errorf("flatten got %+v", f)
+	}
+	want := transforms.SplitVariant{Path: "p", From: "32", Suffix: "-s", FlattenPrefix: true}
+	if s := got[3].(transforms.SplitVariants); len(s.Variants) != 1 || s.Variants[0] != want {
+		t.Errorf("split got %+v", s)
+	}
+	ex := got[4].(transforms.Exclude)
+	if len(ex.Names) != 1 || len(ex.Dirs) != 1 || ex.Metadata == nil || ex.Metadata.Field != "license.type" || ex.Metadata.Allow[0] != "CC0-1.0" {
+		t.Errorf("exclude got %+v", ex)
 	}
 }
 

@@ -81,7 +81,11 @@ turning it into `"16"`.
 | `sinks` | where they land, in order; see [Sinks](#sinks) |
 | `transforms` | what happens in between; see [Transforms](#transforms) |
 | `recipe` | `auto` (default), `generic`, `emoji-sets`, `openmoji-sets` or `manifest-pack`; see [Recipes](#recipes) |
-| `licence` | Optional SPDX id the upstream must keep (`CC-BY-4.0` or `CC-BY-SA-4.0`). A sync whose upstream licence text no longer opens with that licence's title fails before the pack is touched; see [Upstream licence texts](architecture.md#upstream-licence-texts-travel-with-the-icons) |
+| `licence` | Optional SPDX id the upstream must keep: `Apache-2.0`, `CC-BY-3.0`, `CC-BY-4.0`, `CC-BY-SA-4.0`, `CC0-1.0`, `ISC` or `MIT`. A sync whose upstream licence text no longer opens with that licence's lines fails before the pack is touched; see [Upstream licence texts](architecture.md#upstream-licence-texts-travel-with-the-icons) |
+| `licence_sha256` | Optional SHA-256 one upstream licence file must have. A sync whose licence text changed by a byte fails before the pack is touched. For a licence with no standard text (Font Awesome Free, Material Design Icons, Game Icons), or to pin one exactly |
+| `licence_set` | the directory under `resources/assets/svg/licenses/` the licence texts go to; default named after the npm package or GitHub repository |
+| `licence_from` | the upstream directory, relative to its root, the licence files are read from; default the root. Noto Emoji's SVGs carry their own `2D/svg/LICENSE` |
+| `licence_missing` | why the upstream ships no licence file, with the evidence. The sync runs and reports the gap; the pack supplies the text by hand beside a `SOURCE.md`, which keeps the sink from removing it |
 | `settings` | this pack's layer of the [settings](#settings) |
 | `version_file` | pack-repo-relative file recording the vendored version; default `resources/assets/svg/config.json` |
 | `version_keys` | dot-paths inside that file; default `upstream.current_version`, `package.upstream_version` |
@@ -118,6 +122,9 @@ the copy and the repository file differ. Point an editor at the repository file 
 
 `source_path` narrows the fetched tree to a subdirectory before the transforms run.
 
+`max_download_bytes` raises the 1 GiB archive cap for one `github-*` source, up to 4 GiB. Only
+Noto Emoji sets it: its tagged archive is 1.2 GB, almost all of it PNGs the pack does not take.
+
 ## Transforms
 
 With none declared, a pack gets the default: `sanitise`. Declared transforms replace it and run in
@@ -126,11 +133,38 @@ order.
 | `type` | Options | Does |
 |---|---|---|
 | `subset` | `subdir` | narrow the tree to a subdirectory |
-| `sanitise` | `also_strip_class`, `strict`, `report_only` | apply the shared SVG policy in place |
-| `slugify` | | lowercase and hyphenate filenames |
+| `sanitise` | `also_strip_class`, `strict`, `report_only`, `drop_unparsable` | apply the shared SVG policy in place; `drop_unparsable` removes a file the policy cannot parse instead of leaving it unchecked |
+| `slugify` | `dirs`, `hyphenate_dots` | lowercase and hyphenate filenames; `dirs` slugs directory names too, `hyphenate_dots` turns a dot in the stem into a hyphen. Two names slugging to one fail the run |
 | `categorise` | `by`: `cldr` or `passthrough` | file emoji by Unicode group; `cldr` adds the taxonomy fetch automatically |
 | `indexer` | `targets`: `codepoints`, `names` | write the emoji lookup files |
-| `flatten-variants` | `variants` (`path`, `prefix`, `suffix`), `separator` | merge several upstream directories into one flat set |
+| `flatten-variants` | `variants` (`path`, `prefix`, `suffix`), `separator`, `slug` | merge several upstream directories into one flat set; `slug` slugs each stem before the affix |
+| `split-variants` | `variants` (`path`, `from`, `suffix`, `flatten_prefix`) | sort files into one directory per variant, by the directory they come from and the suffix they carry; see below |
+| `exclude` | `names`, `directories`, `metadata` (`file`, `name`, `field`, `allow`) | drop icons a pack must not ship; see below |
+
+### Variants: `split-variants`
+
+Each entry names an output directory (`path`), the upstream directory it reads (`from`, default the
+root) and the name suffix it claims (`suffix`, stripped from the name written). A file goes to the
+entry with the longest suffix it ends with, else to the entry of its directory with no suffix. A
+file no entry claims is dropped and counted, which is how a pack takes a subset. `flatten_prefix`
+also reads `from`'s sub-directories and prefixes each name with its sub-directory. An entry that
+claims nothing, or two names that reduce to one, fail the run.
+
+| Upstream shape | Example | Entries |
+|---|---|---|
+| a directory per variant | heroicons `24/outline` | `{ "path": "outline", "from": "24/outline" }` |
+| a suffix in one directory | ionicons `bell-outline` | `{ "path": "outline", "suffix": "-outline" }`, `{ "path": "filled" }` |
+| both | Phosphor `thin/bell-thin` | `{ "path": "thin", "from": "thin", "suffix": "-thin" }` |
+| a subset by suffix | Fluent `_24_regular` | `{ "path": "regular", "suffix": "_24_regular" }` |
+| sub-folders kept as a prefix | Carbon `32/watson-health/` | `{ "path": "size-32", "from": "32", "flatten_prefix": true }` |
+
+### Leaving icons out: `exclude`
+
+`names` drops file stems wherever they occur (Octicons' GitHub marks). `directories` drops every
+file with that directory name in its path (Game Icons' `badges/`). `metadata` reads a JSON array
+the upstream ships, relative to its root, and drops each item whose `field` is present and not in
+`allow`, naming its file by `name` (Simple Icons' non-CC0 logos, from `data/simple-icons.json`). An
+item that must be dropped but has no name fails the run, as does an empty data file.
 
 ### What `sanitise` enforces on CSS values
 
@@ -180,7 +214,7 @@ run with an error that names the limit; none is retried, because a retry would r
 | Limit | Value | Where |
 |---|---|---|
 | Version-check and registry JSON | 32 MiB | `httpx.DefaultMaxJSONBytes` |
-| One archive download | 1 GiB | `httpx.DefaultMaxDownloadBytes` |
+| One archive download | 1 GiB, or the source's `max_download_bytes` (at most 4 GiB) | `httpx.DefaultMaxDownloadBytes` |
 | One extracted file | 256 MiB | `sources.DefaultExtractLimits.MaxMemberBytes` |
 | Everything extracted from one archive | 2 GiB | `MaxTotalBytes` |
 | Entries in one archive | 200,000 | `MaxEntries` |

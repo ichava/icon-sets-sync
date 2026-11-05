@@ -39,6 +39,11 @@ type SourceConfig struct {
 	Path       string   `json:"path,omitempty"`
 	Args       []string `json:"args,omitempty"`
 
+	// MaxDownloadBytes raises the archive download cap for this one source,
+	// for an upstream whose tagged archive is larger than the default 1 GiB.
+	// Zero means the default. The schema bounds it at 4 GiB.
+	MaxDownloadBytes int64 `json:"max_download_bytes,omitempty"`
+
 	// Extra holds keys with no field above. See the type comment.
 	Extra map[string]any `json:"-"`
 }
@@ -72,6 +77,7 @@ func (s *SourceConfig) UnmarshalJSON(data []byte) error {
 	known := map[string]bool{
 		"type": true, "package": true, "owner": true, "repo": true,
 		"archive_url": true, "source_path": true, "path": true, "args": true,
+		"max_download_bytes": true,
 	}
 	for k, v := range all {
 		if !known[k] {
@@ -205,6 +211,26 @@ type PackConfig struct {
 	// no longer matches it, so a relicensing blocks the refresh instead of
 	// being copied into the pack unreviewed.
 	Licence string `json:"licence,omitempty"`
+
+	// LicenceSHA256 pins the upstream licence text to the byte: one of the
+	// upstream's licence files must have this digest, or the sync fails as a
+	// changed Licence does. For a licence with no standard text to recognise.
+	LicenceSHA256 string `json:"licence_sha256,omitempty"`
+
+	// LicenceSet names the directory under resources/assets/svg/licenses the
+	// upstream's licence texts are written to. Empty means one named after
+	// the upstream (the npm package, or the GitHub repository).
+	LicenceSet string `json:"licence_set,omitempty"`
+
+	// LicenceFrom is the upstream directory the licence files are read from,
+	// relative to its root. Empty means the root.
+	LicenceFrom string `json:"licence_from,omitempty"`
+
+	// LicenceMissing records, with the evidence, that the upstream ships no
+	// licence file at its root, so a sync may run and the gap is reported
+	// instead of failing it. The text is then supplied by hand in the pack,
+	// beside a SOURCE.md saying where it came from.
+	LicenceMissing string `json:"licence_missing,omitempty"`
 
 	// Settings is the pack layer of the settings precedence. It is kept as a
 	// raw tree here and resolved by internal/core/settings, which owns the

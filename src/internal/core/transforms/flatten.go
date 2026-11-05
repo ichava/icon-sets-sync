@@ -55,6 +55,17 @@ type FlattenVariants struct {
 	// upstream ships `18_up_rating`, the pack committed `18-up-rating`, and
 	// without the rewrite only 607 of 2168 names in each variant line up.
 	Separator string
+
+	// Slug rewrites each stem with SlugifyName before the affix is added:
+	// lowercase, and every run of anything but a letter or digit becomes one
+	// hyphen. It replaces Separator when both are set.
+	//
+	// The order is the point. Health Icons ships `!.svg`, and the pack
+	// committed it as `-filled.svg`: the stem slugs to nothing and then takes
+	// the suffix. Slugging after the merge would trim that leading hyphen and
+	// write `filled.svg` instead, so a separate slugify step cannot reproduce
+	// the pack.
+	Slug bool
 }
 
 func (FlattenVariants) Name() string { return "FlattenVariants" }
@@ -165,6 +176,9 @@ func (t FlattenVariants) plan(root string) (map[string]origin, error) {
 
 // normalise rewrites word separators when the pack and its upstream disagree.
 func (t FlattenVariants) normalise(stem string) string {
+	if t.Slug {
+		return SlugifyName(stem)
+	}
 	if t.Separator == "" {
 		return stem
 	}

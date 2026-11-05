@@ -110,15 +110,25 @@ pipeline in every recipe now runs `FindLicences` straight after its source, whic
 destination is replaced on every run, so a `NOTICE` upstream drops goes too.
 
 **A pack may declare its licence** (`"licence": "CC-BY-SA-4.0"` in its config). The sink then checks
-that one of the upstream licence files still opens with that licence's title, and fails the run,
+that one of the upstream licence files still opens with that licence's lines, and fails the run,
 before the existing texts are touched, if none does. A relicensed upstream therefore blocks the sync
 until a person has read the new terms and changed the declaration. `icon-sets-openmoji` declares
-CC-BY-SA-4.0. A pack that declares nothing is unguarded.
+CC-BY-SA-4.0. The declarable ids are `Apache-2.0`, `CC-BY-3.0`, `CC-BY-4.0`, `CC-BY-SA-4.0`,
+`CC0-1.0`, `ISC` and `MIT`; each is a list of accepted opening lines in `licenceSignatures`, and the
+schema's enum must match it. The opening lines rather than a hash, because a copyright year moving
+is not a relicensing.
+
+**A pack may also pin the text** (`"licence_sha256"`). One upstream licence file must then have
+exactly that SHA-256, or the run fails the same way. It is the pack plan's licence-change guard, the
+one that would have caught Remix Icon moving from Apache-2.0 to its own licence at v4.9.0, and the
+only check available for a licence with no standard text: Font Awesome Free's, the Pictogrammers
+licence, Game Icons' statement. Every v0.1.0 pack config pins one whose upstream ships a licence. A
+pack that declares neither is unguarded.
 
 **An upstream with no licence file at its root fails that pipeline**, naming the set and the source.
 Shipping icons whose licence text cannot be found is the defect this exists to end, so a scheduled
-run stops rather than warns. The one way past it is a set's `licence_missing` field in its pack's
-set manifest, which records the evidence that the npm package ships no licence file; that set then
+run stops rather than warns. The one way past it is `licence_missing`, in a pack config or in a
+set of a pack's set manifest, which records the evidence that the upstream ships no licence file; that set then
 refreshes, its licence directory is removed rather than left stale, and the gap is logged on every
 run, unless the directory is hand-supplied (below). CC-BY and CC-BY-SA upstreams get the same copy; their licences also
 require visible credit wherever the icons are shown, which no sync can provide and which each pack's

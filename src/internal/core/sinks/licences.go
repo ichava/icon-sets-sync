@@ -1,10 +1,13 @@
 package sinks
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
@@ -59,6 +62,11 @@ type LicenceTexts struct {
 	// fails before the existing texts are touched: a relicensed upstream is a
 	// decision for a person, not something a scheduled sync copies in.
 	Licence string
+
+	// SHA256 is the digest one of the upstream's licence files must have.
+	// When set, a sync whose upstream licence text changed by a byte fails
+	// before the existing texts are touched, as a changed Licence does.
+	SHA256 string
 }
 
 // ErrLicenceChanged marks a sync refused because the upstream's licence text
@@ -66,35 +74,97 @@ type LicenceTexts struct {
 // errors.Is to report a licence change apart from any other failure.
 var ErrLicenceChanged = errors.New("licence changed")
 
-// licenceTitles maps a declared SPDX id to the title line its licence text
-// opens with. Adding a licence here is how a pack may declare it.
-var licenceTitles = map[string]string{
-	"CC-BY-4.0":    "Attribution 4.0 International",
-	"CC-BY-SA-4.0": "Attribution-ShareAlike 4.0 International",
+// licenceSignatures maps a declared SPDX id to the opening lines its licence
+// text starts with: each entry is one accepted form, and a file matches it
+// when its first non-empty lines are exactly those lines, after trimming
+// space and a Markdown heading's leading '#'. Adding a licence here is how a
+// pack may declare it.
+//
+// The opening lines, not a hash: a copyright year moving is not a relicensing,
+// and a guard that fired on it every January would be switched off. A pack
+// that wants the stronger check sets licence_sha256 as well.
+var licenceSignatures = map[string][][]string{
+	"CC-BY-4.0":    {{"Attribution 4.0 International"}},
+	"CC-BY-SA-4.0": {{"Attribution-ShareAlike 4.0 International"}},
+	"CC-BY-3.0":    {{"Creative Commons Legal Code", "Attribution 3.0 Unported"}},
+	"CC0-1.0": {
+		{"CC0 1.0 Universal"},
+		{"Creative Commons Legal Code", "CC0 1.0 Universal"},
+	},
+	"Apache-2.0": {{"Apache License", "Version 2.0, January 2004"}},
+	"MIT":        {{"MIT License"}, {"The MIT License (MIT)"}, {"The MIT License"}},
+	"ISC":        {{"ISC License"}},
+}
+
+// LicenceIDs lists the SPDX ids a pack may declare, sorted.
+func LicenceIDs() []string {
+	ids := make([]string, 0, len(licenceSignatures))
+	for id := range licenceSignatures {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+// openingLines returns up to n non-empty lines from the start of a text,
+// trimmed of space and a Markdown heading marker.
+func openingLines(text string, n int) []string {
+	var out []string
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(line), "#"))
+		if line == "" {
+			continue
+		}
+		out = append(out, line)
+		if len(out) == n {
+			break
+		}
+	}
+	return out
 }
 
 // checkLicence reports an error unless one of the upstream files opens with
-// the declared licence's title.
+// one of the declared licence's signatures.
 func checkLicence(spdx string, files []string) error {
-	title, ok := licenceTitles[spdx]
+	forms, ok := licenceSignatures[spdx]
 	if !ok {
-		return fmt.Errorf("unknown licence %q: add its title to licenceTitles before declaring it", spdx)
+		return fmt.Errorf("unknown licence %q: add its opening lines to licenceSignatures before declaring it", spdx)
 	}
 	for _, f := range files {
 		b, err := os.ReadFile(f)
 		if err != nil {
 			return err
 		}
-		for _, line := range strings.Split(string(b), "\n") {
-			if line = strings.TrimSpace(line); line != "" {
-				if line == title {
-					return nil
-				}
-				break
+		for _, form := range forms {
+			got := openingLines(string(b), len(form))
+			if strings.Join(got, "\n") == strings.Join(form, "\n") {
+				return nil
 			}
 		}
 	}
-	return fmt.Errorf("%w: the pack declares %s but no upstream licence file opens with %q; review the new terms, then update the pack's declared licence", ErrLicenceChanged, spdx, title)
+	return fmt.Errorf("%w: the pack declares %s but no upstream licence file opens with %q; review the new terms, then update the pack's declared licence", ErrLicenceChanged, spdx, strings.Join(forms[0], " / "))
+}
+
+// checkLicenceDigest reports an error unless one of the upstream files has
+// exactly the recorded SHA-256. It is the check for a licence with no
+// standard text (Material Design Icons' Pictogrammers licence, Game Icons'
+// own statement), and for a pack that pins its licence text to the byte.
+func checkLicenceDigest(want string, files []string) error {
+	want = strings.ToLower(want)
+	var got []string
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(b)
+		h := hex.EncodeToString(sum[:])
+		if h == want {
+			return nil
+		}
+		got = append(got, filepath.Base(f)+"="+h)
+	}
+	return fmt.Errorf("%w: no upstream licence file has the recorded SHA-256 %s (found %s); review the new text, then update licence_sha256", ErrLicenceChanged, want, strings.Join(got, ", "))
 }
 
 // HandSuppliedMarker is the file whose presence makes a licence directory
@@ -182,6 +252,11 @@ func (s LicenceTexts) Execute(ctx *pipeline.Context) error {
 
 	if s.Licence != "" {
 		if err := checkLicence(s.Licence, files); err != nil {
+			return fmt.Errorf("LicenceTexts %s: %w", s.Set, err)
+		}
+	}
+	if s.SHA256 != "" {
+		if err := checkLicenceDigest(s.SHA256, files); err != nil {
 			return fmt.Errorf("LicenceTexts %s: %w", s.Set, err)
 		}
 	}

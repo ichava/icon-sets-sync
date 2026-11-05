@@ -89,6 +89,11 @@ const (
 	// FindLicences found at the root of the fetched tree, as absolute paths.
 	// Present and empty means it looked and found none.
 	KeyLicenceFiles = "licence_files"
+
+	// KeyUpstreamRoot is the root of the fetched tree as the source left it,
+	// recorded by FindLicences before anything narrows it, so a stage reading
+	// an upstream data file (Exclude's metadata) still finds it.
+	KeyUpstreamRoot = "upstream_root"
 )
 
 // Well-known Config keys, supplied by the recipes.
