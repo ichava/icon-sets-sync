@@ -23,3 +23,22 @@ it('falls back to the release download when no binary is named', function (): vo
 
     expect(Launcher::localBinary())->toBeNull();
 });
+
+// G-06: Go releases are git only until the owner says otherwise, so the
+// release download stays off unless a user opts in explicitly.
+it('downloads a release binary only when the user opts in', function (?string $value, bool $allowed): void {
+    expect(Launcher::downloadAllowed($value))->toBe($allowed);
+})->with([
+    'unset'    => [null, false],
+    'empty'    => ['', false],
+    'no'       => ['0', false],
+    'opted in' => ['1', true],
+    'true'     => ['true', true],
+]);
+
+it('refuses to download without the opt-in, and says how to build', function (): void {
+    putenv('ICHAVA_ICON_SETS_SYNC_BIN');
+    putenv('ICHAVA_ICON_SETS_SYNC_DOWNLOAD');
+
+    expect(fn () => Launcher::binary())->toThrow(LauncherException::class, 'ICHAVA_ICON_SETS_SYNC_DOWNLOAD');
+});

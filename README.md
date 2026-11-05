@@ -43,8 +43,9 @@ ICHAVA_ICON_SETS_SYNC_BIN=/path/to/icon-sets-sync/build/macos/icon-sets-sync ven
 ```
 
 The Composer package carries no Go code. With `ICHAVA_ICON_SETS_SYNC_BIN` set it runs that binary.
-Without it, it looks for a published release binary, and there is none yet, so it stops and says how
-to build one.
+Without it, it stops and says how to build one. It downloads a published release binary only when
+`ICHAVA_ICON_SETS_SYNC_DOWNLOAD=1` opts in, because releases are on hold and the download is never
+the default.
 
 `go install` is not an install path. The Go module proxy fetched `src/v0.1.0` to `src/v0.1.2` from
 commits that predate the single-commit publication, and it keeps the first copy of a tag for good,
