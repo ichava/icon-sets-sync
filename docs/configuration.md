@@ -351,8 +351,8 @@ A recipe turns a pack config into pipelines. Every recipe but `generic` runs onl
 
 | Recipe | Picked for | Builds |
 |---|---|---|
-| `emoji-sets` | `"recipe": "emoji-sets"` (`icon-sets-emoji`) | Twemoji (npm) + OpenMoji colour and black (GitHub archive), categorised by the Unicode taxonomy, then one commit |
-| `openmoji-sets` | `"recipe": "openmoji-sets"` (`icon-sets-openmoji`) | OpenMoji colour and black from one pinned `hfg-gmuend/openmoji` release tag (no `v` prefix), categorised by the Unicode taxonomy, then one commit. Runs the same pipelines as the OpenMoji sets inside `emoji-sets`, plus three protections they lack (below) |
+| `emoji-sets` | `"recipe": "emoji-sets"` (`icon-sets-emoji`) | Twemoji (npm), categorised by the Unicode taxonomy, then one commit. OpenMoji is not part of this pack |
+| `openmoji-sets` | `"recipe": "openmoji-sets"` (`icon-sets-openmoji`) | OpenMoji colour and black from one pinned `hfg-gmuend/openmoji` release tag (no `v` prefix), categorised by the Unicode taxonomy, then one commit. With three protections against losing an icon (below) |
 | `manifest-pack` | `"recipe": "manifest-pack"` | one pipeline per set in the pack's `<slug>.sets.json` set manifest, each from its own upstream, then one commit |
 | `generic` | any `npm` or `github-*` source | the config's own source, transforms and sinks |
 
@@ -360,7 +360,7 @@ A recipe turns a pack config into pipelines. Every recipe but `generic` runs onl
 
 In both recipes, two emoji whose names slug alike each keep a file. The first in `emoji-test.txt` order keeps the base slug and a later one takes a name read from its own, with punctuation spelled out by name and anything else as `u` plus its hex code point: `keycap: #` is `keycap.svg` and `keycap: *` is `keycap-asterisk.svg`. `codepoints.json` and `names.json` use the same slugs.
 
-The deprecated `emoji-sets` recipe files an icon only when its filename matches a `emoji-test.txt` entry exactly, and drops the rest (its log line says `missing=N`). `openmoji-sets` opts out of that:
+`emoji-sets` files a Twemoji icon only when its filename matches a `emoji-test.txt` entry exactly, and drops the rest (its log line says `missing=N`). `openmoji-sets` opts out of that:
 
 - **Selector-insensitive match.** OpenMoji names about 200 emoji without the emoji-presentation selector (`2600.svg`, the sun; `emoji-test.txt` has `2600 FE0F`). They match their taxonomy entry anyway.
 - **An explicit bucket.** An icon still unmatched, such as an OpenMoji extra (`e380.svg`), an emoji newer than the taxonomy, or a component glyph, is kept as `uncategorised/<upstream-name>.svg`, with a warning and an `uncategorised` count. One emoji shipped twice (with and without its FE0F) keeps the fully-qualified file under the name and puts the other in the bucket.
@@ -399,7 +399,6 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `git.commit_body` | `Automated sync from upstream {pack} {old} -> {new}. ...` | `ICHAVA_GIT_COMMIT_BODY` | yes | commit and pull request body |
 | `git.open_pr` | `true` | `ICHAVA_GIT_OPEN_PR` | yes | open a pull request after pushing |
 | `emoji.unicode_version` | `16.0` | `ICHAVA_EMOJI_UNICODE_VERSION` | yes | Unicode release whose `emoji-test.txt` drives categorisation; must exist at unicode.org (up to 16.0 under `Public/emoji/<v>/`, from 17.0 under `Public/<v>.0/emoji/`). `openmoji-sets` follows its OpenMoji release instead (17.0.0 uses 17.0; never older than this default, so 15.1.0 uses 16.0) unless this is set |
-| `emoji.openmoji_version` | `15.1.0` | `ICHAVA_EMOJI_OPENMOJI_VERSION` | yes | OpenMoji release tag |
 
 The run-wide settings (the four marked "no") cannot appear in a pack config's `settings`.
 

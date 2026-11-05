@@ -82,11 +82,11 @@ func TestDryRunDropsTheCommittingSinks(t *testing.T) {
 	}
 }
 
-// TestDispatchIsByNameBeforeSourceType is the trap the Python comment names.
+// TestTheRecipeFieldBeatsTheSourceType is the trap the Python comment names.
 // icon-sets-emoji declares source.type "url" because that is how its version
-// is discovered; its assets come from three upstreams only the named recipe
-// knows about. Checking the type first sends it to "no recipe wired".
-func TestDispatchIsByNameBeforeSourceType(t *testing.T) {
+// is discovered; its assets come from npm through a recipe only the config's
+// `recipe` field names. Checking the type first sends it to "no recipe wired".
+func TestTheRecipeFieldBeatsTheSourceType(t *testing.T) {
 	emoji := &config.PackConfig{
 		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji", Recipe: RecipeEmojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
@@ -97,8 +97,8 @@ func TestDispatchIsByNameBeforeSourceType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a url-typed emoji pack must still reach its recipe: %v", err)
 	}
-	if len(built) != 4 {
-		t.Fatalf("got %d pipelines, want 4 (twemoji, two openmoji, commit)", len(built))
+	if len(built) != 2 {
+		t.Fatalf("got %d pipelines, want 2 (twemoji, commit)", len(built))
 	}
 }
 
@@ -135,8 +135,8 @@ func TestEmojiDryRunHasNoCommitPipeline(t *testing.T) {
 		Source: config.SourceConfig{Type: "url"},
 	}
 	built, _ := buildFor(emoji, "15.0.0", true)
-	if len(built) != 3 {
-		t.Fatalf("got %d pipelines, want 3 asset pipelines and no commit", len(built))
+	if len(built) != 1 {
+		t.Fatalf("got %d pipelines, want the twemoji pipeline and no commit", len(built))
 	}
 }
 

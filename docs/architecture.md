@@ -102,7 +102,7 @@ pipeline in every recipe now runs `FindLicences` straight after its source, whic
 | Recipe | Destination |
 |---|---|
 | `generic` | `resources/assets/svg/licenses/<upstream>`, the npm package with its scope folded in (`tabler-icons`, `flag-icons`) or the GitHub repository |
-| `emoji-sets` | `resources/assets/svg/licenses/{twemoji,openmoji-color,openmoji-black}` |
+| `emoji-sets` | `resources/assets/svg/licenses/twemoji` |
 | `openmoji-sets` | `resources/assets/svg/licenses/openmoji`, one directory for both sets |
 | `manifest-pack` | `resources/assets/svg/licenses/<set>`, pairing with `files/<set>` |
 

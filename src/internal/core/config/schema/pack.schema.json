@@ -306,8 +306,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "unicode_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-            "openmoji_version": { "type": "string", "minLength": 1 }
+            "unicode_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" }
           }
         }
       }

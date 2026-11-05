@@ -2,12 +2,10 @@ package recipes
 
 import (
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
-	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
 	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
@@ -74,45 +72,6 @@ func TestOpenMojiPackResolvesAndPinsItsLicence(t *testing.T) {
 		arch := stages[0].(sources.Compound).Second.(sources.GithubArchive)
 		if arch.Version != "17.0.0" || !strings.Contains(arch.ArchiveURL, "/refs/tags/{version}.zip") {
 			t.Errorf("%s: source is not pinned to a tag: %+v", p.Name(), arch)
-		}
-	}
-}
-
-// TestOpenMojiAndEmojiBuildTheSameOpenMojiSets keeps the deprecated emoji sets
-// and the new pack byte-identical: both must run the same source, the same
-// transforms and write to the same relative paths for the same release.
-func TestOpenMojiAndEmojiBuildTheSameOpenMojiSets(t *testing.T) {
-	emoji := &config.PackConfig{
-		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/x", Recipe: RecipeEmojiSets,
-		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
-		Source: config.SourceConfig{Type: "url"},
-	}
-	om, err := config.LoadPack("icon-sets-openmoji", shippedConfigDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	om.PackRoot = "/work/x"
-
-	eb, err := buildFor(emoji, "15.0.0", true) // twemoji, colour, black
-	if err != nil {
-		t.Fatal(err)
-	}
-	ob, err := buildFor(om, DefaultOpenMojiVersion, true) // colour, black
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(ob) != 2 {
-		t.Fatalf("got %d openmoji pipelines, want 2", len(ob))
-	}
-	for i := range ob {
-		e, o := eb[i+1].Stages(), ob[i].Stages()
-		fsE, fsO := indexOf(stageNames(eb[i+1]), "Filesystem"), indexOf(stageNames(ob[i]), "Filesystem")
-		// The openmoji pack opts into preserving, guarded removals and a
-		// taxonomy derived from the release; those are the only differences
-		// allowed (see TestOpenMojiPackNeverDropsAnIconButEmojiIsUnchanged).
-		o = neutraliseOptIns(o)
-		if fsE != fsO || !reflect.DeepEqual(e[:fsE+1], o[:fsO+1]) {
-			t.Errorf("%s: source, transforms or file sink differ from emoji's", ob[i].Name())
 		}
 	}
 }
@@ -193,9 +152,9 @@ func TestExplicitUnicodeVersionBeatsTheDerivedOne(t *testing.T) {
 	}
 }
 
-// TestOpenMojiPackNeverDropsAnIconButEmojiIsUnchanged is the split: the new
-// pack opts into preserving, guarded removals and a forced override; the
-// deprecated emoji pack keeps the exact-match, drop-and-count behaviour.
+// TestOpenMojiPackNeverDropsAnIconButEmojiIsUnchanged is the split: the
+// openmoji pack opts into preserving, guarded removals and a forced override;
+// the emoji pack (Twemoji) keeps the exact-match, drop-and-count behaviour.
 func TestOpenMojiPackNeverDropsAnIconButEmojiIsUnchanged(t *testing.T) {
 	emoji := &config.PackConfig{
 		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/x", Recipe: RecipeEmojiSets,
@@ -251,27 +210,4 @@ func TestOpenMojiPackNeverDropsAnIconButEmojiIsUnchanged(t *testing.T) {
 	if cat != 2 || fs != 2 || san != 2 {
 		t.Fatalf("inspected %d Categorise, %d Filesystem and %d Sanitise stages, want 2 of each", cat, fs, san)
 	}
-}
-
-// neutraliseOptIns zeroes the fields only the openmoji pack sets, on a copy.
-func neutraliseOptIns(stages []pipeline.Stage) []pipeline.Stage {
-	out := make([]pipeline.Stage, len(stages))
-	for i, st := range stages {
-		switch v := st.(type) {
-		case sources.Compound:
-			if c, ok := v.First.(sources.UnicodeCldr); ok {
-				c.UnicodeVersion = settings.DefaultUnicodeVersion
-				v.First = c
-			}
-			st = v
-		case transforms.Categorise:
-			v.Preserve, v.MaxUncategorised, v.Force = false, 0, false
-			st = v
-		case sinks.Filesystem:
-			v.RefuseRemovals, v.Force = false, false
-			st = v
-		}
-		out[i] = st
-	}
-	return out
 }

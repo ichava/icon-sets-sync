@@ -258,7 +258,7 @@ func TestGitBranchCarriesTheResolvedGitSettings(t *testing.T) {
 	}
 }
 
-func TestEmojiVersionsComeFromSettings(t *testing.T) {
+func TestEmojiUnicodeVersionComesFromSettings(t *testing.T) {
 	emoji := &config.PackConfig{
 		Name: "icon-sets-emoji", Pack: "ichava/icon-sets-emoji", PackRoot: "/work/icon-sets-emoji", Recipe: RecipeEmojiSets,
 		VersionFile: config.DefaultVersionFile, VersionKeys: config.DefaultVersionKeys(),
@@ -266,15 +266,11 @@ func TestEmojiVersionsComeFromSettings(t *testing.T) {
 		Sinks:  []config.SinkConfig{{Type: "git-branch", Branch: "chore/emoji-{version}"}},
 	}
 	r := settings.Resolve(settings.LayerValues{Layer: settings.LayerFlag, Values: settings.Values{
-		"emoji.unicode_version":  "15.1",
-		"emoji.openmoji_version": "15.0.0",
+		"emoji.unicode_version": "15.1",
 	}})
 	built, err := Build(emoji, "15.0.0", Options{Settings: &r})
 	if err != nil {
 		t.Fatal(err)
-	}
-	if got := built[1].Name(); got != "emoji-sets:openmoji-color@15.0.0" {
-		t.Errorf("openmoji pipeline = %q, want the settings version", got)
 	}
 	compound, ok := built[0].Stages()[0].(sources.Compound)
 	if !ok {
@@ -283,7 +279,7 @@ func TestEmojiVersionsComeFromSettings(t *testing.T) {
 	if cldr, _ := compound.First.(sources.UnicodeCldr); cldr.UnicodeVersion != "15.1" {
 		t.Errorf("unicode version = %q, want 15.1", cldr.UnicodeVersion)
 	}
-	if g := findGitBranch(t, built[3]); g.Branch != "chore/emoji-{version}" {
+	if g := findGitBranch(t, built[len(built)-1]); g.Branch != "chore/emoji-{version}" {
 		t.Errorf("emoji commit ignores the config's git-branch sink: %q", g.Branch)
 	}
 }

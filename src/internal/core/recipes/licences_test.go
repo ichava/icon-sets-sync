@@ -229,7 +229,7 @@ func TestEmojiAndSingleUpstreamPacksShipTheirLicences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"twemoji", "openmoji-color", "openmoji-black"}
+	want := []string{"twemoji"}
 	if len(built) != len(want) {
 		t.Fatalf("got %d emoji pipelines, want %d", len(built), len(want))
 	}

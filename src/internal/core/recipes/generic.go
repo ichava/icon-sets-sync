@@ -17,8 +17,7 @@ import (
 // owns the values now; these alias it so nothing reading the old constants
 // can see a different number.
 const (
-	DefaultOpenMojiVersion = settings.DefaultOpenMojiVersion
-	DefaultUnicodeVersion  = settings.DefaultUnicodeVersion
+	DefaultUnicodeVersion = settings.DefaultUnicodeVersion
 )
 
 // fetchable reports whether a source type has an asset fetch strategy.
