@@ -280,7 +280,7 @@ var lastLogged atomic.Value
 // command and the web UI. In order:
 //
 //  1. explicit, the --config-dir flag (callers pass "" when it was not given);
-//  2. ICHAVA_CONFIG_DIR (ICHAVA_DEV_CONFIG_DIR is its older name);
+//  2. ICHAVA_CONFIG_DIR;
 //  3. `config/` beside the executable, when that directory exists;
 //  4. ./config when it holds packs.json;
 //  5. this repository's own layout: starting at cwd and climbing at most
@@ -291,10 +291,8 @@ func ResolveConfigDir(explicit string, getenv func(string) string, cwd, exeDir s
 	if explicit != "" {
 		return explicit
 	}
-	for _, env := range []string{"ICHAVA_CONFIG_DIR", "ICHAVA_DEV_CONFIG_DIR"} {
-		if dir := getenv(env); dir != "" {
-			return dir
-		}
+	if dir := getenv("ICHAVA_CONFIG_DIR"); dir != "" {
+		return dir
 	}
 	if exeDir != "" {
 		candidate := filepath.Join(exeDir, "config")
@@ -694,7 +692,7 @@ const (
 // never reaches the checkout. In order:
 //
 //  1. explicit (--config-dir): SourceFlag;
-//  2. ICHAVA_CONFIG_DIR, or its older name: SourceEnv;
+//  2. ICHAVA_CONFIG_DIR: SourceEnv;
 //  3. config/ beside the executable: SourceExecutable;
 //  4. ./config, or the repository layout walking up from cwd: SourceCwd;
 //  5. the repository layout walking up from the executable's own directory,
@@ -709,10 +707,8 @@ func ResolveConfigSource(explicit string, getenv func(string) string, cwd, exeDi
 	if explicit != "" {
 		return explicit, SourceFlag
 	}
-	for _, env := range []string{"ICHAVA_CONFIG_DIR", "ICHAVA_DEV_CONFIG_DIR"} {
-		if dir := getenv(env); dir != "" {
-			return dir, SourceEnv
-		}
+	if dir := getenv("ICHAVA_CONFIG_DIR"); dir != "" {
+		return dir, SourceEnv
 	}
 	if exeDir != "" {
 		candidate := filepath.Join(exeDir, "config")

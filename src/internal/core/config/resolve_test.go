@@ -51,7 +51,7 @@ func TestResolveConfigDir(t *testing.T) {
 	}{
 		{"explicit flag wins over env and layout", "/flag/dir", envOf("ICHAVA_CONFIG_DIR", "/env/dir"), root, "/flag/dir"},
 		{"env wins over the layout", "", envOf("ICHAVA_CONFIG_DIR", "/env/dir"), root, "/env/dir"},
-		{"older env name still honoured", "", envOf("ICHAVA_DEV_CONFIG_DIR", "/old/dir"), root, "/old/dir"},
+		{"the removed ICHAVA_DEV_CONFIG_DIR is not read", "", envOf("ICHAVA_DEV_CONFIG_DIR", "/old/dir"), root, "config"},
 		{"cwd is the repo root", "", noEnv, root, "config"},
 		{"cwd is src/", "", noEnv, filepath.Join(root, "src"), filepath.Join(root, "config")},
 		{"cwd is src/cmd (two levels)", "", noEnv, nested, filepath.Join(root, "config")},

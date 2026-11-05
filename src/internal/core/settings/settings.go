@@ -70,10 +70,8 @@ type Key struct {
 	// Default is the value when no layer sets it.
 	Default any
 
-	// Env is the environment variable that sets it. LegacyEnv lists older
-	// names still honoured, lower precedence than Env.
-	Env       string
-	LegacyEnv []string
+	// Env is the environment variable that sets it.
+	Env string
 
 	// PackScoped keys may appear in a pack config's `settings`. Run-wide keys
 	// (where configs live, how many packs run at once, how loud the log is)
@@ -105,11 +103,11 @@ const (
 
 // Keys is the registry, in display order.
 var Keys = []Key{
-	{Name: "config_dir", Kind: String, Default: "", Env: "ICHAVA_CONFIG_DIR", LegacyEnv: []string{"ICHAVA_DEV_CONFIG_DIR"},
+	{Name: "config_dir", Kind: String, Default: "", Env: "ICHAVA_CONFIG_DIR",
 		Help: "directory holding packs.json and the pack configs (default: config/ beside the binary, else ./config when it holds packs.json, else the config/ of the repository around the working directory, up to 5 levels)"},
 	{Name: "private_config_dir", Kind: String, Default: "", Env: "ICHAVA_PRIVATE_CONFIG_DIR",
 		Help: "directory of private pack configs merged over config_dir at run time (packs.json optional; none by default)"},
-	{Name: "log_level", Kind: String, Default: "info", Env: "ICHAVA_LOG_LEVEL", LegacyEnv: []string{"ICHAVA_DEV_LOG_LEVEL"},
+	{Name: "log_level", Kind: String, Default: "info", Env: "ICHAVA_LOG_LEVEL",
 		Enum: []string{"debug", "info", "warn", "error"}, Help: "log verbosity; -v is debug, -q is error"},
 	{Name: "concurrency", Kind: Int, Default: 1, Env: "ICHAVA_CONCURRENCY", Min: 1,
 		Help: "packs synced at once by sync --all / sync-all"},
@@ -251,8 +249,9 @@ func (k Key) coerce(value any) (any, error) {
 		}
 		if len(k.Enum) > 0 {
 			s = strings.ToLower(strings.TrimSpace(s))
-			// "warning" is what Python's logging called it, and the legacy
-			// ICHAVA_DEV_LOG_LEVEL may still carry it.
+			// "warning" is what Python's logging calls it, and ichava/core's
+			// own .env.example sets ICHAVA_LOG_LEVEL=warning, so a shell
+			// that runs both carries it.
 			if k.Name == "log_level" && s == "warning" {
 				s = "warn"
 			}
@@ -319,23 +318,18 @@ func FromTree(tree map[string]any, layer Layer) (Values, error) {
 }
 
 // FromEnv reads every key's environment variable. An empty variable is unset.
-// The current name wins over a legacy one.
 func FromEnv(lookup func(string) (string, bool)) (Values, error) {
 	out := Values{}
 	for _, key := range Keys {
-		names := append([]string{key.Env}, key.LegacyEnv...)
-		for _, env := range names {
-			raw, ok := lookup(env)
-			if !ok || raw == "" {
-				continue
-			}
-			value, err := key.ParseString(raw)
-			if err != nil {
-				return nil, fmt.Errorf("%s: %w", env, err)
-			}
-			out[key.Name] = value
-			break
+		raw, ok := lookup(key.Env)
+		if !ok || raw == "" {
+			continue
 		}
+		value, err := key.ParseString(raw)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", key.Env, err)
+		}
+		out[key.Name] = value
 	}
 	return out, nil
 }
