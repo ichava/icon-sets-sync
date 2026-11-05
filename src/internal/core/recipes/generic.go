@@ -3,6 +3,7 @@ package recipes
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/ichava/icon-sets-sync/src/internal/core/text"
 	"strings"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
@@ -236,7 +237,7 @@ func buildTransforms(raw []map[string]any) ([]pipeline.Transform, bool, error) {
 		case "slugify":
 			out = append(out, transforms.Slugify{Dirs: tc.Dirs, HyphenateDots: tc.HyphenateDots})
 		case "categorise":
-			by := orDefault(tc.By, "passthrough")
+			by := text.OrDefault(tc.By, "passthrough")
 			if by == "cldr" {
 				needsCLDR = true
 			}

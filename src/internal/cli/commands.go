@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"github.com/ichava/icon-sets-sync/src/internal/core/text"
 
 	"github.com/spf13/cobra"
 
@@ -112,13 +113,6 @@ func renderCheck(results []checker.Result) string {
 	return ui.RenderCheckTable(ui.CheckRows(results))
 }
 
-func orDash(s string) string {
-	if s == "" {
-		return "-"
-	}
-	return s
-}
-
 // ---------------------------------------------------------------------- sync
 
 func newSyncCommand() *cobra.Command {
@@ -211,7 +205,7 @@ func runSync(ctx context.Context, packs []*config.PackConfig) error {
 			if dryRun {
 				mode = " (dry run)"
 			}
-			ui.Info("%s: refreshing from %s %s %s%s", p.Pack, orDash(r.Current), ui.Sym.Arrow, r.Latest, mode)
+			ui.Info("%s: refreshing from %s %s %s%s", p.Pack, text.OrDash(r.Current), ui.Sym.Arrow, r.Latest, mode)
 		},
 		Done: reportOutcome,
 	})

@@ -7,6 +7,7 @@ package recipes
 
 import (
 	"fmt"
+	"github.com/ichava/icon-sets-sync/src/internal/core/text"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -183,7 +184,7 @@ func gitBranch(pack *config.PackConfig, sink *config.SinkConfig, opts Options) s
 	}
 
 	return sinks.GitBranch{
-		RepoRoot:      orDefault(sink.RepoRoot, pack.PackRoot),
+		RepoRoot:      text.OrDefault(sink.RepoRoot, pack.PackRoot),
 		Branch:        pick("git.branch", sink.Branch),
 		CommitSubject: pick("git.commit_subject", sink.CommitSubject),
 		CommitBody:    pick("git.commit_body", sink.CommitBody),
@@ -407,11 +408,4 @@ func buildOpenMojiSets(pack *config.PackConfig, version string, opts Options) ([
 				Sink(gitBranch(pack, firstSink(pack, "git-branch"), opts)))
 	}
 	return pipelines, nil
-}
-
-func orDefault(v, fallback string) string {
-	if v == "" {
-		return fallback
-	}
-	return v
 }

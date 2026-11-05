@@ -11,6 +11,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/ichava/icon-sets-sync/src/internal/core/text"
 	"io"
 	"os"
 	"strings"
@@ -236,18 +237,11 @@ func CheckRows(results []checker.Result) []CheckRow {
 			status = Err(Sym.Cross + " error")
 		}
 		rows = append(rows, CheckRow{
-			Package: r.Package, Current: orDash(r.Current), Latest: orDash(r.Latest),
+			Package: r.Package, Current: text.OrDash(r.Current), Latest: text.OrDash(r.Latest),
 			Status: status, Detail: r.Detail(),
 		})
 	}
 	return rows
-}
-
-func orDash(s string) string {
-	if s == "" {
-		return "-"
-	}
-	return s
 }
 
 // Summarise writes the one-line verdict under the check table.

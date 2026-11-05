@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -357,7 +358,7 @@ func BuildSettingsView(r settings.Resolved, configDir, globalPath string) Settin
 		case settings.Bool:
 			value = boolString(r.Bool(k.Name))
 		case settings.Int:
-			value = itoa(r.Int(k.Name))
+			value = strconv.Itoa(r.Int(k.Name))
 		default:
 			value = r.String(k.Name)
 		}

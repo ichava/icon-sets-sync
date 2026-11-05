@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/ichava/icon-sets-sync/src/internal/core/text"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -439,9 +440,9 @@ func (s GitBranch) Execute(ctx *pipeline.Context) error {
 		return nil
 	}
 
-	branch := config.Interpolate(orDefault(s.Branch, DefaultBranch), bindings)
-	subject := config.Interpolate(orDefault(s.CommitSubject, DefaultCommitSubject), bindings)
-	body := config.Interpolate(orDefault(s.CommitBody, DefaultCommitBody), bindings)
+	branch := config.Interpolate(text.OrDefault(s.Branch, DefaultBranch), bindings)
+	subject := config.Interpolate(text.OrDefault(s.CommitSubject, DefaultCommitSubject), bindings)
+	body := config.Interpolate(text.OrDefault(s.CommitBody, DefaultCommitBody), bindings)
 
 	// Fetch the tracking ref before pushing. actions/checkout fetches only the
 	// default branch, so refs/remotes/origin/<branch> does not exist on a
@@ -511,13 +512,6 @@ func (Discard) Execute(ctx *pipeline.Context) error {
 	}
 	ctx.Metric("discard", map[string]any{"would_write": n})
 	return nil
-}
-
-func orDefault(v, fallback string) string {
-	if v == "" {
-		return fallback
-	}
-	return v
 }
 
 // maxDiffNames caps each list of names the Filesystem sink reports. The

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -220,7 +221,7 @@ func ago(t time.Time) string {
 }
 
 func thousands(n int) string {
-	s := itoa(n)
+	s := strconv.Itoa(n)
 	if len(s) <= 3 {
 		return s
 	}
@@ -237,8 +238,6 @@ func thousands(n int) string {
 	}
 	return b.String()
 }
-
-func itoa(n int) string { return fmt.Sprintf("%d", n) }
 
 func parsePages(a *assetSet) (*pageSet, error) {
 	base, err := template.New("layout.html").Funcs(funcs(a)).ParseFS(templateFS, "templates/layout.html", "templates/partials/*.html")
