@@ -261,8 +261,7 @@ type PacksRegistry struct {
 
 // DefaultConfigDir resolves the directory the pack configs live in, from the
 // process environment, working directory and executable. See
-// ResolveConfigSource; ResolveConfigDir is the earlier subset of it, kept for
-// its callers.
+// ResolveConfigSource.
 func DefaultConfigDir() string {
 	dir, _ := DefaultConfigSource()
 	return dir
@@ -275,47 +274,6 @@ const configWalkLimit = 5
 // lastLogged remembers the directory last announced, so the many callers that
 // resolve the default do not repeat the line.
 var lastLogged atomic.Value
-
-// ResolveConfigDir is the one place the config directory is decided, for every
-// command and the web UI. In order:
-//
-//  1. explicit, the --config-dir flag (callers pass "" when it was not given);
-//  2. ICHAVA_CONFIG_DIR;
-//  3. `config/` beside the executable, when that directory exists;
-//  4. ./config when it holds packs.json;
-//  5. this repository's own layout: starting at cwd and climbing at most
-//     configWalkLimit parents (see FindToolkitRoot), so
-//     `go -C src run ...` finds the registry at the repository root;
-//  6. ./config, so a missing registry reports the path it looked for.
-func ResolveConfigDir(explicit string, getenv func(string) string, cwd, exeDir string) string {
-	if explicit != "" {
-		return explicit
-	}
-	if dir := getenv("ICHAVA_CONFIG_DIR"); dir != "" {
-		return dir
-	}
-	if exeDir != "" {
-		candidate := filepath.Join(exeDir, "config")
-		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-			return candidate
-		}
-	}
-	if cwd != "" {
-		if isFile(filepath.Join(cwd, "config", "packs.json")) {
-			return "config"
-		}
-		if root := FindToolkitRoot(cwd); root != "" {
-			found := filepath.Join(root, "config")
-			if lastLogged.Load() != found {
-				lastLogged.Store(found)
-				slog.Info("using the repository's config directory", "dir", found,
-					"hint", "set ICHAVA_CONFIG_DIR or pass --config-dir to choose another")
-			}
-			return found
-		}
-	}
-	return "config"
-}
 
 // FindToolkitRoot returns this repository's root: starting at start and
 // climbing at most configWalkLimit parents, stopping after a directory holding
@@ -686,8 +644,9 @@ const (
 	SourceMissing    = "missing"
 )
 
-// ResolveConfigSource is ResolveConfigDir plus the layers a double-clicked
-// binary needs, and it names the layer that answered. Finder and Explorer
+// ResolveConfigSource is the one place the config directory is decided, for
+// every command and the web UI, and it names the layer that answered. It
+// covers the layers a double-clicked binary needs too. Finder and Explorer
 // start a binary with the working directory at $HOME, so the walk from cwd
 // never reaches the checkout. In order:
 //
