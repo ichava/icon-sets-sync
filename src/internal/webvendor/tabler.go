@@ -3,7 +3,7 @@
 // icon subset, and writes the licence texts, the hash manifest and the
 // repository's THIRD_PARTY_NOTICES.md. The tablervendor command drives it; the
 // web package's tests use it to check the committed files still agree.
-package tabler
+package webvendor
 
 import (
 	"archive/tar"

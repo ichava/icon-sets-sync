@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ichava/icon-sets-sync/src/internal/tabler"
+	"github.com/ichava/icon-sets-sync/src/internal/webvendor"
 )
 
 func vendorFile(t *testing.T, name string) []byte {
@@ -47,19 +47,19 @@ func TestVendoredFilesMatchTheManifest(t *testing.T) {
 // TABLER_VERSION is the one place the version is pinned; the vendored files
 // must carry the same version in their banners.
 func TestTablerVersionMatchesTheBanners(t *testing.T) {
-	vers, err := tabler.ParseVersions(vendorFile(t, tabler.VersionFile))
+	vers, err := webvendor.ParseVersions(vendorFile(t, webvendor.VersionFile))
 	if err != nil {
 		t.Fatal(err)
 	}
-	banner := "Tabler v" + vers[tabler.PkgCore] + " "
+	banner := "Tabler v" + vers[webvendor.PkgCore] + " "
 	for _, f := range []string{"tabler/tabler.min.css", "tabler/tabler.min.js", "tabler/tabler-theme.min.js"} {
 		if !bytes.Contains(vendorFile(t, f), []byte(banner)) {
 			t.Errorf("%s does not carry %q", f, strings.TrimSpace(banner))
 		}
 	}
-	bs, err := tabler.BundledBootstrap(vendorFile(t, "tabler/tabler.min.js"))
-	if err != nil || bs != vers[tabler.PkgBootstrap] {
-		t.Errorf("bundled Bootstrap %q, pinned %q (%v)", bs, vers[tabler.PkgBootstrap], err)
+	bs, err := webvendor.BundledBootstrap(vendorFile(t, "tabler/tabler.min.js"))
+	if err != nil || bs != vers[webvendor.PkgBootstrap] {
+		t.Errorf("bundled Bootstrap %q, pinned %q (%v)", bs, vers[webvendor.PkgBootstrap], err)
 	}
 }
 
@@ -84,7 +84,7 @@ func TestNoticesMatchTheEmbeddedLicences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(root, tabler.Notices(ls)) {
+	if !bytes.Equal(root, webvendor.Notices(ls)) {
 		t.Error("THIRD_PARTY_NOTICES.md is out of date; re-run make tabler-vendor")
 	}
 }
@@ -96,7 +96,7 @@ var iconCall = regexp.MustCompile(`(?:icon|navItem \. "[^"]+" "[^"]+") "([a-z0-9
 // list cuts is in the sprite: a missing one renders as nothing.
 func TestEveryIconUsedIsInTheSprite(t *testing.T) {
 	sprite := string(vendorFile(t, "tabler-icons.svg"))
-	listed := tabler.ReadIconList(vendorFile(t, "icons.txt"))
+	listed := webvendor.ReadIconList(vendorFile(t, "icons.txt"))
 	for _, n := range listed {
 		if !strings.Contains(sprite, `id="tabler-`+n+`"`) {
 			t.Errorf("icons.txt lists %s but the sprite lacks it", n)

@@ -17,7 +17,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ichava/icon-sets-sync/src/internal/tabler"
+	"github.com/ichava/icon-sets-sync/src/internal/webvendor"
 )
 
 func main() {
@@ -31,10 +31,10 @@ func main() {
 	flag.StringVar(&root, "root", "..", "repository root (the Makefile runs this from src/)")
 	flag.Parse()
 
-	v := &tabler.Vendor{
+	v := &webvendor.Vendor{
 		Root:     root,
 		AssetDir: filepath.Join(root, "src", "internal", "web", "assets", "vendor"),
-		Fetch:    tabler.HTTPFetcher{},
+		Fetch:    webvendor.HTTPFetcher{},
 		Log:      func(format string, a ...any) { fmt.Fprintf(os.Stderr, format+"\n", a...) },
 	}
 	if check {

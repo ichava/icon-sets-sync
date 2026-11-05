@@ -1,4 +1,4 @@
-package tabler
+package webvendor
 
 import (
 	"archive/tar"
