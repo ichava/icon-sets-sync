@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 )
@@ -62,6 +63,86 @@ func ParseCLDR(text string) []CLDRRecord {
 		})
 	}
 	return records
+}
+
+// ResolveNameSlugs gives every taxonomy record its file slug, keyed by
+// CLDRRecord.Key, so that no two records share one.
+//
+// SlugifyName keeps only [a-z0-9], so two names that differ only in a symbol
+// slug alike: "keycap: #" and "keycap: *" are both "keycap", and renaming the
+// second over the first lost an icon. On a collision the first record seen, in
+// emoji-test.txt order, keeps the base slug -- the shipped packs carry
+// "keycap: #" as keycap.svg -- and each later one takes a name read from its
+// own: DisambiguatedSlug, so "keycap: *" is keycap-asterisk. Where that still
+// collides, the record's codepoint key is appended, which is unique.
+//
+// Categorise and Indexer both call this, so the files and the lookups name the
+// same slug for every emoji.
+func ResolveNameSlugs(records []CLDRRecord) map[string]string {
+	slugs := make(map[string]string, len(records))
+	taken := make(map[string]bool, len(records))
+	for _, r := range records {
+		key := r.Key()
+		if _, done := slugs[key]; done {
+			continue
+		}
+		slug := SlugifyName(r.Name)
+		if taken[slug] {
+			alt := DisambiguatedSlug(r.Name)
+			if alt == slug || taken[alt] {
+				alt = slug + "-" + key
+			}
+			slug = alt
+		}
+		taken[slug] = true
+		slugs[key] = slug
+	}
+	return slugs
+}
+
+// symbolNames spell out the punctuation an emoji name may carry, by their
+// Unicode character names, so a disambiguated slug reads as words.
+var symbolNames = map[rune]string{
+	'#': "number-sign", '*': "asterisk", '&': "and", '+': "plus",
+	'!': "exclamation", '?': "question", '$': "dollar", '%': "percent",
+	'@': "at", '/': "slash", '=': "equals", '~': "tilde", '^': "caret",
+	'<': "less-than", '>': "greater-than", '|': "vertical-line",
+	'\\': "backslash", '[': "left-bracket", ']': "right-bracket",
+	'{': "left-brace", '}': "right-brace",
+}
+
+// isNameSeparator reports the characters that only separate the words of an
+// emoji name ("flag: Japan", "woman’s hat"); they stay separators.
+func isNameSeparator(r rune) bool {
+	if unicode.IsSpace(r) {
+		return true
+	}
+	switch r {
+	case ':', ',', '.', '-', '_', '\'', '\u2019', '"', '\u201c', '\u201d', '(', ')':
+		return true
+	}
+	return false
+}
+
+// DisambiguatedSlug is SlugifyName with nothing dropped: every character the
+// base slug would lose, other than a separator, is spelled out -- by name from
+// symbolNames, else as u plus its hex code point. "keycap: *" is
+// keycap-asterisk; "mark: \u2042" is mark-u2042.
+func DisambiguatedSlug(name string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(name) {
+		switch {
+		case r < unicode.MaxASCII && (unicode.IsLetter(r) || unicode.IsDigit(r)):
+			b.WriteRune(r)
+		case isNameSeparator(r):
+			b.WriteByte(' ')
+		case symbolNames[r] != "":
+			b.WriteString(" " + symbolNames[r] + " ")
+		default:
+			fmt.Fprintf(&b, " u%04x ", r)
+		}
+	}
+	return SlugifyName(b.String())
 }
 
 // Categorise regroups a flat emoji tree into Unicode CLDR category
@@ -142,9 +223,10 @@ func (t Categorise) Execute(ctx *pipeline.Context) error {
 		return fmt.Errorf("Categorise(by=cldr): emoji-test.txt parsed to zero records")
 	}
 
+	slugs := ResolveNameSlugs(records)
 	index := make(map[string][2]string, len(records))
 	for _, r := range records {
-		index[r.Key()] = [2]string{SlugifyGroup(r.Group), SlugifyName(r.Name)}
+		index[r.Key()] = [2]string{SlugifyGroup(r.Group), slugs[r.Key()]}
 	}
 
 	// Selector-insensitive lookup, used only by Preserve and only where it is
@@ -242,16 +324,18 @@ func (t Categorise) Execute(ctx *pipeline.Context) error {
 		}
 		if prev, clash := placed[target]; clash && t.Preserve {
 			// Two files for one slug, and a rename would overwrite the first
-			// without a word. Either two emoji share a slug ("keycap: #" and
-			// "keycap: *" are both "keycap"), or OpenMoji ships the emoji both
-			// with and without its FE0F (1F3F3-FE0F.svg and 1F3F3.svg are both
-			// "white flag"). An exact match beats an FE0F-less one, so the
-			// fully-qualified artwork keeps the name; between equals the later
-			// keeps it, as it always has. The loser goes to the uncategorised
-			// bucket under its upstream name.
-			loser := prev.stem
-			if prev.exact && !exact {
-				loser = stem
+			// without a word. Two different emoji no longer get here --
+			// ResolveNameSlugs gives each its own slug ("keycap: *" is
+			// keycap-asterisk) -- so this is one emoji shipped twice: OpenMoji
+			// has it both with and without its FE0F (1F3F3-FE0F.svg and
+			// 1F3F3.svg are both "white flag"). An exact match beats an
+			// FE0F-less one, so the fully-qualified artwork keeps the name;
+			// between equals the first seen keeps it, the rule a slug
+			// collision follows. The loser goes to the uncategorised bucket
+			// under its upstream name.
+			loser := stem
+			if exact && !prev.exact {
+				loser = prev.stem
 			}
 			moved := filepath.Join(root, UncategorisedDir, loser+".svg")
 			if err := os.MkdirAll(filepath.Dir(moved), 0o755); err != nil {
@@ -358,13 +442,14 @@ func (t Indexer) Execute(ctx *pipeline.Context) error {
 	}
 
 	written := map[string]any{}
+	slugs := ResolveNameSlugs(records)
 
 	for _, target := range t.Targets {
 		switch target {
 		case "codepoints":
 			out := make(map[string]string, len(records))
 			for _, r := range records {
-				out[strings.Join(r.Codepoints, "-")] = SlugifyGroup(r.Group) + "/" + SlugifyName(r.Name)
+				out[strings.Join(r.Codepoints, "-")] = SlugifyGroup(r.Group) + "/" + slugs[r.Key()]
 			}
 			if err := writeJSON(filepath.Join(outDir, "codepoints.json"), out); err != nil {
 				return err
@@ -379,7 +464,7 @@ func (t Indexer) Execute(ctx *pipeline.Context) error {
 			}
 			out := make(map[string]entry, len(records))
 			for _, r := range records {
-				out[SlugifyName(r.Name)] = entry{
+				out[slugs[r.Key()]] = entry{
 					Codepoints: r.Codepoints,
 					Category:   SlugifyGroup(r.Group),
 					Name:       r.Name,

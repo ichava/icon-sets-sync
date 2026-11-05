@@ -358,10 +358,12 @@ A recipe turns a pack config into pipelines. `auto` picks by pack name, then by 
 
 #### `openmoji-sets` never drops an icon
 
+In both recipes, two emoji whose names slug alike each keep a file. The first in `emoji-test.txt` order keeps the base slug and a later one takes a name read from its own, with punctuation spelled out by name and anything else as `u` plus its hex code point: `keycap: #` is `keycap.svg` and `keycap: *` is `keycap-asterisk.svg`. `codepoints.json` and `names.json` use the same slugs.
+
 The deprecated `emoji-sets` recipe files an icon only when its filename matches a `emoji-test.txt` entry exactly, and drops the rest (its log line says `missing=N`). `openmoji-sets` opts out of that:
 
 - **Selector-insensitive match.** OpenMoji names about 200 emoji without the emoji-presentation selector (`2600.svg`, the sun; `emoji-test.txt` has `2600 FE0F`). They match their taxonomy entry anyway.
-- **An explicit bucket.** An icon still unmatched, such as an OpenMoji extra (`e380.svg`), an emoji newer than the taxonomy, or a component glyph, is kept as `uncategorised/<upstream-name>.svg`, with a warning and an `uncategorised` count. Two emoji that slug to one name (`keycap: #` and `keycap: *`) keep both: the later takes the name, the earlier goes to the bucket.
+- **An explicit bucket.** An icon still unmatched, such as an OpenMoji extra (`e380.svg`), an emoji newer than the taxonomy, or a component glyph, is kept as `uncategorised/<upstream-name>.svg`, with a warning and an `uncategorised` count. One emoji shipped twice (with and without its FE0F) keeps the fully-qualified file under the name and puts the other in the bucket.
 - **The taxonomy follows the release, never below the default.** `emoji.unicode_version` defaults to the OpenMoji release's major and minor, or to the built-in default (`16.0`) when that is newer, unless something above the built-in default sets it. OpenMoji 15.1.0 therefore uses 16.0, the taxonomy the pack shipped with, and 17.0.0 uses 17.0.
 - **Two guards, both lifted by `--force`.** The run fails if more than 20% of the icons are uncategorised (a taxonomy of the wrong release), and the file sink refuses, before it wipes anything, to remove an icon the pack ships today. Removing one on purpose (upstream retired it) needs `--force`; the removals are logged.
 
