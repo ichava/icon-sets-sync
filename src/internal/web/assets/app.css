@@ -78,3 +78,7 @@ main:focus { outline: none; }
    gives .icon. Without this the 20px glyph sat left in the avatar's 24px box. */
 .icon.ti { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
 .avatar .icon.ti, .navbar-brand-mark .icon.ti { margin: 0; }
+/* Error text in the dark theme: Tabler's danger red measured 3.25:1 on the
+   dark card (ui-a11y, a pack repo error in the packs table). The same red
+   the dark outline-danger button uses is above 4.5:1. */
+:root[data-bs-theme=dark] .text-danger { color: #ff8f8f !important; }
