@@ -215,14 +215,34 @@ jobs:
           go-version-file: src/go.mod
           cache-dependency-path: src/go.sum
 
+      # Both tools normally come from GitHub release assets. When those answer
+      # 5xx (2026-11-08 they did for over an hour, failing every PR here), the
+      # same tool is built from source through the Go module proxy instead,
+      # and the snapshot runs again with the same arguments, so a broken
+      # GoReleaser config still fails this job.
       - name: Install syft
+        id: syft
+        continue-on-error: true
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
 
+      - name: Install syft from source (release download failed)
+        if: steps.syft.outcome == 'failure'
+        run: go install github.com/anchore/syft/cmd/syft@v1.54.0
+
       - name: GoReleaser snapshot
+        id: goreleaser
+        continue-on-error: true
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           version: '~> v2'
           args: release --snapshot --clean --config src/.goreleaser.yaml --skip=sign,publish
+
+      - name: GoReleaser snapshot from source (release download failed)
+        if: steps.goreleaser.outcome == 'failure'
+        run: |
+          set -euo pipefail
+          go install github.com/goreleaser/goreleaser/v2@latest
+          goreleaser release --snapshot --clean --config src/.goreleaser.yaml --skip=sign,publish
 
       # Floors, not exact counts, so a target added later does not fail this;
       # a target that silently stopped building does.
