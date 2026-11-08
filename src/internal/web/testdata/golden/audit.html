@@ -89,6 +89,15 @@
 <p class="text-secondary">For every set in the aggregator pack, fetches candidate npm packages and scores them against the committed icons. Nothing is accepted on a name: a candidate is believed only when the bytes it ships match the bytes already committed. A survey, not a gate: unresolved sets are work for a person. It reads the pack tree and writes only temporary downloads.</p>
 
 
+<div class="alert alert-warning" role="alert">
+  <div class="alert-icon"><svg class="icon alert-icon" aria-hidden="true" focusable="false"><use href="#tabler-alert-triangle"></use></svg></div>
+  <div>
+    <h4 class="alert-heading">The aggregator pack's config is not loaded</h4>
+    <div class="alert-description text-break">missing pack config: icon-sets-bundled.json. Its config is private: start the server with <code>--private-config-dir</code> pointing at the bundled pack's <code>.dev/icon-sets-sync</code>, for example <code>icon-sets-sync serve --private-config-dir ../icon-sets-bundled/.dev/icon-sets-sync</code>.</div>
+  </div>
+</div>
+
+
 <div class="card mb-3">
   <div class="card-body">
     <form method="post" action="/manifest-pack/audit" class="row g-2 align-items-end">
@@ -102,7 +111,7 @@
         <input class="form-control" id="audit-package" name="package" autocomplete="off" spellcheck="false" value="">
       </div>
       <div class="col-sm-3">
-        <button type="submit" class="btn btn-primary w-100"><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-player-play"></use></svg>Start audit</button>
+        <button type="submit" class="btn btn-primary w-100" disabled><svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-player-play"></use></svg>Start audit</button>
       </div>
     </form>
   </div>

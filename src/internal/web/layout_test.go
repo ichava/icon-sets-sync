@@ -136,3 +136,20 @@ func TestTableErrorTextMayBreak(t *testing.T) {
 		}
 	}
 }
+
+// U12: without the bundled pack's private config the audit page offered
+// Start audit, and every run failed at once with "missing pack config".
+// The page now says what is missing and how to supply it, and the button
+// is disabled.
+func TestAuditPageSaysWhenTheManifestPackConfigIsMissing(t *testing.T) {
+	s, _ := newTestServer(t)
+	body := signIn(t, s).get("/manifest-pack/audit").Body.String()
+	for _, want := range []string{"--private-config-dir", `class="alert alert-warning"`, "Start audit</button>"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("audit page lacks %q", want)
+		}
+	}
+	if !strings.Contains(body, `<button type="submit" class="btn btn-primary w-100" disabled>`) {
+		t.Error("Start audit is not disabled")
+	}
+}

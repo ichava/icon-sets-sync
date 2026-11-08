@@ -21,6 +21,9 @@ type auditData struct {
 	Summary  map[manifestpack.Confidence]int
 	Order    []manifestpack.Confidence
 	Set, Pkg string
+	// Unavailable is why no audit can start: the manifest pack's config
+	// did not load (U12). Empty when it did.
+	Unavailable string
 }
 
 // latestAudit finds the newest audit run, in memory or in the history.
@@ -52,6 +55,9 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 	d := auditData{
 		Order: []manifestpack.Confidence{manifestpack.ConfidenceExact, manifestpack.ConfidenceStrong, manifestpack.ConfidencePackage,
 			manifestpack.ConfidenceAmbiguous, manifestpack.ConfidencePartial, manifestpack.ConfidenceNone},
+	}
+	if _, err := s.opts.Engine.Pack(app.ManifestPack); err != nil {
+		d.Unavailable = err.Error()
 	}
 	if info, events, ok := s.latestAudit(); ok {
 		d.Job, d.Live = &info, info.Status == jobs.StatusRunning

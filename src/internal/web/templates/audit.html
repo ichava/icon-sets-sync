@@ -2,6 +2,15 @@
 {{template "page_header" "Manifest pack audit"}}
 <p class="text-secondary">For every set in the aggregator pack, fetches candidate npm packages and scores them against the committed icons. Nothing is accepted on a name: a candidate is believed only when the bytes it ships match the bytes already committed. A survey, not a gate: unresolved sets are work for a person. It reads the pack tree and writes only temporary downloads.</p>
 
+{{if .Unavailable}}
+<div class="alert alert-warning" role="alert">
+  <div class="alert-icon">{{iconc "alert-triangle" "alert-icon"}}</div>
+  <div>
+    <h4 class="alert-heading">The aggregator pack's config is not loaded</h4>
+    <div class="alert-description text-break">{{.Unavailable}}. Its config is private: start the server with <code>--private-config-dir</code> pointing at the bundled pack's <code>.dev/icon-sets-sync</code>, for example <code>icon-sets-sync serve --private-config-dir ../icon-sets-bundled/.dev/icon-sets-sync</code>.</div>
+  </div>
+</div>
+{{end}}
 {{if not $.ReadOnly}}
 <div class="card mb-3">
   <div class="card-body">
@@ -16,7 +25,7 @@
         <input class="form-control" id="audit-package" name="package" autocomplete="off" spellcheck="false" value="{{.Pkg}}">
       </div>
       <div class="col-sm-3">
-        <button type="submit" class="btn btn-primary w-100"{{if .Live}} disabled{{end}}>{{icon "player-play"}}Start audit</button>
+        <button type="submit" class="btn btn-primary w-100"{{if or .Live .Unavailable}} disabled{{end}}>{{icon "player-play"}}Start audit</button>
       </div>
     </form>
   </div>
