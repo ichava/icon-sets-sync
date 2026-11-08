@@ -73,3 +73,8 @@ main:focus { outline: none; }
 .command-palette .modal-footer kbd { margin: 0 .125rem; }
 /* A nav item that opens a dialog is a button styled as its nav-link siblings. */
 .nav-link-button { background: none; border: 0; }
+/* A webfont icon is a glyph in a box: centre it there, so it sits in the
+   middle of an avatar, a logo mark or a button whatever box size the context
+   gives .icon. Without this the 20px glyph sat left in the avatar's 24px box. */
+.icon.ti { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.avatar .icon.ti, .navbar-brand-mark .icon.ti { margin: 0; }
