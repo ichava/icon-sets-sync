@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -269,6 +270,52 @@ func (r Result) Summary() map[string]any {
 		"extras":   extras,
 		"error":    r.Error(),
 	}
+}
+
+// Headline is the one line a person reads for this result: the filesystem
+// sink's counts when there was one, otherwise "finished", or the failure.
+// Summary is the machine payload; printing it with %v produced the
+// "done -- map[error: extras:map[..." line that R3 replaced.
+func (r Result) Headline() string {
+	if r.Err != nil {
+		return "failed: " + r.Error()
+	}
+	fs, ok := r.Metrics["filesystem"].(map[string]any)
+	if !ok {
+		return "finished"
+	}
+	counts := fmt.Sprintf("%s added, %s removed, %s changed",
+		group(metricInt(fs["added"])), group(metricInt(fs["removed"])), group(metricInt(fs["changed"])))
+	if dry, _ := fs["dry_run"].(bool); dry {
+		return fmt.Sprintf("%s SVGs, %s (dry run, pack left untouched)", group(metricInt(fs["would_write"])), counts)
+	}
+	return fmt.Sprintf("%s SVGs written, %s", group(metricInt(fs["copied"])), counts)
+}
+
+// metricInt reads a count a sink recorded, whatever integer or float type
+// it arrived as (a metric read back from JSON is a float64).
+func metricInt(v any) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case int64:
+		return int(n)
+	case float64:
+		return int(n)
+	}
+	return 0
+}
+
+// group writes n with thousands separators.
+func group(n int) string {
+	s := strconv.Itoa(n)
+	if n < 0 {
+		return "-" + group(-n)
+	}
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	return s
 }
 
 // Pipeline is the fluent builder and runner.

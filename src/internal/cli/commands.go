@@ -249,7 +249,7 @@ func reportOutcome(o app.Outcome) {
 	case app.StatusUpToDate:
 		ui.Success("%s: up-to-date (%s)", o.Pack, o.Current)
 	case app.StatusSynced:
-		ui.Success("%s: done -- %v", o.Pack, o.Result.Summary())
+		ui.Success("%s: done -- %s", o.Pack, o.Result.Headline())
 	default:
 		// A pack with no recipe yet is reported as a warning, not a failure.
 		// No recipe returns ErrRecipePending today, and since
@@ -292,7 +292,7 @@ func newRecipeCommand() *cobra.Command {
 					return failure(err)
 				}
 			} else {
-				ui.Printf("%v\n", outcome.Summary())
+				ui.Printf("%s\n", outcome.Headline())
 			}
 			if !outcome.Success {
 				return &ExitError{Code: ExitFailure}

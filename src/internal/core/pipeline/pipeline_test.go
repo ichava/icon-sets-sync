@@ -336,3 +336,31 @@ func TestAContextBuiltByHandIsBackground(t *testing.T) {
 		t.Error("zero Context did not fall back to Background")
 	}
 }
+
+// R3: the CLI printed a successful sync as "done -- map[error: extras:map[...",
+// the whole Summary map through %v. Headline is the one line a person reads;
+// Summary stays the --json payload.
+func TestResultHeadline(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		r    Result
+		want string
+	}{
+		{"dry run", Result{Success: true, Metrics: map[string]any{"filesystem": map[string]any{
+			"would_write": 4526, "dry_run": true, "added": 0, "removed": 0, "changed": 0}}},
+			"4,526 SVGs, 0 added, 0 removed, 0 changed (dry run, pack left untouched)"},
+		{"real run", Result{Success: true, Metrics: map[string]any{"filesystem": map[string]any{
+			"copied": 12, "added": 2, "removed": 1, "changed": 3}}},
+			"12 SVGs written, 2 added, 1 removed, 3 changed"},
+		{"no filesystem sink", Result{Success: true}, "finished"},
+		{"failure", Result{Err: errTest, FailedStage: "Sanitise"}, "failed: Sanitise: boom"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.r.Headline(); got != tc.want {
+				t.Errorf("Headline = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+var errTest = errors.New("boom")
