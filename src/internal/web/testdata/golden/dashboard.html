@@ -41,8 +41,8 @@
         
         
         <div class="nav-item d-none d-sm-flex" role="group" aria-label="Colour theme">
-          <a href="?theme=dark" class="nav-link px-2 hide-theme-dark" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Dark theme"><i class="icon ti ti-moon" aria-hidden="true"></i><span class="visually-hidden">Dark theme</span></a>
-          <a href="?theme=light" class="nav-link px-2 hide-theme-light" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Light theme"><i class="icon ti ti-sun" aria-hidden="true"></i><span class="visually-hidden">Light theme</span></a>
+          <a href="?theme=dark" class="nav-link px-2 hide-theme-dark" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-delay='{"show":500,"hide":0}' data-bs-container="body" data-bs-title="Dark theme" aria-label="Dark theme"><i class="icon ti ti-moon" aria-hidden="true"></i><span class="visually-hidden">Dark theme</span></a>
+          <a href="?theme=light" class="nav-link px-2 hide-theme-light" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-delay='{"show":500,"hide":0}' data-bs-container="body" data-bs-title="Light theme" aria-label="Light theme"><i class="icon ti ti-sun" aria-hidden="true"></i><span class="visually-hidden">Light theme</span></a>
         </div>
         
         <div class="nav-item dropdown d-none d-sm-flex">
@@ -80,21 +80,18 @@
           </div>
         </div>
         <div class="nav-item dropdown ms-2">
-          <a href="/about" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open the server menu" aria-expanded="false">
+          <a href="/about" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" data-role="server-menu" aria-expanded="false">
+            <span class="visually-hidden">Server menu</span>
             <span class="avatar avatar-sm"><i class="icon ti ti-server" aria-hidden="true"></i></span>
             <div class="d-none d-xl-block ps-2">
-              <div>Local server</div>
+              <div>Server</div>
               <div class="mt-1 small text-secondary">test</div>
             </div>
           </a>
           <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-            <a class="dropdown-item" href="/about"><i class="icon ti ti-info-circle dropdown-item-icon" aria-hidden="true"></i>About Icon Sets Sync</a>
+            <a class="dropdown-item" href="/about"><i class="icon ti ti-info-circle dropdown-item-icon" aria-hidden="true"></i>About</a>
             <a class="dropdown-item" href="/settings"><i class="icon ti ti-settings dropdown-item-icon" aria-hidden="true"></i>Settings</a>
-            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcuts-modal"><i class="icon ti ti-keyboard dropdown-item-icon" aria-hidden="true"></i>Keyboard shortcuts</button>
-            <a class="dropdown-item" href="/about/licenses"><i class="icon ti ti-license dropdown-item-icon" aria-hidden="true"></i>Third-party licences</a>
-            <div class="dropdown-divider"></div>
-            <a class="dropdown-item" href="https://github.com/ichava/icon-sets-sync/tree/main/docs" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-book dropdown-item-icon" aria-hidden="true"></i>Documentation</a>
-            <a class="dropdown-item" href="https://github.com/ichava/icon-sets-sync/issues" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-bug dropdown-item-icon" aria-hidden="true"></i>Report an issue</a>
+            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcuts-modal"><i class="icon ti ti-keyboard dropdown-item-icon" aria-hidden="true"></i>Shortcuts</button>
             <div class="dropdown-divider"></div>
             <form method="post" action="/server/stop" data-confirm="This page and every open tab stop working until you run icon-sets-sync again." data-confirm-title="Stop the server?" data-confirm-button="Stop server">
               <input type="hidden" name="csrf" value="CSRF">
@@ -220,7 +217,7 @@
           <td>generic</td>
           <td class="text-nowrap">
             <div class="btn-actions">
-              <a href="/packs/icon-sets-tabler" class="btn btn-action" data-bs-toggle="offcanvas" data-bs-target="#pack-sync-panel" aria-controls="pack-sync-panel" data-pack="icon-sets-tabler" role="button" title="Sync icon-sets-tabler"><i class="icon ti ti-player-play" aria-hidden="true"></i><span class="visually-hidden">Sync icon-sets-tabler</span></a>
+              <a href="/packs/icon-sets-tabler" class="btn btn-action" data-bs-toggle="offcanvas" data-bs-target="#pack-sync-panel" aria-controls="pack-sync-panel" data-pack="icon-sets-tabler" role="button" aria-label="Sync icon-sets-tabler"><i class="icon ti ti-player-play" aria-hidden="true"></i><span class="visually-hidden">Sync icon-sets-tabler</span></a>
             </div>
           </td>
         </tr>
@@ -235,14 +232,14 @@
           <td>generic</td>
           <td class="text-nowrap">
             <div class="btn-actions">
-              <a href="/packs/icon-sets-flag" class="btn btn-action" data-bs-toggle="offcanvas" data-bs-target="#pack-sync-panel" aria-controls="pack-sync-panel" data-pack="icon-sets-flag" role="button" title="Sync icon-sets-flag"><i class="icon ti ti-player-play" aria-hidden="true"></i><span class="visually-hidden">Sync icon-sets-flag</span></a>
+              <a href="/packs/icon-sets-flag" class="btn btn-action" data-bs-toggle="offcanvas" data-bs-target="#pack-sync-panel" aria-controls="pack-sync-panel" data-pack="icon-sets-flag" role="button" aria-label="Sync icon-sets-flag"><i class="icon ti ti-player-play" aria-hidden="true"></i><span class="visually-hidden">Sync icon-sets-flag</span></a>
             </div>
           </td>
         </tr>
         
         <tr>
           <th scope="row"><div class="text-nowrap"><a href="/packs/icon-sets-twemoji">icon-sets-twemoji</a></div><div class="text-secondary small fw-normal">ichava/icon-sets-twemoji</div></th>
-          <td><span class="badge badge-bad">Check failed</span><div class="text-secondary small text-truncate cell-reason" tabindex="0" data-bs-toggle="tooltip" title="GET https://example.invalid: 503">GET https://example.invalid: 503</div></td>
+          <td><span class="badge badge-bad">Check failed</span><div class="text-secondary small text-break cell-reason">GET https://example.invalid: 503</div></td>
           <td class="text-nowrap"><code>16.0.1</code></td>
           <td class="text-nowrap"><code>–</code></td>
           <td>0</td>
@@ -250,7 +247,7 @@
           <td>twemoji-sets</td>
           <td class="text-nowrap">
             <div class="btn-actions">
-              <a href="/packs/icon-sets-twemoji" class="btn btn-action" data-bs-toggle="offcanvas" data-bs-target="#pack-sync-panel" aria-controls="pack-sync-panel" data-pack="icon-sets-twemoji" role="button" title="Sync icon-sets-twemoji"><i class="icon ti ti-player-play" aria-hidden="true"></i><span class="visually-hidden">Sync icon-sets-twemoji</span></a>
+              <a href="/packs/icon-sets-twemoji" class="btn btn-action" data-bs-toggle="offcanvas" data-bs-target="#pack-sync-panel" aria-controls="pack-sync-panel" data-pack="icon-sets-twemoji" role="button" aria-label="Sync icon-sets-twemoji"><i class="icon ti ti-player-play" aria-hidden="true"></i><span class="visually-hidden">Sync icon-sets-twemoji</span></a>
             </div>
           </td>
         </tr>

@@ -58,7 +58,7 @@
         {{range .Rows}}
         <tr>
           <th scope="row"><div class="text-nowrap"><a href="/packs/{{.Slug}}">{{.Slug}}</a></div><div class="text-secondary small fw-normal">{{.Pack}}</div></th>
-          <td>{{template "status_badge" .}}{{if and .Checked .Result.Reason}}<div class="text-secondary small text-truncate cell-reason" tabindex="0" data-bs-toggle="tooltip" title="{{.Result.Reason}}">{{.Result.Reason}}</div>{{end}}</td>
+          <td>{{template "status_badge" .}}{{if and .Checked .Result.Reason}}<div class="text-secondary small text-break cell-reason">{{.Result.Reason}}</div>{{end}}</td>
           <td class="text-nowrap"><code>{{version (orDash .Current)}}</code></td>
           <td class="text-nowrap">{{if .Checked}}<code>{{version (orDash .Result.Latest)}}</code>{{if .Result.ReleaseURL}} <a href="{{.Result.ReleaseURL}}" rel="noreferrer noopener" target="_blank">{{icon "external-link"}}<span class="visually-hidden">Release notes for {{.Slug}} (opens in a new tab)</span></a>{{end}}{{else}}–{{end}}</td>
           <td>{{if .Checked}}{{thousands .Stats.SVGs}}{{else}}–{{end}}</td>
@@ -66,7 +66,7 @@
           <td>{{orDash .Recipe}}</td>
           <td class="text-nowrap">
             <div class="btn-actions">
-              {{if not $.ReadOnly}}<a href="/packs/{{.Slug}}" class="btn btn-action" data-bs-toggle="offcanvas" data-bs-target="#pack-sync-panel" aria-controls="pack-sync-panel" data-pack="{{.Slug}}" role="button" title="Sync {{.Slug}}">{{icon "player-play"}}<span class="visually-hidden">Sync {{.Slug}}</span></a>{{end}}
+              {{if not $.ReadOnly}}<a href="/packs/{{.Slug}}" class="btn btn-action" data-bs-toggle="offcanvas" data-bs-target="#pack-sync-panel" aria-controls="pack-sync-panel" data-pack="{{.Slug}}" role="button" aria-label="Sync {{.Slug}}">{{icon "player-play"}}<span class="visually-hidden">Sync {{.Slug}}</span></a>{{end}}
             </div>
           </td>
         </tr>

@@ -51,7 +51,7 @@ main:focus { outline: none; }
 
 /* A copyable command: wraps rather than scrolling sideways in a side panel. */
 .cli-snippet { white-space: pre-wrap; word-break: break-all; font-size: .8125rem; }
-.cell-reason { max-width: 16rem; cursor: help; }
+.cell-reason { max-width: 16rem; }
 /* An alert's description and its code take the body colour, like the alert
    text above: Tabler's secondary description colour measured 4.50:1 on the
    light warning tint and its code colour failed on the dark one (ui-a11y,
@@ -73,3 +73,12 @@ main:focus { outline: none; }
 .command-palette .modal-footer kbd { margin: 0 .125rem; }
 /* A nav item that opens a dialog is a button styled as its nav-link siblings. */
 .nav-link-button { background: none; border: 0; }
+/* A webfont icon is a glyph in a box: centre it there, so it sits in the
+   middle of an avatar, a logo mark or a button whatever box size the context
+   gives .icon. Without this the 20px glyph sat left in the avatar's 24px box. */
+.icon.ti { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.avatar .icon.ti, .navbar-brand-mark .icon.ti { margin: 0; }
+/* Error text in the dark theme: Tabler's danger red measured 3.25:1 on the
+   dark card (ui-a11y, a pack repo error in the packs table). The same red
+   the dark outline-danger button uses is above 4.5:1. */
+:root[data-bs-theme=dark] .text-danger { color: #ff8f8f !important; }

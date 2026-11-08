@@ -41,8 +41,8 @@
         
         
         <div class="nav-item d-none d-sm-flex" role="group" aria-label="Colour theme">
-          <a href="?theme=dark" class="nav-link px-2 hide-theme-dark" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Dark theme"><i class="icon ti ti-moon" aria-hidden="true"></i><span class="visually-hidden">Dark theme</span></a>
-          <a href="?theme=light" class="nav-link px-2 hide-theme-light" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Light theme"><i class="icon ti ti-sun" aria-hidden="true"></i><span class="visually-hidden">Light theme</span></a>
+          <a href="?theme=dark" class="nav-link px-2 hide-theme-dark" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-delay='{"show":500,"hide":0}' data-bs-container="body" data-bs-title="Dark theme" aria-label="Dark theme"><i class="icon ti ti-moon" aria-hidden="true"></i><span class="visually-hidden">Dark theme</span></a>
+          <a href="?theme=light" class="nav-link px-2 hide-theme-light" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-delay='{"show":500,"hide":0}' data-bs-container="body" data-bs-title="Light theme" aria-label="Light theme"><i class="icon ti ti-sun" aria-hidden="true"></i><span class="visually-hidden">Light theme</span></a>
         </div>
         
         <div class="nav-item dropdown d-none d-sm-flex">
@@ -80,21 +80,18 @@
           </div>
         </div>
         <div class="nav-item dropdown ms-2">
-          <a href="/about" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open the server menu" aria-expanded="false">
+          <a href="/about" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" data-role="server-menu" aria-expanded="false">
+            <span class="visually-hidden">Server menu</span>
             <span class="avatar avatar-sm"><i class="icon ti ti-server" aria-hidden="true"></i></span>
             <div class="d-none d-xl-block ps-2">
-              <div>Local server</div>
+              <div>Server</div>
               <div class="mt-1 small text-secondary">test</div>
             </div>
           </a>
           <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-            <a class="dropdown-item" href="/about"><i class="icon ti ti-info-circle dropdown-item-icon" aria-hidden="true"></i>About Icon Sets Sync</a>
+            <a class="dropdown-item" href="/about"><i class="icon ti ti-info-circle dropdown-item-icon" aria-hidden="true"></i>About</a>
             <a class="dropdown-item" href="/settings"><i class="icon ti ti-settings dropdown-item-icon" aria-hidden="true"></i>Settings</a>
-            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcuts-modal"><i class="icon ti ti-keyboard dropdown-item-icon" aria-hidden="true"></i>Keyboard shortcuts</button>
-            <a class="dropdown-item" href="/about/licenses"><i class="icon ti ti-license dropdown-item-icon" aria-hidden="true"></i>Third-party licences</a>
-            <div class="dropdown-divider"></div>
-            <a class="dropdown-item" href="https://github.com/ichava/icon-sets-sync/tree/main/docs" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-book dropdown-item-icon" aria-hidden="true"></i>Documentation</a>
-            <a class="dropdown-item" href="https://github.com/ichava/icon-sets-sync/issues" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-bug dropdown-item-icon" aria-hidden="true"></i>Report an issue</a>
+            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcuts-modal"><i class="icon ti ti-keyboard dropdown-item-icon" aria-hidden="true"></i>Shortcuts</button>
             <div class="dropdown-divider"></div>
             <form method="post" action="/server/stop" data-confirm="This page and every open tab stop working until you run icon-sets-sync again." data-confirm-title="Stop the server?" data-confirm-button="Stop server">
               <input type="hidden" name="csrf" value="CSRF">
@@ -130,8 +127,8 @@
                   <li class="nav-item">
   <a class="nav-link" href="/settings"><span class="nav-link-icon"><i class="icon ti ti-settings" aria-hidden="true"></i></span><span class="nav-link-title">Settings</span></a>
 </li>
-                  <li class="nav-item">
-  <a class="nav-link" href="/about"><span class="nav-link-icon"><i class="icon ti ti-info-circle" aria-hidden="true"></i></span><span class="nav-link-title">About</span></a>
+                  <li class="nav-item active">
+  <a class="nav-link" href="/about" aria-current="page"><span class="nav-link-icon"><i class="icon ti ti-info-circle" aria-hidden="true"></i></span><span class="nav-link-title">About</span></a>
 </li>
                 </ul>
               </nav>
@@ -156,13 +153,20 @@
       <div class="container-xl">
         
 <div class="page-header d-print-none mb-3">
-  <div class="row align-items-center">
+  <div class="row g-2 align-items-center">
     <div class="col">
-      <h1 class="page-title">Third-party licences</h1>
+      <div class="page-pretitle">Server</div>
+      <h1 class="page-title">About Icon Sets Sync</h1>
+      <div class="text-secondary mt-1">Syncs the Ichava icon packs from their upstream registries: checks for new releases, refreshes the vendored SVGs and opens a pull request.</div>
     </div>
   </div>
 </div>
-<p class="text-secondary">This page's styles, scripts and icons are third-party software embedded in the binary. Each is MIT-licensed; its full notice follows.</p>
+<div class="card mb-3">
+  <div class="card-header"><ul class="nav nav-tabs card-header-tabs" aria-label="About">
+  <li class="nav-item"><a class="nav-link" href="/about"><i class="icon ti ti-info-circle me-2" aria-hidden="true"></i>Overview</a></li><li class="nav-item"><a class="nav-link" href="/about?tab=shortcuts"><i class="icon ti ti-keyboard me-2" aria-hidden="true"></i>Shortcuts</a></li><li class="nav-item"><a class="nav-link active" aria-current="page" href="/about/licenses"><i class="icon ti ti-license me-2" aria-hidden="true"></i>Licences</a></li><li class="nav-item"><a class="nav-link" href="/about?tab=help"><i class="icon ti ti-book me-2" aria-hidden="true"></i>Help</a></li>
+</ul></div>
+  <div class="card-body pb-0"><p class="text-secondary">This page's styles, scripts and icons are third-party software embedded in the binary. Each is MIT-licensed; its full notice follows.</p></div>
+</div>
 
 <section class="card mb-3" aria-labelledby="lic-0">
   <div class="card-header"><h2 class="card-title" id="lic-0">@tabler/core 1.7.1</h2></div>

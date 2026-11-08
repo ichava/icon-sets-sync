@@ -1,24 +1,28 @@
 {{define "content"}}{{with .Data}}
-<div class="page-header d-print-none mb-3">
-  <div class="row g-2 align-items-center">
-    <div class="col">
-      <div class="page-pretitle">Server</div>
-      <h1 class="page-title">About {{appName}}</h1>
-      <div class="text-secondary mt-1">Syncs the Ichava icon packs from their upstream registries: checks for new releases, refreshes the vendored SVGs and opens a pull request.</div>
-    </div>
-    <div class="col-auto ms-auto">
-      <div class="btn-list">
-        <a class="btn" href="{{.Docs}}" target="_blank" rel="noreferrer noopener">{{icon "book"}}Documentation</a>
-        <a class="btn" href="{{.Repo}}" target="_blank" rel="noreferrer noopener">{{icon "brand-github"}}Source</a>
-      </div>
-    </div>
+{{template "about_header"}}
+<div class="card">
+  <div class="card-header">{{template "about_tabs" .Tab}}</div>
+  {{if eq .Tab "shortcuts"}}
+  <table class="table table-vcenter card-table">
+    <caption class="visually-hidden">Keys and what they do</caption>
+    <thead><tr><th scope="col">Keys</th><th scope="col">Does</th></tr></thead>
+    <tbody>
+      {{range shortcuts}}<tr><td class="text-nowrap">{{range $i, $k := .Keys}}{{if $i}} then {{end}}<kbd>{{$k}}</kbd>{{end}}</td><td>{{.Description}}</td></tr>{{end}}
+    </tbody>
+  </table>
+  <div class="card-footer text-secondary small">Shortcuts are off while you type in a field. <kbd>?</kbd> shows them anywhere.</div>
+  {{else if eq .Tab "help"}}
+  <div class="list-group list-group-flush">
+    <a class="list-group-item list-group-item-action" href="{{.Docs}}" target="_blank" rel="noreferrer noopener">{{iconc "book" "me-2 text-secondary"}}Documentation</a>
+    <a class="list-group-item list-group-item-action" href="{{.Changes}}" target="_blank" rel="noreferrer noopener">{{iconc "file-text" "me-2 text-secondary"}}Changelog</a>
+    <a class="list-group-item list-group-item-action" href="{{.Issues}}" target="_blank" rel="noreferrer noopener">{{iconc "bug" "me-2 text-secondary"}}Report an issue</a>
+    <a class="list-group-item list-group-item-action" href="{{.Repo}}" target="_blank" rel="noreferrer noopener">{{iconc "brand-github" "me-2 text-secondary"}}Source code</a>
   </div>
-</div>
-<div class="row row-cards">
-  <div class="col-lg-6">
-    <div class="card">
-      <div class="card-header"><h2 class="card-title">This build</h2></div>
-      <div class="card-body">
+  {{else}}
+  <div class="card-body">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h2 class="h3">This build</h2>
         <dl class="row mb-0">
           <dt class="col-5">Version</dt><dd class="col-7"><code>{{.Build.Version}}</code></dd>
           <dt class="col-5">Commit</dt><dd class="col-7"><code>{{version .Build.Commit}}</code></dd>
@@ -27,12 +31,8 @@
           <dt class="col-5">Platform</dt><dd class="col-7">{{.Build.Platform}}</dd>
         </dl>
       </div>
-    </div>
-  </div>
-  <div class="col-lg-6">
-    <div class="card">
-      <div class="card-header"><h2 class="card-title">This server</h2></div>
-      <div class="card-body">
+      <div class="col-lg-6">
+        <h2 class="h3">This server</h2>
         <dl class="row mb-0">
           <dt class="col-5">Listening on</dt><dd class="col-7"><code>{{.BindAddr}}</code></dd>
           <dt class="col-5">Config dir</dt><dd class="col-7"><code class="text-break">{{.ConfigDir}}</code></dd>
@@ -41,17 +41,6 @@
       </div>
     </div>
   </div>
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header"><h2 class="card-title">Resources</h2></div>
-      <div class="list-group list-group-flush">
-        <a class="list-group-item list-group-item-action" href="{{.Docs}}" target="_blank" rel="noreferrer noopener">{{iconc "book" "me-2 text-secondary"}}Documentation <span class="text-secondary small">({{.Docs}})</span></a>
-        <a class="list-group-item list-group-item-action" href="{{.Changes}}" target="_blank" rel="noreferrer noopener">{{iconc "file-text" "me-2 text-secondary"}}Changelog</a>
-        <a class="list-group-item list-group-item-action" href="{{.Issues}}" target="_blank" rel="noreferrer noopener">{{iconc "bug" "me-2 text-secondary"}}Report an issue</a>
-        <a class="list-group-item list-group-item-action" href="/about/licenses">{{iconc "license" "me-2 text-secondary"}}Third-party licences</a>
-        <button type="button" class="list-group-item list-group-item-action text-start" data-bs-toggle="modal" data-bs-target="#shortcuts-modal">{{iconc "keyboard" "me-2 text-secondary"}}Keyboard shortcuts</button>
-      </div>
-    </div>
-  </div>
+  {{end}}
 </div>
 {{end}}{{end}}

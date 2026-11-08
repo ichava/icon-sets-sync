@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -17,7 +18,7 @@ func TestHeaderFollowsTheTablerPreview(t *testing.T) {
 		`class="navbar-brand-mark"`,
 		`data-bs-target="#command-palette"`,
 		`aria-label="Recent runs"`,
-		`aria-label="Open the server menu"`,
+		`data-role="server-menu"`,
 		`href="/about"`,
 		`data-bs-target="#shortcuts-modal"`,
 		`action="/server/stop"`,
@@ -105,6 +106,83 @@ func TestFaviconMatchesTheLogoMark(t *testing.T) {
 	for _, want := range []string{`<rect`, `rx=`, `fill="#066fd1"`, `stroke="#fff"`} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("favicon lacks %s", want)
+		}
+	}
+}
+
+// The owner, 2026-11-08: the server menu was too long and its names too
+// wordy. It keeps four short items; licences, documentation and issues moved
+// into About's tabs. Its trigger shows a short version, not a snapshot name.
+func TestServerMenuIsShort(t *testing.T) {
+	s, _ := newTestServer(t, func(o *Options) { o.Version = "0.1.0-SNAPSHOT-907a2a5" })
+	body := signIn(t, s).get("/").Body.String()
+	i := strings.Index(body, `data-role="server-menu"`)
+	if i < 0 {
+		t.Fatal("no server menu")
+	}
+	menu := body[i:]
+	menu = menu[:strings.Index(menu, `</form>`)]
+	if n := strings.Count(menu, `class="dropdown-item`); n != 4 {
+		t.Errorf("server menu has %d items, want 4 (About, Settings, Shortcuts, Stop server)", n)
+	}
+	for _, want := range []string{">About</a>", ">Settings</a>", ">Shortcuts</button>", ">Stop server</button>", ">Server</div>", ">v0.1.0</div>"} {
+		if !strings.Contains(menu, want) {
+			t.Errorf("server menu lacks %s", want)
+		}
+	}
+	for _, gone := range []string{"Third-party licences", "Documentation", "Report an issue", "SNAPSHOT"} {
+		if strings.Contains(menu, gone) {
+			t.Errorf("server menu still carries %q", gone)
+		}
+	}
+}
+
+func TestShortVersionLabel(t *testing.T) {
+	for in, want := range map[string]string{
+		"0.1.0-SNAPSHOT-907a2a5": "v0.1.0", "0.1.0": "v0.1.0", "v1.2.3": "v1.2.3", "dev": "dev", "test": "test", "": "dev",
+	} {
+		if got := versionLabel(in); got != want {
+			t.Errorf("versionLabel(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// About is the home of the reference material, as tabs that work as links,
+// so each is linkable and works without JavaScript; /about/licenses keeps
+// working and opens the Licences tab.
+func TestAboutTabs(t *testing.T) {
+	s, _ := newTestServer(t)
+	c := signIn(t, s)
+	tabHref := map[string]string{"overview": "/about", "shortcuts": "/about?tab=shortcuts", "licences": "/about/licenses", "help": "/about?tab=help"}
+	for path, active := range map[string]string{
+		"/about": "overview", "/about?tab=shortcuts": "shortcuts", "/about?tab=licences": "licences",
+		"/about?tab=help": "help", "/about/licenses": "licences", "/about?tab=nonsense": "overview",
+	} {
+		res := c.get(path)
+		if res.Code == http.StatusSeeOther {
+			res = c.get(res.Header().Get("Location"))
+		}
+		if res.Code != 200 {
+			t.Fatalf("GET %s = %d", path, res.Code)
+		}
+		body := res.Body.String()
+		for tab, href := range tabHref {
+			if !strings.Contains(body, `href="`+href+`"`) {
+				t.Errorf("%s: no %s tab", path, tab)
+			}
+		}
+		if !strings.Contains(body, `class="nav-link active" aria-current="page" href="`+tabHref[active]+`"`) {
+			t.Errorf("%s: the %s tab is not the active one", path, active)
+		}
+	}
+	lic := c.get("/about/licenses").Body.String()
+	if !strings.Contains(lic, "@tabler/core") || !strings.Contains(lic, "Permission is hereby granted") {
+		t.Error("the Licences tab does not show the notices")
+	}
+	help := c.get("/about?tab=help").Body.String()
+	for _, want := range []string{"/tree/main/docs", "/issues", "CHANGELOG.md"} {
+		if !strings.Contains(help, want) {
+			t.Errorf("the Help tab lacks %s", want)
 		}
 	}
 }

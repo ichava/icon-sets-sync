@@ -202,8 +202,10 @@ func funcs(a *assetSet) template.FuncMap {
 		"outcomes": func() []string {
 			return []string{string(jobs.StatusRunning), string(jobs.StatusSucceeded), string(jobs.StatusFailed), string(jobs.StatusCancelled)}
 		},
-		"version": shortVersion,
-		"appName": func() string { return AppName },
+		"version":      shortVersion,
+		"appName":      func() string { return AppName },
+		"versionLabel": versionLabel,
+		"aboutTabs":    func() any { return aboutTabs },
 		"paletteItem": func(href, icon, label, keys string) paletteItem {
 			return paletteItem{Href: href, Icon: icon, Label: label, Keys: keys}
 		},
@@ -226,12 +228,14 @@ type paletteItem struct{ Href, Icon, Label, Keys string }
 type cliSnippet struct{ ID, Label, Text string }
 
 // shortVersion shows a version that is a full commit SHA (a pack whose
-// upstream has no tags) as its first 12 characters, with the whole SHA in the
-// title. Printed in full, twice per row, those SHAs pushed the packs table
-// past its card at desktop width (U2). Any other version is only escaped.
+// upstream has no tags) as its first 12 characters and nothing else: no
+// title, since a native tooltip on visible text is what the
+// owner ruled out (2026-11-08). Printed in full, twice per row, those SHAs
+// pushed the packs table past its card at desktop width (U2). Any other
+// version is only escaped.
 func shortVersion(v string) template.HTML {
 	if len(v) == 40 && strings.Trim(v, "0123456789abcdef") == "" {
-		return template.HTML(`<span title="` + v + `">` + v[:12] + `</span>`) //nolint:gosec // v is 40 lowercase hex characters
+		return template.HTML(v[:12]) //nolint:gosec // v is 40 lowercase hex characters
 	}
 	return template.HTML(template.HTMLEscapeString(v)) //nolint:gosec // escaped
 }
