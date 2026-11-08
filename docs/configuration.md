@@ -120,6 +120,12 @@ the copy and the repository file differ. Point an editor at the repository file 
 | `url` | nothing | version discovery only: `version_field` is a dot-path into the `version_check_url` response, default `version` |
 | `script` | nothing | declared by the earlier implementation's schema and never implemented; kept so old configs load |
 
+A `github-archive` source reads its version from whatever GitHub endpoint `version_check_url` names: a
+tag list (`/repos/<o>/<r>/tags`, newest first), a release (`/releases/latest` or `/releases/tags/<tag>`),
+or a branch head (`/commits/<branch>`, whose `sha` is the version). The tag prefix is the text
+`archive_url` puts between `refs/tags/` and `{version}` (`v`, `website@`, or nothing), and it is stripped,
+so the version is exactly what `archive_url` expects.
+
 `source_path` narrows the fetched tree to a subdirectory before the transforms run.
 
 `max_download_bytes` raises the 1 GiB archive cap for one `github-*` source, up to 4 GiB. Only
@@ -235,7 +241,7 @@ It is checked before any request is sent, and a refusal is never retried.
 | Default host | Used for |
 |---|---|
 | `registry.npmjs.org` | version checks of the npm-backed packs (tabler, flag, emoji) |
-| `api.github.com` | the openmoji version check |
+| `api.github.com` | the version checks of openmoji and the `github-archive` packs |
 | `github.com` | the OpenMoji tag archive |
 | `codeload.github.com` | where `github.com` redirects the archive to |
 | `unicode.org` | the CLDR `emoji-test.txt` the emoji categoriser reads |
@@ -244,6 +250,13 @@ A test loads every shipped pack config, builds its pipelines and fails if any UR
 list, so adding a recipe that fetches from a new host means adding the host here in the same change.
 Release-asset hosts (`objects.githubusercontent.com`, `release-assets.githubusercontent.com`) are not on
 it, because no shipped recipe downloads a release asset.
+
+### GitHub API token
+
+Anonymous requests to `api.github.com` share a limit of 60 an hour, and ten shipped packs check their
+version there. When `GH_TOKEN` (or, failing that, `GITHUB_TOKEN`) is set, version checks send it to
+`api.github.com`, over https, and to no other host. `sync-pack.yml` already exports `GH_TOKEN`. A check
+that hits a spent limit says so and gives the reset time, rather than a bare `403 Forbidden`.
 
 Plain `http` is refused in a pack config when it loads and again when it is fetched. The exception is a
 test's own server: `http://127.0.0.1`, `http://localhost` and `http://[::1]`, on the first request only.
