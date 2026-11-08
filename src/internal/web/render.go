@@ -27,6 +27,12 @@ type assetSet struct {
 	sprite template.HTML
 }
 
+// The webfont's two files under assets/.
+const (
+	webfontCSS  = "vendor/tabler-icons/tabler-icons.css"
+	webfontFont = "vendor/tabler-icons/tabler-icons.woff2"
+)
+
 func loadAssets() (*assetSet, error) {
 	a := &assetSet{files: map[string][]byte{}, hashes: map[string]string{}}
 	err := fs.WalkDir(assetFS, "assets", func(p string, d fs.DirEntry, err error) error {
@@ -45,6 +51,20 @@ func loadAssets() (*assetSet, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	// The webfont CSS names its font relative to itself, and every asset URL
+	// carries its own fingerprint, so a relative URL would resolve under the
+	// CSS's fingerprint and 404. Point it at the font's own URL, then
+	// fingerprint the rewritten CSS.
+	if css, ok := a.files[webfontCSS]; ok {
+		font, err := a.url(webfontFont)
+		if err != nil {
+			return nil, fmt.Errorf("web: the webfont CSS is embedded without its font: %w", err)
+		}
+		body := bytes.ReplaceAll(css, []byte(`url("tabler-icons.woff2")`), []byte(`url("`+font+`")`))
+		sum := sha256.Sum256(body)
+		a.files[webfontCSS] = body
+		a.hashes[webfontCSS] = hex.EncodeToString(sum[:])[:12]
 	}
 	sprite, ok := a.files["vendor/tabler-icons.svg"]
 	if !ok {
@@ -93,6 +113,9 @@ func pageNames() ([]string, error) {
 func funcs(a *assetSet) template.FuncMap {
 	return template.FuncMap{
 		"asset":  a.url,
+		// Deprecated: no template inlines the sprite since icons moved to the
+		// webfont (2026-11-08). Kept so a custom template still renders; the
+		// earliest release that could remove it is 0.2.0.
 		"sprite": func() template.HTML { return a.sprite },
 		"icon":   iconHTML,
 		"iconc":  iconClassHTML,
@@ -202,13 +225,14 @@ func shortVersion(v string) template.HTML {
 	return template.HTML(template.HTMLEscapeString(v)) //nolint:gosec // escaped
 }
 
-// iconHTML renders a Tabler icon from the inline sprite. Icons are
+// iconHTML renders a Tabler icon from the Tabler Icons webfont (since
+// 2026-11-08; it was the inline SVG sprite before). Icons are
 // decorative here -- every one sits beside text that says the same thing.
 func iconHTML(name string) template.HTML {
 	if !validIcon(name) {
 		return ""
 	}
-	return template.HTML(`<svg class="icon" aria-hidden="true" focusable="false"><use href="#tabler-` + name + `"></use></svg>`) //nolint:gosec // name is [a-z0-9-] only
+	return template.HTML(`<i class="icon ti ti-` + name + `" aria-hidden="true"></i>`) //nolint:gosec // name is [a-z0-9-] only
 }
 
 // iconClassHTML is iconHTML with Tabler icon modifiers added to the class
@@ -223,7 +247,7 @@ func iconClassHTML(name, extra string) template.HTML {
 			return iconHTML(name)
 		}
 	}
-	return template.HTML(`<svg class="icon ` + extra + `" aria-hidden="true" focusable="false"><use href="#tabler-` + name + `"></use></svg>`) //nolint:gosec // name and extra are [a-z0-9- ] only
+	return template.HTML(`<i class="icon ti ti-` + name + ` ` + extra + `" aria-hidden="true"></i>`) //nolint:gosec // name and extra are [a-z0-9- ] only
 }
 
 func validIcon(name string) bool {
@@ -381,6 +405,8 @@ func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 	case ".svg":
 		w.Header().Set("Content-Type", "image/svg+xml")
+	case ".woff2":
+		w.Header().Set("Content-Type", "font/woff2")
 	default:
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	}
