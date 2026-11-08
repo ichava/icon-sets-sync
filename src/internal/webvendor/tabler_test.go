@@ -247,3 +247,18 @@ func TestHTTPFetcherRefusesPlainHTTP(t *testing.T) {
 		t.Fatal("plain http to a non-loopback host was not refused")
 	}
 }
+
+// R6: @tabler/core's tarball ships no LICENSE, so the vendor reads it from
+// raw.githubusercontent.com -- a host the upstream allowlist (G-03) refuses.
+// `make tabler-vendor` has failed since the vendor moved onto httpx. The
+// fetcher allows the hosts of the URLs this package itself builds, and no
+// other.
+func TestHTTPFetcherAllowsTheLicenceHost(t *testing.T) {
+	c := HTTPFetcher{}.client()
+	if err := c.CheckURL(CoreLicenceURL("1.7.1")); err != nil {
+		t.Errorf("the core licence URL is refused: %v", err)
+	}
+	if err := c.CheckURL("https://raw.githubusercontent.com.evil.invalid/x"); err == nil {
+		t.Error("a look-alike host was allowed")
+	}
+}

@@ -66,11 +66,23 @@ func (HTTPFetcher) Get(u string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	path, err := httpx.New().Download(ctx, u, filepath.Join(dir, "body"), true)
+	path, err := HTTPFetcher{}.client().Download(ctx, u, filepath.Join(dir, "body"), true)
 	if err != nil {
 		return nil, err
 	}
 	return os.ReadFile(path)
+}
+
+// licenceHost serves @tabler/core's LICENSE (see CoreLicenceURL). It is not
+// an icon-pack upstream, so it is on this fetcher's allowlist only.
+const licenceHost = "raw.githubusercontent.com"
+
+// client is httpx with the one extra host this package's own URLs need.
+// Without it `make tabler-vendor` failed on the licence fetch (R6).
+func (HTTPFetcher) client() *httpx.Client {
+	c := httpx.New()
+	c.AllowedHosts = []string{licenceHost}
+	return c
 }
 
 // Vendor writes the vendored tree.
