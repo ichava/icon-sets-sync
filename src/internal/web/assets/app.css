@@ -52,3 +52,8 @@ main:focus { outline: none; }
 /* A copyable command: wraps rather than scrolling sideways in a side panel. */
 .cli-snippet { white-space: pre-wrap; word-break: break-all; font-size: .8125rem; }
 .cell-reason { max-width: 16rem; cursor: help; }
+/* An alert's description and its code take the body colour, like the alert
+   text above: Tabler's secondary description colour measured 4.50:1 on the
+   light warning tint and its code colour failed on the dark one (ui-a11y,
+   audit page). */
+.alert .alert-description, .alert code { color: var(--tblr-body-color); }
