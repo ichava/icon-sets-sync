@@ -5,9 +5,20 @@
   "use strict";
 
   // Reload while background work the page is waiting on is running.
+  // The reload waits while a dialog or side panel is open or a field has
+  // focus: reloading under them threw away what was being chosen (U11).
   var reload = document.body.getAttribute("data-reload-after");
+  function busy() {
+    var a = document.activeElement;
+    return document.querySelector(".modal.show, .offcanvas.show, .offcanvas.showing") ||
+      (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName));
+  }
+  function reloadWhenIdle() {
+    if (busy()) { window.setTimeout(reloadWhenIdle, 1000); return; }
+    window.location.reload();
+  }
   if (reload) {
-    window.setTimeout(function () { window.location.reload(); }, Number(reload) * 1000);
+    window.setTimeout(reloadWhenIdle, Number(reload) * 1000);
   }
 
   var tb = window.tabler || {};
