@@ -84,6 +84,12 @@ func fakeTabler(t *testing.T, coreVersion string) fakeRegistry {
 		"package/dist/tabler-sprite.svg": `<svg><defs><symbol id="tabler-check" viewBox="0 0 24 24"><path d="M5 12l5 5"/></symbol>` +
 			`<symbol id="tabler-x" viewBox="0 0 24 24"><path d="M18 6l-12 12"/></symbol><symbol id="tabler-unused"><path/></symbol></defs></svg>`,
 	}, nil)
+	f.publish(t, PkgWebfont, "3.49.0", map[string]string{
+		"package/LICENSE":                       mit,
+		"package/dist/fonts/tabler-icons.woff2": "wOF2-fake-font",
+		"package/dist/tabler-icons.min.css": `/*! Tabler Icons 3.49.0 */@font-face{font-family:"tabler-icons";src:url("./fonts/tabler-icons.woff2?v3.49.0") format("woff2")}` +
+			`.ti{font-family:"tabler-icons" !important;line-height:1}.ti-check:before{content:"\ea5e"}.ti-x:before{content:"\eb55"}.ti-unused:before{content:"\ffff"}`,
+	}, nil)
 	f.publish(t, PkgBootstrap, "5.3.8", map[string]string{"package/LICENSE": mit}, nil)
 	f.publish(t, PkgPopper, "2.11.8", map[string]string{"package/LICENSE.md": mit}, nil)
 	f[CoreLicenceURL(coreVersion)] = []byte(mit)
@@ -124,14 +130,27 @@ func TestRunLatestVendorsEverythingTogether(t *testing.T) {
 	if !strings.Contains(string(sprite), "tabler-check") || strings.Contains(string(sprite), "tabler-unused") {
 		t.Errorf("subset is wrong:\n%s", sprite)
 	}
+	css, _ := os.ReadFile(filepath.Join(assets, "tabler-icons", "tabler-icons.css"))
+	for _, want := range []string{`.ti-check:before{content:"\ea5e"}`, `.ti-x:before`, `src:url("tabler-icons.woff2") format("woff2")`, `.ti{font-family:"tabler-icons"`} {
+		if !strings.Contains(string(css), want) {
+			t.Errorf("webfont CSS lacks %s:\n%s", want, css)
+		}
+	}
+	if strings.Contains(string(css), "ti-unused") || strings.Contains(string(css), "./fonts/") {
+		t.Errorf("webfont CSS is not cut to icons.txt or keeps the upstream font path:\n%s", css)
+	}
+	if font, _ := os.ReadFile(filepath.Join(assets, "tabler-icons", "tabler-icons.woff2")); string(font) != "wOF2-fake-font" {
+		t.Errorf("woff2 = %q", font)
+	}
 	manifest, _ := os.ReadFile(filepath.Join(assets, "MANIFEST.sha256"))
-	for _, want := range []string{"tabler/tabler.min.css", "LICENSES/popper.txt", VersionFile, "icons.txt", "tabler-icons.svg"} {
+	for _, want := range []string{"tabler/tabler.min.css", "LICENSES/popper.txt", VersionFile, "icons.txt", "tabler-icons.svg",
+		"tabler-icons/tabler-icons.css", "tabler-icons/tabler-icons.woff2", "LICENSES/tabler-icons-webfont.txt"} {
 		if !strings.Contains(string(manifest), "  "+want+"\n") {
 			t.Errorf("manifest lacks %s", want)
 		}
 	}
 	notices, _ := os.ReadFile(filepath.Join(v.Root, "THIRD_PARTY_NOTICES.md"))
-	if !strings.Contains(string(notices), "## @tabler/core 1.7.1") || strings.Count(string(notices), "Permission is hereby granted") != 4 {
+	if !strings.Contains(string(notices), "## @tabler/core 1.7.1") || strings.Count(string(notices), "Permission is hereby granted") != 5 {
 		t.Errorf("notices:\n%s", notices)
 	}
 	if _, err := os.Stat(filepath.Join(v.Root, "escape")); err == nil {
@@ -260,5 +279,19 @@ func TestHTTPFetcherAllowsTheLicenceHost(t *testing.T) {
 	}
 	if err := c.CheckURL("https://raw.githubusercontent.com.evil.invalid/x"); err == nil {
 		t.Error("a look-alike host was allowed")
+	}
+}
+
+func TestSubsetWebfontCSS(t *testing.T) {
+	css := []byte(`@font-face{src:url("./fonts/tabler-icons.woff2?v1") format("woff2"),url("./fonts/tabler-icons.ttf") format("truetype")}.ti{font-family:"tabler-icons"}.ti-check:before{content:"\\ea5e"}`)
+	if _, err := SubsetWebfontCSS(css, []string{"check", "gone"}); err == nil || !strings.Contains(err.Error(), "gone") {
+		t.Fatalf("a missing icon was not refused: %v", err)
+	}
+	out, err := SubsetWebfontCSS(css, []string{"check"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(out), "truetype") {
+		t.Errorf("the subset keeps a non-woff2 source:\n%s", out)
 	}
 }
