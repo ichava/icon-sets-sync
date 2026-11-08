@@ -57,3 +57,19 @@ main:focus { outline: none; }
    light warning tint and its code colour failed on the dark one (ui-a11y,
    audit page). */
 .alert .alert-description, .alert code { color: var(--tblr-body-color); }
+
+/* Header, after preview.tabler.io: a logo mark beside the product name. */
+.navbar-brand-mark { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: var(--tblr-border-radius); background: var(--tblr-primary); }
+.navbar-brand-mark .icon { font-size: 1.25rem; width: 1.25rem; height: 1.25rem; }
+.navbar-brand-text { margin-left: .625rem; font-weight: 600; }
+.command-trigger { min-width: 18rem; justify-content: flex-start; }
+.command-trigger kbd, .list-group kbd { font-size: .75rem; }
+
+/* Command palette: the list scrolls under the search field. */
+.command-palette { margin-top: 10vh; }
+.command-palette .modal-body { max-height: 60vh; }
+.command-palette .list-group-item.active-option { background: var(--tblr-active-bg); color: inherit; }
+.command-palette .list-group-item kbd { margin-left: .5rem; }
+.command-palette .modal-footer kbd { margin: 0 .125rem; }
+/* A nav item that opens a dialog is a button styled as its nav-link siblings. */
+.nav-link-button { background: none; border: 0; }

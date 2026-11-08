@@ -13,6 +13,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /check", s.handleRefresh)
 	mux.HandleFunc("GET /settings", s.handleSettings)
 	mux.HandleFunc("GET /about/licenses", s.handleLicenses)
+	mux.HandleFunc("GET /about", s.handleAbout)
 	mux.HandleFunc("GET /schema/pack.schema.json", s.handleSchema)
 	mux.HandleFunc("GET /packs/{slug}", s.handlePack)
 	mux.HandleFunc("GET /jobs", s.handleJobs)

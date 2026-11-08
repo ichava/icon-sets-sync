@@ -67,6 +67,7 @@ func goldenPages(t *testing.T) map[string]string {
 		"config":    "/config",
 		"editor":    "/config/icon-sets-demo.json",
 		"audit":     "/manifest-pack/audit",
+		"about":     "/about",
 	} {
 		rec := c.get(path)
 		if name != "error" && rec.Code != http.StatusOK {

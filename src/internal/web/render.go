@@ -203,13 +203,24 @@ func funcs(a *assetSet) template.FuncMap {
 			return []string{string(jobs.StatusRunning), string(jobs.StatusSucceeded), string(jobs.StatusFailed), string(jobs.StatusCancelled)}
 		},
 		"version": shortVersion,
-		"repo":    func(pack string) string { return pack[strings.LastIndex(pack, "/")+1:] },
-		"cli":     func(id, label, text string) cliSnippet { return cliSnippet{ID: id, Label: label, Text: text} },
+		"appName": func() string { return AppName },
+		"paletteItem": func(href, icon, label, keys string) paletteItem {
+			return paletteItem{Href: href, Icon: icon, Label: label, Keys: keys}
+		},
+		"shortcuts": func() []shortcut { return shortcuts },
+		"links": func() map[string]string {
+			return map[string]string{"repo": repoURL, "docs": docsURL, "issues": issuesURL, "changes": changesURL}
+		},
+		"repo": func(pack string) string { return pack[strings.LastIndex(pack, "/")+1:] },
+		"cli":  func(id, label, text string) cliSnippet { return cliSnippet{ID: id, Label: label, Text: text} },
 		"navItem": func(v view, key, href, icon, label string) navItem {
 			return navItem{Active: v.Nav == key, Href: href, Icon: icon, Label: label}
 		},
 	}
 }
+
+// paletteItem is one link in the command palette.
+type paletteItem struct{ Href, Icon, Label, Keys string }
 
 // cliSnippet is one copyable command in a CLI panel.
 type cliSnippet struct{ ID, Label, Text string }
@@ -332,6 +343,12 @@ type view struct {
 	CSRF     string
 	Version  string
 	ReadOnly bool
+	// Packs names every registered pack, for the command palette.
+	Packs []string
+	// Recent is the newest runs, for the header's recent-runs dropdown;
+	// Running counts the ones still running.
+	Recent  []jobs.Info
+	Running int
 	// Reload asks app.js to reload the page after a few seconds, while
 	// background work the page is waiting on is running.
 	Reload bool
@@ -343,8 +360,34 @@ func (s *Server) newView(r *http.Request, nav, title string, data any) view {
 	if sess := sessionFrom(r.Context()); sess != nil {
 		v.Authed = true
 		v.CSRF = sess.csrf
+		v.Packs = s.packNames()
+		for _, info := range s.jobs.List() {
+			if info.Status == jobs.StatusRunning {
+				v.Running++
+			}
+			if len(v.Recent) < 5 {
+				v.Recent = append(v.Recent, info)
+			}
+		}
 	}
 	return v
+}
+
+// packNames lists the registered packs for the command palette: from the
+// last check when there was one, else from the engine.
+func (s *Server) packNames() []string {
+	packs := s.status.snapshot().Packs
+	if len(packs) == 0 {
+		var err error
+		if packs, err = s.opts.Engine.Packs(); err != nil {
+			return nil
+		}
+	}
+	out := make([]string, 0, len(packs))
+	for _, p := range packs {
+		out = append(out, p.Name)
+	}
+	return out
 }
 
 // render executes a page into a buffer first, so a template error becomes a

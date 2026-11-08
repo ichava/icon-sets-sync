@@ -68,6 +68,9 @@ type Options struct {
 	// Version, BindAddr and ConfigDir are shown on the settings page.
 	Version  string
 	BindAddr string
+	// Build is what the About page reports about this binary. Zero means
+	// the running binary's own (BuildInfoOf); tests pin it.
+	Build BuildInfo
 
 	// HistoryDir keeps finished jobs as JSON Lines. Empty keeps them in
 	// memory only. See DefaultHistoryDir.
@@ -114,6 +117,9 @@ func New(opts Options) (*Server, error) {
 	}
 	if opts.Now == nil {
 		opts.Now = time.Now
+	}
+	if opts.Build == (BuildInfo{}) {
+		opts.Build = BuildInfoOf(opts.Version)
 	}
 	assets, err := loadAssets()
 	if err != nil {
