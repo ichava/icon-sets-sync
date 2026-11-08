@@ -180,8 +180,8 @@ func funcs(a *assetSet) template.FuncMap {
 			return []string{string(jobs.StatusRunning), string(jobs.StatusSucceeded), string(jobs.StatusFailed), string(jobs.StatusCancelled)}
 		},
 		"version": shortVersion,
-		"repo": func(pack string) string { return pack[strings.LastIndex(pack, "/")+1:] },
-		"cli": func(id, label, text string) cliSnippet { return cliSnippet{ID: id, Label: label, Text: text} },
+		"repo":    func(pack string) string { return pack[strings.LastIndex(pack, "/")+1:] },
+		"cli":     func(id, label, text string) cliSnippet { return cliSnippet{ID: id, Label: label, Text: text} },
 		"navItem": func(v view, key, href, icon, label string) navItem {
 			return navItem{Active: v.Nav == key, Href: href, Icon: icon, Label: label}
 		},
