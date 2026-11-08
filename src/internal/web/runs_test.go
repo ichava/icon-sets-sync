@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -314,10 +315,38 @@ func TestPackPage(t *testing.T) {
 func TestValidSlug(t *testing.T) {
 	for slug, want := range map[string]bool{
 		"icon-sets-flag": true, "a1": true,
-		"": false, "../etc": false, "Icon": false, "a/b": false, "a.b": false, strings.Repeat("a", 101): false,
+		// A set config of a shared pack is "<pack>.<set>" (R4).
+		"icon-sets-extras.game-icons": true, "a.b": true,
+		"": false, "../etc": false, "Icon": false, "a/b": false, strings.Repeat("a", 101): false,
+		".": false, "..": false, ".a": false, "a.": false, "a..b": false,
 	} {
 		if validSlug(slug) != want {
 			t.Errorf("validSlug(%q) = %v", slug, !want)
 		}
+	}
+}
+
+// R4: validSlug refused the dot, so the pages and actions of all twenty
+// icon-sets-extras.<set> configs answered 404 "No such pack" from links the
+// dashboard itself rendered. Every shipped config name must pass. Counted, so
+// an empty glob fails.
+func TestEveryShippedPackNameIsAValidSlug(t *testing.T) {
+	files, err := filepath.Glob(filepath.Join("..", "..", "..", "config", "*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, f := range files {
+		name := strings.TrimSuffix(filepath.Base(f), ".json")
+		if name == "packs" {
+			continue
+		}
+		n++
+		if !validSlug(name) {
+			t.Errorf("validSlug(%q) = false for a shipped config", name)
+		}
+	}
+	if n < 30 {
+		t.Fatalf("inspected %d shipped configs, want at least 30", n)
 	}
 }
