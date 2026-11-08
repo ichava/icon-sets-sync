@@ -112,7 +112,7 @@ func pageNames() ([]string, error) {
 
 func funcs(a *assetSet) template.FuncMap {
 	return template.FuncMap{
-		"asset":  a.url,
+		"asset": a.url,
 		// Deprecated: no template inlines the sprite since icons moved to the
 		// webfont (2026-11-08). Kept so a custom template still renders; the
 		// earliest release that could remove it is 0.2.0.
