@@ -258,10 +258,10 @@ func (s *Server) handleRecipe(w http.ResponseWriter, r *http.Request) {
 			res, err := s.opts.Engine.Recipe(ctx, p, version, req, h)
 			switch {
 			case err != nil:
-				j.PackDone(p.Pack, string(app.StatusFailed), err.Error(), "")
+				j.PackDone(p.Pack, packStatus(app.Outcome{Status: app.StatusFailed, Err: err}), err.Error(), "")
 				return jobs.StatusFailed, err
 			case !res.Success:
-				j.PackDone(p.Pack, string(app.StatusFailed), res.Error(), "")
+				j.PackDone(p.Pack, packStatus(app.Outcome{Status: app.StatusFailed, Result: res}), res.Error(), "")
 				return jobs.StatusFailed, errors.New(res.Error())
 			}
 			j.PackDone(p.Pack, string(app.StatusSynced), "", summary(res.Metrics))
@@ -287,7 +287,7 @@ func (s *Server) hooks(j *jobs.Job) RunHooks {
 			if o.Err != nil {
 				errText = o.Err.Error()
 			}
-			j.PackDone(o.Pack, string(o.Status), errText, packDetail(o))
+			j.PackDone(o.Pack, packStatus(o), errText, packDetail(o))
 		},
 	}
 }
@@ -318,6 +318,17 @@ func packDetail(o app.Outcome) string {
 		return summary(o.Result.Metrics)
 	}
 	return ""
+}
+
+// packStatus is the status a run page shows for one pack: its outcome, or
+// "cancelled" when Cancel stopped it. Until U10 a cancelled pack read
+// "failed: <stage>: context canceled". Sync re-wraps the pipeline's error as
+// text, so the pipeline result's own error is checked too.
+func packStatus(o app.Outcome) string {
+	if errors.Is(o.Err, context.Canceled) || errors.Is(o.Result.Err, context.Canceled) {
+		return string(jobs.StatusCancelled)
+	}
+	return string(o.Status)
 }
 
 // summary renders a run's metrics as one short line.
