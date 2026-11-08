@@ -1,0 +1,12 @@
+{{define "about_header"}}<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Server</div>
+      <h1 class="page-title">About {{appName}}</h1>
+      <div class="text-secondary mt-1">Syncs the Ichava icon packs from their upstream registries: checks for new releases, refreshes the vendored SVGs and opens a pull request.</div>
+    </div>
+  </div>
+</div>{{end}}
+{{define "about_tabs"}}<ul class="nav nav-tabs card-header-tabs" aria-label="About">
+  {{range aboutTabs}}<li class="nav-item">{{if eq .Key $}}<a class="nav-link active" aria-current="page" href="{{.Href}}">{{else}}<a class="nav-link" href="{{.Href}}">{{end}}{{iconc .Icon "me-2"}}{{.Label}}</a></li>{{end}}
+</ul>{{end}}

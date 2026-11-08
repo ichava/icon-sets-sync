@@ -75,18 +75,14 @@
           <a href="/about" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open the server menu" aria-expanded="false">
             <span class="avatar avatar-sm">{{icon "server"}}</span>
             <div class="d-none d-xl-block ps-2">
-              <div>Local server</div>
-              <div class="mt-1 small text-secondary">{{.Version}}</div>
+              <div>Server</div>
+              <div class="mt-1 small text-secondary">{{versionLabel .Version}}</div>
             </div>
           </a>
           <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-            <a class="dropdown-item" href="/about">{{iconc "info-circle" "dropdown-item-icon"}}About {{appName}}</a>
+            <a class="dropdown-item" href="/about">{{iconc "info-circle" "dropdown-item-icon"}}About</a>
             <a class="dropdown-item" href="/settings">{{iconc "settings" "dropdown-item-icon"}}Settings</a>
-            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcuts-modal">{{iconc "keyboard" "dropdown-item-icon"}}Keyboard shortcuts</button>
-            <a class="dropdown-item" href="/about/licenses">{{iconc "license" "dropdown-item-icon"}}Third-party licences</a>
-            <div class="dropdown-divider"></div>
-            <a class="dropdown-item" href="{{index links "docs"}}" target="_blank" rel="noreferrer noopener">{{iconc "book" "dropdown-item-icon"}}Documentation</a>
-            <a class="dropdown-item" href="{{index links "issues"}}" target="_blank" rel="noreferrer noopener">{{iconc "bug" "dropdown-item-icon"}}Report an issue</a>
+            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcuts-modal">{{iconc "keyboard" "dropdown-item-icon"}}Shortcuts</button>
             <div class="dropdown-divider"></div>
             <form method="post" action="/server/stop" data-confirm="This page and every open tab stop working until you run icon-sets-sync again." data-confirm-title="Stop the server?" data-confirm-button="Stop server">
               <input type="hidden" name="csrf" value="{{.CSRF}}">

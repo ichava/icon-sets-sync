@@ -202,8 +202,10 @@ func funcs(a *assetSet) template.FuncMap {
 		"outcomes": func() []string {
 			return []string{string(jobs.StatusRunning), string(jobs.StatusSucceeded), string(jobs.StatusFailed), string(jobs.StatusCancelled)}
 		},
-		"version": shortVersion,
-		"appName": func() string { return AppName },
+		"version":      shortVersion,
+		"appName":      func() string { return AppName },
+		"versionLabel": versionLabel,
+		"aboutTabs":    func() any { return aboutTabs },
 		"paletteItem": func(href, icon, label, keys string) paletteItem {
 			return paletteItem{Href: href, Icon: icon, Label: label, Keys: keys}
 		},

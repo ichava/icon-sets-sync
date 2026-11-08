@@ -83,18 +83,14 @@
           <a href="/about" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open the server menu" aria-expanded="false">
             <span class="avatar avatar-sm"><i class="icon ti ti-server" aria-hidden="true"></i></span>
             <div class="d-none d-xl-block ps-2">
-              <div>Local server</div>
+              <div>Server</div>
               <div class="mt-1 small text-secondary">test</div>
             </div>
           </a>
           <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-            <a class="dropdown-item" href="/about"><i class="icon ti ti-info-circle dropdown-item-icon" aria-hidden="true"></i>About Icon Sets Sync</a>
+            <a class="dropdown-item" href="/about"><i class="icon ti ti-info-circle dropdown-item-icon" aria-hidden="true"></i>About</a>
             <a class="dropdown-item" href="/settings"><i class="icon ti ti-settings dropdown-item-icon" aria-hidden="true"></i>Settings</a>
-            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcuts-modal"><i class="icon ti ti-keyboard dropdown-item-icon" aria-hidden="true"></i>Keyboard shortcuts</button>
-            <a class="dropdown-item" href="/about/licenses"><i class="icon ti ti-license dropdown-item-icon" aria-hidden="true"></i>Third-party licences</a>
-            <div class="dropdown-divider"></div>
-            <a class="dropdown-item" href="https://github.com/ichava/icon-sets-sync/tree/main/docs" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-book dropdown-item-icon" aria-hidden="true"></i>Documentation</a>
-            <a class="dropdown-item" href="https://github.com/ichava/icon-sets-sync/issues" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-bug dropdown-item-icon" aria-hidden="true"></i>Report an issue</a>
+            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcuts-modal"><i class="icon ti ti-keyboard dropdown-item-icon" aria-hidden="true"></i>Shortcuts</button>
             <div class="dropdown-divider"></div>
             <form method="post" action="/server/stop" data-confirm="This page and every open tab stop working until you run icon-sets-sync again." data-confirm-title="Stop the server?" data-confirm-button="Stop server">
               <input type="hidden" name="csrf" value="CSRF">
@@ -162,19 +158,17 @@
       <h1 class="page-title">About Icon Sets Sync</h1>
       <div class="text-secondary mt-1">Syncs the Ichava icon packs from their upstream registries: checks for new releases, refreshes the vendored SVGs and opens a pull request.</div>
     </div>
-    <div class="col-auto ms-auto">
-      <div class="btn-list">
-        <a class="btn" href="https://github.com/ichava/icon-sets-sync/tree/main/docs" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-book" aria-hidden="true"></i>Documentation</a>
-        <a class="btn" href="https://github.com/ichava/icon-sets-sync" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-brand-github" aria-hidden="true"></i>Source</a>
-      </div>
-    </div>
   </div>
 </div>
-<div class="row row-cards">
-  <div class="col-lg-6">
-    <div class="card">
-      <div class="card-header"><h2 class="card-title">This build</h2></div>
-      <div class="card-body">
+<div class="card">
+  <div class="card-header"><ul class="nav nav-tabs card-header-tabs" aria-label="About">
+  <li class="nav-item"><a class="nav-link active" aria-current="page" href="/about"><i class="icon ti ti-info-circle me-2" aria-hidden="true"></i>Overview</a></li><li class="nav-item"><a class="nav-link" href="/about?tab=shortcuts"><i class="icon ti ti-keyboard me-2" aria-hidden="true"></i>Shortcuts</a></li><li class="nav-item"><a class="nav-link" href="/about/licenses"><i class="icon ti ti-license me-2" aria-hidden="true"></i>Licences</a></li><li class="nav-item"><a class="nav-link" href="/about?tab=help"><i class="icon ti ti-book me-2" aria-hidden="true"></i>Help</a></li>
+</ul></div>
+  
+  <div class="card-body">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h2 class="h3">This build</h2>
         <dl class="row mb-0">
           <dt class="col-5">Version</dt><dd class="col-7"><code>test</code></dd>
           <dt class="col-5">Commit</dt><dd class="col-7"><code>0123456789ab</code></dd>
@@ -183,12 +177,8 @@
           <dt class="col-5">Platform</dt><dd class="col-7">linux/amd64</dd>
         </dl>
       </div>
-    </div>
-  </div>
-  <div class="col-lg-6">
-    <div class="card">
-      <div class="card-header"><h2 class="card-title">This server</h2></div>
-      <div class="card-body">
+      <div class="col-lg-6">
+        <h2 class="h3">This server</h2>
         <dl class="row mb-0">
           <dt class="col-5">Listening on</dt><dd class="col-7"><code>127.0.0.1:7878</code></dd>
           <dt class="col-5">Config dir</dt><dd class="col-7"><code class="text-break">/work/config</code></dd>
@@ -197,18 +187,7 @@
       </div>
     </div>
   </div>
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header"><h2 class="card-title">Resources</h2></div>
-      <div class="list-group list-group-flush">
-        <a class="list-group-item list-group-item-action" href="https://github.com/ichava/icon-sets-sync/tree/main/docs" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-book me-2 text-secondary" aria-hidden="true"></i>Documentation <span class="text-secondary small">(https://github.com/ichava/icon-sets-sync/tree/main/docs)</span></a>
-        <a class="list-group-item list-group-item-action" href="https://github.com/ichava/icon-sets-sync/blob/main/CHANGELOG.md" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-file-text me-2 text-secondary" aria-hidden="true"></i>Changelog</a>
-        <a class="list-group-item list-group-item-action" href="https://github.com/ichava/icon-sets-sync/issues" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-bug me-2 text-secondary" aria-hidden="true"></i>Report an issue</a>
-        <a class="list-group-item list-group-item-action" href="/about/licenses"><i class="icon ti ti-license me-2 text-secondary" aria-hidden="true"></i>Third-party licences</a>
-        <button type="button" class="list-group-item list-group-item-action text-start" data-bs-toggle="modal" data-bs-target="#shortcuts-modal"><i class="icon ti ti-keyboard me-2 text-secondary" aria-hidden="true"></i>Keyboard shortcuts</button>
-      </div>
-    </div>
-  </div>
+  
 </div>
 
       </div>

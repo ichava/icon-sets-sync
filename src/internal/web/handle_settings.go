@@ -41,7 +41,7 @@ func (s *Server) handleLicenses(w http.ResponseWriter, r *http.Request) {
 	for _, l := range ls {
 		out = append(out, licenseEntry{l.Package, l.Version, l.What, strings.TrimRight(string(l.Text), "\n")})
 	}
-	s.render(w, http.StatusOK, "licenses", s.newView(r, "licenses", "Licences", out))
+	s.render(w, http.StatusOK, "licenses", s.newView(r, "about", "Licences", out))
 }
 
 func (s *Server) embeddedLicences() ([]webvendor.Licence, error) {

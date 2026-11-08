@@ -83,18 +83,14 @@
           <a href="/about" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open the server menu" aria-expanded="false">
             <span class="avatar avatar-sm"><i class="icon ti ti-server" aria-hidden="true"></i></span>
             <div class="d-none d-xl-block ps-2">
-              <div>Local server</div>
+              <div>Server</div>
               <div class="mt-1 small text-secondary">test</div>
             </div>
           </a>
           <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-            <a class="dropdown-item" href="/about"><i class="icon ti ti-info-circle dropdown-item-icon" aria-hidden="true"></i>About Icon Sets Sync</a>
+            <a class="dropdown-item" href="/about"><i class="icon ti ti-info-circle dropdown-item-icon" aria-hidden="true"></i>About</a>
             <a class="dropdown-item" href="/settings"><i class="icon ti ti-settings dropdown-item-icon" aria-hidden="true"></i>Settings</a>
-            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcuts-modal"><i class="icon ti ti-keyboard dropdown-item-icon" aria-hidden="true"></i>Keyboard shortcuts</button>
-            <a class="dropdown-item" href="/about/licenses"><i class="icon ti ti-license dropdown-item-icon" aria-hidden="true"></i>Third-party licences</a>
-            <div class="dropdown-divider"></div>
-            <a class="dropdown-item" href="https://github.com/ichava/icon-sets-sync/tree/main/docs" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-book dropdown-item-icon" aria-hidden="true"></i>Documentation</a>
-            <a class="dropdown-item" href="https://github.com/ichava/icon-sets-sync/issues" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-bug dropdown-item-icon" aria-hidden="true"></i>Report an issue</a>
+            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcuts-modal"><i class="icon ti ti-keyboard dropdown-item-icon" aria-hidden="true"></i>Shortcuts</button>
             <div class="dropdown-divider"></div>
             <form method="post" action="/server/stop" data-confirm="This page and every open tab stop working until you run icon-sets-sync again." data-confirm-title="Stop the server?" data-confirm-button="Stop server">
               <input type="hidden" name="csrf" value="CSRF">

@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"runtime"
+	"strings"
 
 	"github.com/ichava/icon-sets-sync/src/internal/version"
 )
@@ -39,6 +40,9 @@ func BuildInfoOf(v string) BuildInfo {
 }
 
 type aboutData struct {
+	// Tab is the About tab shown: overview, shortcuts or help. Licences is
+	// its own page, /about/licenses, under the same tab strip.
+	Tab       string
 	Build     BuildInfo
 	BindAddr  string
 	ConfigDir string
@@ -49,12 +53,44 @@ type aboutData struct {
 	Changes   string
 }
 
+// aboutTabs are About's tabs, in order. Licences links to its own page.
+var aboutTabs = []struct{ Key, Label, Href, Icon string }{
+	{"overview", "Overview", "/about", "info-circle"},
+	{"shortcuts", "Shortcuts", "/about?tab=shortcuts", "keyboard"},
+	{"licences", "Licences", "/about/licenses", "license"},
+	{"help", "Help", "/about?tab=help", "book"},
+}
+
 func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
+	tab := r.URL.Query().Get("tab")
+	if tab == "licences" {
+		http.Redirect(w, r, "/about/licenses", http.StatusSeeOther)
+		return
+	}
+	if tab != "shortcuts" && tab != "help" {
+		tab = "overview"
+	}
 	d := aboutData{
+		Tab:   tab,
 		Build: s.opts.Build, BindAddr: s.opts.BindAddr, ConfigDir: s.opts.Engine.Settings().ConfigDir,
 		ReadOnly: s.opts.ReadOnly, Repo: repoURL, Docs: docsURL, Issues: issuesURL, Changes: changesURL,
 	}
 	s.render(w, http.StatusOK, "about", s.newView(r, "about", "About", d))
+}
+
+// versionLabel is the short form of a version for the header: "v0.1.0" for
+// "0.1.0-SNAPSHOT-907a2a5" or "0.1.0", and a name like "dev" as it is.
+func versionLabel(v string) string {
+	if v == "" {
+		return "dev"
+	}
+	if i := strings.Index(v, "-SNAPSHOT"); i > 0 {
+		v = v[:i]
+	}
+	if v[0] >= '0' && v[0] <= '9' {
+		return "v" + v
+	}
+	return v
 }
 
 // shortcut is one keyboard binding. JS is a string app.js must contain for
