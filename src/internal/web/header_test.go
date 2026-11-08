@@ -18,7 +18,7 @@ func TestHeaderFollowsTheTablerPreview(t *testing.T) {
 		`class="navbar-brand-mark"`,
 		`data-bs-target="#command-palette"`,
 		`aria-label="Recent runs"`,
-		`aria-label="Open the server menu"`,
+		`data-role="server-menu"`,
 		`href="/about"`,
 		`data-bs-target="#shortcuts-modal"`,
 		`action="/server/stop"`,
@@ -116,7 +116,7 @@ func TestFaviconMatchesTheLogoMark(t *testing.T) {
 func TestServerMenuIsShort(t *testing.T) {
 	s, _ := newTestServer(t, func(o *Options) { o.Version = "0.1.0-SNAPSHOT-907a2a5" })
 	body := signIn(t, s).get("/").Body.String()
-	i := strings.Index(body, `aria-label="Open the server menu"`)
+	i := strings.Index(body, `data-role="server-menu"`)
 	if i < 0 {
 		t.Fatal("no server menu")
 	}
