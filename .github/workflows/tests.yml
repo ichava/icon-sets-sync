@@ -227,6 +227,11 @@ jobs:
 
       - name: Install syft from source (release download failed)
         if: steps.syft.outcome == 'failure'
+        # setup-go pins GOTOOLCHAIN=local at src/go.mod's Go; a tool may need
+        # a newer one (syft 1.54.0 needs 1.26.8), which auto fetches from the
+        # module proxy for this build only.
+        env:
+          GOTOOLCHAIN: auto
         run: go install github.com/anchore/syft/cmd/syft@v1.54.0
 
       - name: GoReleaser snapshot
@@ -239,6 +244,8 @@ jobs:
 
       - name: GoReleaser snapshot from source (release download failed)
         if: steps.goreleaser.outcome == 'failure'
+        env:
+          GOTOOLCHAIN: auto
         run: |
           set -euo pipefail
           go install github.com/goreleaser/goreleaser/v2@latest
