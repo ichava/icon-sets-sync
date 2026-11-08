@@ -56,6 +56,7 @@ func failure(err error) error { return &ExitError{Code: ExitFailure, Err: err} }
 type globals struct {
 	configDir    string
 	privateDir   string
+	workspace    string
 	globalConfig string
 	sets         []string
 	verbose      bool
@@ -167,6 +168,7 @@ the interactive terminal menu.`,
 	pf := root.PersistentFlags()
 	pf.StringVar(&g.configDir, "config-dir", "", "where pack configs live (setting config_dir; default: config/ beside the binary, else ./config, else the repository's own config/)")
 	pf.StringVar(&g.privateDir, "private-config-dir", "", "directory of private pack configs merged over --config-dir (setting private_config_dir; default: none)")
+	pf.StringVar(&g.workspace, "workspace", "", "directory holding the pack checkouts; replaces /work/<pack> in shipped configs (setting workspace)")
 	pf.StringVar(&g.globalConfig, "global-config", "", "global config file (default: $XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml})")
 	pf.StringArrayVar(&g.sets, "set", nil, "set any setting, as key=value (repeatable; see `config print`)")
 	pf.BoolVarP(&g.verbose, "verbose", "v", false, "debug logging (log_level=debug)")
@@ -239,6 +241,7 @@ func resolveState(cmd *cobra.Command) error {
 		}
 		setFlag("config-dir", "config_dir", g.configDir)
 		setFlag("private-config-dir", "private_config_dir", g.privateDir)
+		setFlag("workspace", "workspace", g.workspace)
 		if g.verbose {
 			flagValues["log_level"] = "debug"
 		}
