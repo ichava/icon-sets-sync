@@ -85,6 +85,90 @@
     });
   }
 
+  // Command palette (Ctrl K, Cmd K or /): filters the pages, commands and
+  // packs it lists as you type; arrows move, Enter opens.
+  var palette = document.getElementById("command-palette");
+  var paletteInput = document.getElementById("command-palette-input");
+  function paletteItems() {
+    return Array.prototype.slice.call(palette.querySelectorAll("[role=option]"));
+  }
+  function visibleItems() {
+    return paletteItems().filter(function (n) { return !n.classList.contains("d-none"); });
+  }
+  function markActive(n) {
+    paletteItems().forEach(function (i) { i.classList.remove("active-option"); i.removeAttribute("aria-selected"); });
+    if (n) { n.classList.add("active-option"); n.setAttribute("aria-selected", "true"); n.scrollIntoView({ block: "nearest" }); }
+  }
+  function filterPalette() {
+    var q = paletteInput.value.trim().toLowerCase();
+    var shown = 0;
+    paletteItems().forEach(function (n) {
+      var hit = !q || n.textContent.toLowerCase().indexOf(q) >= 0 || (n.getAttribute("href") || "").toLowerCase().indexOf(q) >= 0;
+      n.classList.toggle("d-none", !hit);
+      if (hit) { shown++; }
+    });
+    palette.querySelectorAll(".list-group-header").forEach(function (h) { h.classList.toggle("d-none", !!q); });
+    palette.querySelector("[data-role=palette-empty]").classList.toggle("d-none", shown > 0);
+    markActive(visibleItems()[0]);
+  }
+  function toggleTheme() {
+    var dark = document.documentElement.getAttribute("data-bs-theme") === "dark";
+    window.location.search = "?theme=" + (dark ? "light" : "dark");
+  }
+  function runCommand(n) {
+    var cmd = n.getAttribute("data-command");
+    if (!cmd) { window.location.href = n.getAttribute("href"); return; }
+    if (tb.Modal) { tb.Modal.getOrCreateInstance(palette).hide(); }
+    if (cmd === "check") { document.getElementById("palette-check").requestSubmit(); }
+    if (cmd === "sync-all-dry-run") { document.getElementById("palette-sync-all").requestSubmit(); }
+    if (cmd === "theme") { toggleTheme(); }
+    if (cmd === "shortcuts") { showModal("shortcuts-modal"); }
+    if (cmd === "stop") { document.querySelector("form[action='/server/stop']").requestSubmit(); }
+  }
+  function showModal(id) {
+    var el = document.getElementById(id);
+    if (el && tb.Modal) { tb.Modal.getOrCreateInstance(el).show(); }
+  }
+  if (palette && paletteInput) {
+    palette.addEventListener("shown.bs.modal", function () { paletteInput.value = ""; filterPalette(); paletteInput.focus(); });
+    paletteInput.addEventListener("input", filterPalette);
+    paletteInput.addEventListener("keydown", function (ev) {
+      var items = visibleItems();
+      var at = items.indexOf(palette.querySelector(".active-option"));
+      if (ev.key === "ArrowDown") { ev.preventDefault(); markActive(items[Math.min(at + 1, items.length - 1)]); }
+      if (ev.key === "ArrowUp") { ev.preventDefault(); markActive(items[Math.max(at - 1, 0)]); }
+      if (ev.key === "Enter" && at >= 0) { ev.preventDefault(); runCommand(items[at]); }
+    });
+    palette.addEventListener("click", function (ev) {
+      var n = ev.target.closest("[data-command]");
+      if (n) { ev.preventDefault(); runCommand(n); }
+    });
+  }
+
+  // Keyboard shortcuts, listed in the shortcuts dialog (and in Go, in the
+  // shortcuts table a test holds to this file). None fires while a field
+  // has focus or a modifier other than Ctrl/Cmd K is held.
+  var pendingG = false;
+  var goTo = { p: "/", r: "/jobs", a: "/manifest-pack/audit", c: "/config", s: "/settings", i: "/about" };
+  document.addEventListener("keydown", function (ev) {
+    var a = document.activeElement;
+    var typing = a && (/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) || a.isContentEditable);
+    if ((ev.ctrlKey || ev.metaKey) && ev.key === "k") {
+      if (palette) { ev.preventDefault(); showModal("command-palette"); }
+      return;
+    }
+    if (typing || ev.ctrlKey || ev.metaKey || ev.altKey || document.querySelector(".modal.show")) { return; }
+    if (pendingG) {
+      pendingG = false;
+      if (goTo[ev.key]) { ev.preventDefault(); window.location.href = goTo[ev.key]; }
+      return;
+    }
+    if (ev.key === "g") { pendingG = true; window.setTimeout(function () { pendingG = false; }, 1200); return; }
+    if (ev.key === "/" && palette) { ev.preventDefault(); showModal("command-palette"); return; }
+    if (ev.key === "?") { ev.preventDefault(); showModal("shortcuts-modal"); return; }
+    if (ev.key === "t") { ev.preventDefault(); toggleTheme(); }
+  });
+
   // Copy buttons: data-copy-target names the element whose text is copied.
   document.addEventListener("click", function (ev) {
     var btn = ev.target.closest && ev.target.closest("[data-copy-target]");

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="csrf-token" content="{{.CSRF}}">
-<title>{{.Title}} · icon-sets-sync</title>
+<title>{{.Title}} · {{appName}}</title>
 <script src="{{asset "vendor/tabler/tabler-theme.min.js"}}"></script>
 <link rel="stylesheet" href="{{asset "vendor/tabler/tabler.min.css"}}">
 <link rel="stylesheet" href="{{asset "vendor/tabler-icons/tabler-icons.css"}}">
@@ -23,23 +23,76 @@
       </button>
       {{end}}
       <div class="navbar-brand navbar-brand-autodark pe-0 pe-md-3">
-        <a href="/" class="d-inline-flex align-items-center text-reset text-decoration-none">{{iconc "packages" "text-primary"}}<span class="ms-2">icon-sets-sync</span></a>
+        <a href="/" class="d-inline-flex align-items-center text-reset text-decoration-none" aria-label="{{appName}}, home">
+          <span class="navbar-brand-mark" aria-hidden="true">{{iconc "packages" "text-white"}}</span>
+          <span class="navbar-brand-text d-none d-sm-inline">{{appName}}</span>
+        </a>
       </div>
       <div class="navbar-nav flex-row order-md-last align-items-center">
-        {{if .ReadOnly}}<div class="nav-item d-none d-md-flex me-3"><span class="badge badge-muted">{{icon "lock"}}read-only</span></div>{{end}}
-        <div class="nav-item me-1" role="group" aria-label="Colour theme">
+        {{if .Authed}}
+        <div class="nav-item d-none d-md-flex me-3">
+          <button type="button" class="btn command-trigger" data-bs-toggle="modal" data-bs-target="#command-palette">
+            {{icon "search"}}<span class="text-secondary">Search or run a command</span><kbd class="ms-3">Ctrl K</kbd>
+          </button>
+        </div>
+        <div class="nav-item d-md-none">
+          <button type="button" class="nav-link nav-link-button px-2" data-bs-toggle="modal" data-bs-target="#command-palette" aria-label="Search or run a command">{{icon "search"}}</button>
+        </div>
+        {{end}}
+        {{if .ReadOnly}}<div class="nav-item d-none d-lg-flex me-3"><span class="badge badge-muted">{{icon "lock"}}read-only</span></div>{{end}}
+        <div class="nav-item d-none d-sm-flex" role="group" aria-label="Colour theme">
           <a href="?theme=dark" class="nav-link px-2 hide-theme-dark" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Dark theme">{{icon "moon"}}<span class="visually-hidden">Dark theme</span></a>
           <a href="?theme=light" class="nav-link px-2 hide-theme-light" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Light theme">{{icon "sun"}}<span class="visually-hidden">Light theme</span></a>
         </div>
-        <div class="nav-item me-1">
-          <a href="?theme=auto" class="nav-link px-2" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Follow the system theme">{{icon "device-desktop"}}<span class="visually-hidden">Follow the system theme</span></a>
-        </div>
         {{if .Authed}}
-        <div class="nav-item">
-          <form method="post" action="/server/stop" data-confirm="This page and every open tab stop working until you run icon-sets-sync again." data-confirm-title="Stop the server?" data-confirm-button="Stop server">
-            <input type="hidden" name="csrf" value="{{.CSRF}}">
-            <button type="submit" class="btn btn-outline-danger btn-icon" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Stop server">{{icon "power"}}<span class="visually-hidden">Stop server</span></button>
-          </form>
+        <div class="nav-item dropdown d-none d-sm-flex">
+          <a href="/jobs" class="nav-link px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-label="Recent runs" aria-expanded="false">
+            {{icon "bell"}}{{if .Running}}<span class="badge bg-primary badge-blink"></span><span class="visually-hidden">{{.Running}} running</span>{{end}}
+          </a>
+          <div class="dropdown-menu dropdown-menu-arrow dropdown-menu-end dropdown-menu-card">
+            <div class="card">
+              <div class="card-header"><h2 class="card-title">Recent runs</h2></div>
+              <div class="list-group list-group-flush list-group-hoverable">
+                {{range .Recent}}
+                <a class="list-group-item list-group-item-action" href="/jobs/{{.ID}}">
+                  <div class="row align-items-center">
+                    <div class="col-auto"><span class="badge {{runClass .Status}}">{{.Status}}</span></div>
+                    <div class="col text-truncate">
+                      <div class="text-body">{{.Kind}}{{range .Packs}} <code>{{.}}</code>{{end}}</div>
+                      <div class="text-secondary small">{{.Label}} · <time datetime="{{iso .Started}}">{{when .Started}}</time></div>
+                    </div>
+                  </div>
+                </a>
+                {{else}}
+                <div class="list-group-item text-secondary">No runs yet.</div>
+                {{end}}
+              </div>
+              <div class="card-footer"><a href="/jobs">All runs</a></div>
+            </div>
+          </div>
+        </div>
+        <div class="nav-item dropdown ms-2">
+          <a href="/about" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open the server menu" aria-expanded="false">
+            <span class="avatar avatar-sm">{{icon "server"}}</span>
+            <div class="d-none d-xl-block ps-2">
+              <div>Local server</div>
+              <div class="mt-1 small text-secondary">{{.Version}}</div>
+            </div>
+          </a>
+          <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+            <a class="dropdown-item" href="/about">{{iconc "info-circle" "dropdown-item-icon"}}About {{appName}}</a>
+            <a class="dropdown-item" href="/settings">{{iconc "settings" "dropdown-item-icon"}}Settings</a>
+            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcuts-modal">{{iconc "keyboard" "dropdown-item-icon"}}Keyboard shortcuts</button>
+            <a class="dropdown-item" href="/about/licenses">{{iconc "license" "dropdown-item-icon"}}Third-party licences</a>
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item" href="{{index links "docs"}}" target="_blank" rel="noreferrer noopener">{{iconc "book" "dropdown-item-icon"}}Documentation</a>
+            <a class="dropdown-item" href="{{index links "issues"}}" target="_blank" rel="noreferrer noopener">{{iconc "bug" "dropdown-item-icon"}}Report an issue</a>
+            <div class="dropdown-divider"></div>
+            <form method="post" action="/server/stop" data-confirm="This page and every open tab stop working until you run icon-sets-sync again." data-confirm-title="Stop the server?" data-confirm-button="Stop server">
+              <input type="hidden" name="csrf" value="{{.CSRF}}">
+              <button type="submit" class="dropdown-item text-danger">{{iconc "power" "dropdown-item-icon"}}Stop server</button>
+            </form>
+          </div>
         </div>
         {{end}}
       </div>
@@ -50,15 +103,29 @@
     <div class="collapse navbar-collapse" id="navbar-menu">
       <div class="navbar">
         <div class="container-xl">
-          <nav aria-label="Main">
-            <ul class="navbar-nav">
-              {{template "navlink" (navItem . "dashboard" "/" "layout-dashboard" "Packs")}}
-              {{template "navlink" (navItem . "jobs" "/jobs" "history" "Runs")}}
-              {{template "navlink" (navItem . "audit" "/manifest-pack/audit" "search" "Manifest pack audit")}}
-              {{template "navlink" (navItem . "config" "/config" "file-code" "Config")}}
-              {{template "navlink" (navItem . "settings" "/settings" "settings" "Settings")}}
-            </ul>
-          </nav>
+          <div class="row flex-column flex-md-row flex-fill align-items-center">
+            <div class="col">
+              <nav aria-label="Main">
+                <ul class="navbar-nav">
+                  {{template "navlink" (navItem . "dashboard" "/" "layout-dashboard" "Packs")}}
+                  {{template "navlink" (navItem . "jobs" "/jobs" "history" "Runs")}}
+                  {{template "navlink" (navItem . "audit" "/manifest-pack/audit" "search" "Manifest pack audit")}}
+                  {{template "navlink" (navItem . "config" "/config" "file-code" "Config")}}
+                  {{template "navlink" (navItem . "settings" "/settings" "settings" "Settings")}}
+                  {{template "navlink" (navItem . "about" "/about" "info-circle" "About")}}
+                </ul>
+              </nav>
+            </div>
+            <div class="col col-md-auto">
+              <ul class="navbar-nav">
+                <li class="nav-item">
+                  <button type="button" class="nav-link nav-link-button" data-bs-toggle="modal" data-bs-target="#shortcuts-modal">
+                    <span class="nav-link-icon">{{icon "keyboard"}}</span><span class="nav-link-title">Shortcuts</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -72,16 +139,28 @@
     </main>
     <footer class="footer footer-transparent d-print-none">
       <div class="container-xl">
-        <ul class="list-inline list-inline-dots mb-0 text-secondary">
-          <li class="list-inline-item">icon-sets-sync {{.Version}}</li>
-          {{if .ReadOnly}}<li class="list-inline-item">{{icon "lock"}} read-only</li>{{end}}
-          <li class="list-inline-item"><a class="link-secondary" href="/about/licenses">Third-party licences</a></li>
-        </ul>
+        <div class="row text-center align-items-center flex-row-reverse">
+          <div class="col-lg-auto ms-lg-auto">
+            <ul class="list-inline list-inline-dots mb-0">
+              <li class="list-inline-item"><a class="link-secondary" href="{{index links "docs"}}" target="_blank" rel="noreferrer noopener">Documentation</a></li>
+              <li class="list-inline-item"><a class="link-secondary" href="{{index links "changes"}}" target="_blank" rel="noreferrer noopener">Changelog</a></li>
+              <li class="list-inline-item"><a class="link-secondary" href="{{index links "repo"}}" target="_blank" rel="noreferrer noopener">{{icon "brand-github"}}Source</a></li>
+              <li class="list-inline-item"><a class="link-secondary" href="/about/licenses">Third-party licences</a></li>
+            </ul>
+          </div>
+          <div class="col-12 col-lg-auto mt-3 mt-lg-0">
+            <ul class="list-inline list-inline-dots mb-0 text-secondary">
+              <li class="list-inline-item">{{appName}} <a class="link-secondary" href="/about">{{.Version}}</a></li>
+              {{if .ReadOnly}}<li class="list-inline-item">{{icon "lock"}} read-only</li>{{end}}
+            </ul>
+          </div>
+        </div>
       </div>
     </footer>
   </div>
 </div>
 {{block "panels" .}}{{end}}
+{{if .Authed}}{{template "command_palette" .}}{{template "shortcuts_modal" .}}{{end}}
 <div class="modal modal-blur fade" id="confirm-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title" aria-describedby="confirm-modal-body" aria-hidden="true">
   <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
     <div class="modal-content">

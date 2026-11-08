@@ -252,6 +252,7 @@ func newTestServer(t *testing.T, mutate ...func(*Options)) (*Server, *fakeEngine
 		Version:      "test",
 		BindAddr:     testHost,
 		Now:          func() time.Time { return fixedNow },
+		Build:        BuildInfo{Version: "test", Commit: "0123456789ab", Date: "2026-11-08T00:00:00Z", Go: "go1.26.0", Platform: "linux/amd64"},
 	}
 	for _, m := range mutate {
 		m(&opts)

@@ -6,8 +6,11 @@ adjustments
 alert-circle
 alert-triangle
 arrow-left
+bell
+book
 box
 brand-github
+bug
 check
 circle-check
 circle-x
@@ -26,6 +29,7 @@ git-pull-request
 help-circle
 history
 info-circle
+keyboard
 layout-dashboard
 license
 list-details
@@ -37,6 +41,7 @@ player-stop
 power
 refresh
 search
+server
 settings
 shield-check
 sun

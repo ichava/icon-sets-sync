@@ -1,0 +1,110 @@
+package web
+
+import (
+	"strings"
+	"testing"
+)
+
+// The header follows preview.tabler.io's (owner, 2026-11-08): a logo mark and
+// the product's name, a search button that opens the command palette, the
+// theme toggle, a recent-runs dropdown and a server menu.
+func TestHeaderFollowsTheTablerPreview(t *testing.T) {
+	s, _ := newTestServer(t)
+	body := signIn(t, s).get("/").Body.String()
+	for _, want := range []string{
+		`<title>Packs · ` + AppName + `</title>`,
+		`<span class="navbar-brand-text d-none d-sm-inline">` + AppName + `</span>`,
+		`class="navbar-brand-mark"`,
+		`data-bs-target="#command-palette"`,
+		`aria-label="Recent runs"`,
+		`aria-label="Open the server menu"`,
+		`href="/about"`,
+		`data-bs-target="#shortcuts-modal"`,
+		`action="/server/stop"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("header lacks %s", want)
+		}
+	}
+}
+
+// The command palette lists every page, the actions a page offers, and every
+// pack, so any of them is a few keystrokes away.
+func TestCommandPaletteListsPagesActionsAndPacks(t *testing.T) {
+	s, eng := newTestServer(t)
+	body := signIn(t, s).get("/jobs").Body.String()
+	i := strings.Index(body, `id="command-palette"`)
+	if i < 0 {
+		t.Fatal("no command palette")
+	}
+	palette := body[i:]
+	palette = palette[:strings.Index(palette, `data-role="palette-empty"`)]
+	for _, want := range []string{
+		`href="/"`, `href="/jobs"`, `href="/manifest-pack/audit"`, `href="/config"`, `href="/settings"`, `href="/about"`,
+		`data-command="check"`, `data-command="sync-all-dry-run"`, `data-command="theme"`, `data-command="shortcuts"`,
+		`<input type="search" class="form-control" id="command-palette-input"`,
+	} {
+		if !strings.Contains(palette, want) {
+			t.Errorf("palette lacks %s", want)
+		}
+	}
+	for _, p := range eng.packs {
+		if !strings.Contains(palette, `href="/packs/`+p.Name+`"`) {
+			t.Errorf("palette lacks pack %s", p.Name)
+		}
+	}
+	ro, _ := newTestServer(t, func(o *Options) { o.ReadOnly = true })
+	if strings.Contains(signIn(t, ro).get("/").Body.String(), `data-command="sync-all-dry-run"`) {
+		t.Error("a read-only palette offers a sync")
+	}
+}
+
+// The shortcuts dialog lists every binding app.js handles.
+func TestShortcutsDialogListsTheBindings(t *testing.T) {
+	s, _ := newTestServer(t)
+	body := signIn(t, s).get("/").Body.String()
+	js, err := assetFS.ReadFile("assets/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sc := range shortcuts {
+		if !strings.Contains(body, sc.Description) {
+			t.Errorf("shortcuts dialog lacks %q", sc.Description)
+		}
+		if sc.JS != "" && !strings.Contains(string(js), sc.JS) {
+			t.Errorf("app.js does not handle %q (%s)", sc.Description, sc.JS)
+		}
+	}
+	if len(shortcuts) < 8 {
+		t.Fatalf("%d shortcuts, want at least 8", len(shortcuts))
+	}
+}
+
+// About names the build, the runtime and where things are.
+func TestAboutPage(t *testing.T) {
+	s, _ := newTestServer(t)
+	res := signIn(t, s).get("/about")
+	if res.Code != 200 {
+		t.Fatalf("GET /about = %d", res.Code)
+	}
+	body := res.Body.String()
+	for _, want := range []string{"<h1 class=\"page-title\">About " + AppName + "</h1>", "Version", "Commit", "Built", "Go", "Platform", "Listening on", testHost, "Config dir", "https://github.com/ichava/icon-sets-sync", "/about/licenses"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("about lacks %q", want)
+		}
+	}
+}
+
+// The favicon is the header's logo mark: a primary rounded square holding
+// the packages glyph, so the tab and the header read as one product.
+func TestFaviconMatchesTheLogoMark(t *testing.T) {
+	b, err := assetFS.ReadFile("assets/favicon.svg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`<rect`, `rx=`, `fill="#066fd1"`, `stroke="#fff"`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("favicon lacks %s", want)
+		}
+	}
+}
