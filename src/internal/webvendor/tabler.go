@@ -33,8 +33,12 @@ import (
 
 // Package names, as TABLER_VERSION records them.
 const (
-	PkgCore      = "@tabler/core"
-	PkgIcons     = "@tabler/icons-sprite"
+	PkgCore  = "@tabler/core"
+	PkgIcons = "@tabler/icons-sprite"
+	// PkgWebfont is the Tabler Icons webfont the UI renders icons with. It
+	// is released with the sprite, so it is fetched at PkgIcons' version
+	// and needs no line of its own in TABLER_VERSION.
+	PkgWebfont   = "@tabler/icons-webfont"
 	PkgBootstrap = "bootstrap"
 	PkgPopper    = "@popperjs/core"
 )
@@ -66,11 +70,23 @@ func (HTTPFetcher) Get(u string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	path, err := httpx.New().Download(ctx, u, filepath.Join(dir, "body"), true)
+	path, err := HTTPFetcher{}.client().Download(ctx, u, filepath.Join(dir, "body"), true)
 	if err != nil {
 		return nil, err
 	}
 	return os.ReadFile(path)
+}
+
+// licenceHost serves @tabler/core's LICENSE (see CoreLicenceURL). It is not
+// an icon-pack upstream, so it is on this fetcher's allowlist only.
+const licenceHost = "raw.githubusercontent.com"
+
+// client is httpx with the one extra host this package's own URLs need.
+// Without it `make tabler-vendor` failed on the licence fetch (R6).
+func (HTTPFetcher) client() *httpx.Client {
+	c := httpx.New()
+	c.AllowedHosts = []string{licenceHost}
+	return c
 }
 
 // Vendor writes the vendored tree.
@@ -391,6 +407,21 @@ func (v *Vendor) Run(latest bool) error {
 	}
 	vendored["tabler-icons.svg"] = subset
 
+	webfont, _, err := v.tarball(PkgWebfont, vers[PkgIcons])
+	if err != nil {
+		return err
+	}
+	font, ok := webfont["dist/fonts/tabler-icons.woff2"]
+	if !ok {
+		return fmt.Errorf("%s@%s ships no dist/fonts/tabler-icons.woff2", PkgWebfont, vers[PkgIcons])
+	}
+	css, err := SubsetWebfontCSS(webfont["dist/tabler-icons.min.css"], ReadIconList(list))
+	if err != nil {
+		return fmt.Errorf("%s@%s: %w", PkgWebfont, vers[PkgIcons], err)
+	}
+	vendored["tabler-icons/tabler-icons.woff2"] = font
+	vendored["tabler-icons/tabler-icons.css"] = css
+
 	coreLicence, err := v.Fetch.Get(CoreLicenceURL(vers[PkgCore]))
 	if err != nil {
 		return fmt.Errorf("the npm tarball ships no LICENSE, and the tagged one could not be fetched: %w", err)
@@ -404,10 +435,11 @@ func (v *Vendor) Run(latest bool) error {
 		return err
 	}
 	licences := Licences(vers, map[string][]byte{
-		"tabler.txt":       coreLicence,
-		"tabler-icons.txt": icons["LICENSE"],
-		"bootstrap.txt":    firstOf(bsFiles, "LICENSE", "LICENSE.md"),
-		"popper.txt":       firstOf(popperFiles, "LICENSE.md", "LICENSE"),
+		"tabler.txt":               coreLicence,
+		"tabler-icons.txt":         icons["LICENSE"],
+		"tabler-icons-webfont.txt": webfont["LICENSE"],
+		"bootstrap.txt":            firstOf(bsFiles, "LICENSE", "LICENSE.md"),
+		"popper.txt":               firstOf(popperFiles, "LICENSE.md", "LICENSE"),
 	})
 	for _, l := range licences {
 		if len(l.Text) == 0 {
@@ -438,6 +470,44 @@ func (v *Vendor) Run(latest bool) error {
 	return nil
 }
 
+// webfontRule matches one icon's rule in the webfont's minified CSS.
+var webfontRule = regexp.MustCompile(`\.ti-([a-z0-9-]+):before\{content:"[^"]*"\}`)
+
+// SubsetWebfontCSS cuts the webfont's CSS to the icons named: the @font-face
+// with its woff2 source only (served beside the CSS as tabler-icons.woff2),
+// the base .ti rule, and one :before rule per icon. Upstream's file carries
+// every icon, 213 KB at 3.49.0; the UI uses a few dozen. A name with no rule
+// upstream is an error, as it is for the sprite.
+func SubsetWebfontCSS(css []byte, names []string) ([]byte, error) {
+	src := string(css)
+	rules := map[string]string{}
+	for _, m := range webfontRule.FindAllStringSubmatch(src, -1) {
+		rules[m[1]] = m[0]
+	}
+	base := regexp.MustCompile(`\.ti\{[^}]*\}`).FindString(src)
+	if base == "" {
+		return nil, fmt.Errorf("the webfont CSS has no .ti rule")
+	}
+	var b strings.Builder
+	b.WriteString("/* Tabler Icons webfont, cut to the icons in icons.txt by the vendoring tool. */\n")
+	b.WriteString(`@font-face{font-family:"tabler-icons";font-style:normal;font-weight:400;font-display:block;src:url("tabler-icons.woff2") format("woff2")}`)
+	b.WriteString(base)
+	var missing []string
+	for _, n := range names {
+		r, ok := rules[n]
+		if !ok {
+			missing = append(missing, n)
+			continue
+		}
+		b.WriteString(r)
+	}
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("the webfont has no icon named %s", strings.Join(missing, ", "))
+	}
+	b.WriteString("\n")
+	return []byte(b.String()), nil
+}
+
 // CoreLicenceURL is @tabler/core's LICENSE at the release tag. The npm tarball
 // ships none, so it comes from the repository; since 1.3 the tags are named
 // "@tabler/core@<version>", which is what this escapes.
@@ -452,6 +522,7 @@ func Licences(vers Versions, texts map[string][]byte) []Licence {
 	return []Licence{
 		{"tabler.txt", PkgCore, vers[PkgCore], "tabler.min.css, tabler.min.js, tabler-theme.min.js", texts["tabler.txt"]},
 		{"tabler-icons.txt", PkgIcons, vers[PkgIcons], "the icon subset in tabler-icons.svg", texts["tabler-icons.txt"]},
+		{"tabler-icons-webfont.txt", PkgWebfont, vers[PkgIcons], "tabler-icons.woff2, and the icon rules cut from its CSS into tabler-icons.css", texts["tabler-icons-webfont.txt"]},
 		{"bootstrap.txt", PkgBootstrap, vers[PkgBootstrap], "bundled inside tabler.min.js", texts["bootstrap.txt"]},
 		{"popper.txt", PkgPopper, vers[PkgPopper], "bundled inside tabler.min.js", texts["popper.txt"]},
 	}

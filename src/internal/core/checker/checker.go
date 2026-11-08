@@ -18,7 +18,11 @@ import (
 
 // Result is one pack's upstream status.
 type Result struct {
-	Package    string
+	Package string
+	// Name is the config's slug. It differs from the pack's own name when
+	// several configs feed one pack (icon-sets-extras.<set>), and is the only
+	// thing that tells those results apart.
+	Name       string
 	Current    string
 	Latest     string
 	Stale      bool
@@ -51,6 +55,12 @@ func New() *Checker { return &Checker{Fetch: httpx.New()} }
 // stale value and re-proposed the same refresh.
 func (c *Checker) CheckPack(ctx context.Context, pack *config.PackConfig) Result {
 	current := config.ResolvedCurrentVersion(pack)
+	r := c.check(ctx, pack, current)
+	r.Name = pack.Name
+	return r
+}
+
+func (c *Checker) check(ctx context.Context, pack *config.PackConfig, current string) Result {
 
 	if pack.VersionCheckURL == "" {
 		return Result{Package: pack.Pack, Current: current, Reason: "no version_check_url"}
@@ -78,9 +88,9 @@ func (c *Checker) CheckPack(ctx context.Context, pack *config.PackConfig) Result
 // ParseLatest extracts the latest version from a registry payload.
 //
 // Returns "" for a shape it does not recognise, which the caller reports as
-// "could not parse latest" rather than treating as an error. Note that
-// github-archive and script sources fall through here: neither declares a
-// pollable endpoint, so neither has a latest version to find.
+// "could not parse latest" rather than treating as an error. A script source
+// falls through here: it declares no pollable endpoint. A github-archive
+// source reads its version_check_url's payload by shape; see parseArchive.
 func ParseLatest(source config.SourceConfig, payload any) string {
 	switch source.Type {
 	case "npm":
@@ -110,6 +120,9 @@ func ParseLatest(source config.SourceConfig, payload any) string {
 			}
 		}
 
+	case "github-archive":
+		return parseArchive(source.ArchiveURL, payload)
+
 	case "url":
 		if obj, ok := payload.(map[string]any); ok {
 			if v, ok := walkDotPath(obj, source.VersionField()); ok {
@@ -119,6 +132,61 @@ func ParseLatest(source config.SourceConfig, payload any) string {
 	}
 
 	return ""
+}
+
+// parseArchive reads a github-archive pack's version from the GitHub endpoint
+// its version_check_url names: a tag list (/tags, newest first), a release
+// (/releases/latest or /releases/tags/<tag>), or a branch head
+// (/commits/<branch>, whose sha is the version). The tag prefix is whatever
+// archive_url puts before {version} after refs/tags/ ("v", "website@", or
+// nothing), so the answer is exactly the value archive_url expects. Until R1
+// this returned "" for every shape, and every github-archive sync stopped at
+// "cannot resolve the latest upstream version".
+func parseArchive(archiveURL string, payload any) string {
+	prefix := archiveTagPrefix(archiveURL)
+	switch v := payload.(type) {
+	case []any:
+		for _, item := range v {
+			obj, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			name, _ := obj["name"].(string)
+			if name == "" || !strings.HasPrefix(name, prefix) {
+				continue
+			}
+			if rest := strings.TrimPrefix(name, prefix); rest != "" {
+				return strings.TrimSpace(rest)
+			}
+		}
+	case map[string]any:
+		if tag, ok := v["tag_name"].(string); ok && tag != "" {
+			if prefix == "" {
+				return TrimVersion(tag)
+			}
+			return strings.TrimSpace(strings.TrimPrefix(tag, prefix))
+		}
+		if sha, ok := v["sha"].(string); ok && sha != "" {
+			return sha
+		}
+	}
+	return ""
+}
+
+// archiveTagPrefix returns the text between refs/tags/ and {version} in an
+// archive URL, or "" when the URL does not archive a tag.
+func archiveTagPrefix(archiveURL string) string {
+	const marker = "refs/tags/"
+	i := strings.Index(archiveURL, marker)
+	if i < 0 {
+		return ""
+	}
+	rest := archiveURL[i+len(marker):]
+	j := strings.Index(rest, "{version}")
+	if j < 0 {
+		return ""
+	}
+	return rest[:j]
 }
 
 // walkDotPath resolves a dotted path to a string value.

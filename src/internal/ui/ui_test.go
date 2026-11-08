@@ -148,3 +148,20 @@ func TestGlyphSetsCoverTheSameKeys(t *testing.T) {
 		}
 	}
 }
+
+// R2: the 20 sets of icon-sets-extras share one pack, so a check table
+// labelled by pack alone showed twenty identical "ichava/icon-sets-extras"
+// rows. A set config (name "<pack>.<set>") is labelled with its set; a pack
+// with one config keeps its bare name.
+func TestCheckRowsNameTheSetOfASharedPack(t *testing.T) {
+	rows := CheckRows([]checker.Result{
+		{Package: "ichava/icon-sets-extras", Name: "icon-sets-extras.ant-design", Latest: "1"},
+		{Package: "ichava/icon-sets-tabler", Name: "icon-sets-tabler", Latest: "1"},
+		{Package: "ichava/icon-sets-x", Latest: "1"},
+	})
+	for i, want := range []string{"ichava/icon-sets-extras (ant-design)", "ichava/icon-sets-tabler", "ichava/icon-sets-x"} {
+		if rows[i].Package != want {
+			t.Errorf("row %d = %q, want %q", i, rows[i].Package, want)
+		}
+	}
+}

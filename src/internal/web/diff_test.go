@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -44,5 +45,21 @@ func TestPackDetailNamesALicenceChange(t *testing.T) {
 	}
 	if d := packDetail(app.Outcome{Status: app.StatusUpToDate, Current: "1.2.3"}); d != "up to date at 1.2.3" {
 		t.Errorf("up-to-date detail %q", d)
+	}
+}
+
+// U10: a pack stopped by Cancel was reported "failed: SplitVariants:
+// context canceled". It is reported cancelled, whichever error carries it.
+func TestPackStatusNamesACancelledPack(t *testing.T) {
+	cancelled := app.Outcome{Status: app.StatusFailed, Err: fmt.Errorf("%s", "SplitVariants: context canceled"),
+		Result: pipeline.Result{Err: fmt.Errorf("stage: %w", context.Canceled)}}
+	if got := packStatus(cancelled); got != "cancelled" {
+		t.Errorf("packStatus = %q, want cancelled", got)
+	}
+	if got := packStatus(app.Outcome{Status: app.StatusFailed, Err: errors.New("boom")}); got != "failed" {
+		t.Errorf("packStatus = %q, want failed", got)
+	}
+	if got := packStatus(app.Outcome{Status: app.StatusSynced}); got != "synced" {
+		t.Errorf("packStatus = %q, want synced", got)
 	}
 }

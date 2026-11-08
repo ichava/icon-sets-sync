@@ -13,7 +13,7 @@
 {{if .Conflict}}<div class="alert alert-warning" role="alert">{{icon "alert-triangle"}} This file changed on disk after you opened it, so nothing was saved. Your text is below; <a href="/config/{{.Doc.Name}}">reload the file</a> to see the current version, then apply your change again.</div>{{end}}
 {{if .Doc.ReadOnly}}<div class="alert alert-info" role="status">{{icon "lock"}} Read-only: {{.Doc.Why}}</div>{{else if $.ReadOnly}}<div class="alert alert-info" role="status">{{icon "lock"}} This server was started with --read-only.</div>{{end}}
 
-<form method="post" action="/config/{{.Doc.Name}}" id="editor-form" data-validate-url="/config/{{.Doc.Name}}/validate">
+<form method="post" action="/config/{{.Doc.Name}}" id="editor-form" data-validate-url="/config/{{.Doc.Name}}/validate" data-confirm="The file on disk is replaced with the contents of the editor." data-confirm-title="Save {{.Doc.Name}}?" data-confirm-button="Save">
   <input type="hidden" name="csrf" value="{{$.CSRF}}">
   <input type="hidden" name="base" value="{{.Base}}">
   <div class="card mb-3">
@@ -23,9 +23,9 @@
       <textarea class="editor-text" id="editor-text" name="content" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-describedby="editor-findings"{{if not .Editable}} readonly{{end}}>{{.Text}}</textarea>
     </div>
   </div>
-  <div class="d-flex gap-2 mb-3">
-    <button type="submit" class="btn btn-outline-primary" formaction="/config/{{.Doc.Name}}/validate">{{icon "shield-check"}}<span class="ms-1">Validate</span></button>
-    {{if .Editable}}<button type="submit" class="btn btn-primary" id="editor-save">{{icon "device-floppy"}}<span class="ms-1">Save</span></button>{{end}}
+  <div class="btn-list mb-3">
+    <button type="submit" class="btn btn-outline-primary" formaction="/config/{{.Doc.Name}}/validate" data-confirm-skip>{{icon "shield-check"}}Validate</button>
+    {{if .Editable}}<button type="submit" class="btn btn-primary" id="editor-save">{{icon "device-floppy"}}Save</button>{{end}}
   </div>
 </form>
 

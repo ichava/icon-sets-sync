@@ -7,12 +7,15 @@ alert-circle
 alert-triangle
 arrow-left
 box
+brand-github
 check
 circle-check
 circle-x
 clock
+copy
 device-desktop
 device-floppy
+dots-vertical
 download
 external-link
 eye
@@ -20,6 +23,7 @@ file-code
 file-text
 git-branch
 git-pull-request
+help-circle
 history
 info-circle
 layout-dashboard
@@ -30,8 +34,11 @@ moon
 packages
 player-play
 player-stop
+power
 refresh
 search
 settings
 shield-check
 sun
+terminal-2
+x

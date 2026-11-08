@@ -33,7 +33,9 @@ icon-sets-sync check
 ```
 
 Resolves each pack's `version_check_url`, compares against what the pack repo records, and reports
-what is stale. Writes nothing. Exits 1 when any pack is behind, so it can gate a scheduled job.
+what is stale. Writes nothing. Exits 1 when any pack is behind, so it can gate a scheduled job;
+`--fail-on error|any|never` changes what fails it, and `--github` reports to a GitHub Actions job
+(see [Check upstream in CI](recipes/check-upstream-in-ci.md)).
 
 `--suggest-kinds` also scans each pack for items that look like illustrations and writes
 `.cache/kind-suggestions/<pack>.json`; see [Kinds](configuration.md#kinds). It suggests and never

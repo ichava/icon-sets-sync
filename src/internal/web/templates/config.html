@@ -1,7 +1,7 @@
 {{define "content"}}{{with .Data}}
 {{template "page_header" "Config"}}
 <p class="text-secondary">Each file is validated by the same loader the sync uses before it is saved, and saved atomically. Adding or removing a pack stays a pull request to this repository.</p>
-{{if .Err}}<div class="alert alert-danger" role="alert">{{icon "alert-circle"}} {{.Err}}</div>{{end}}
+{{if .Err}}<div class="alert alert-danger text-break" role="alert">{{icon "alert-circle"}} {{.Err}}</div>{{end}}
 <div class="card">
   <div class="list-group list-group-flush">
     {{range .Files}}

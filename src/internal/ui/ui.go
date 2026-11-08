@@ -237,11 +237,21 @@ func CheckRows(results []checker.Result) []CheckRow {
 			status = Err(Sym.Cross + " error")
 		}
 		rows = append(rows, CheckRow{
-			Package: r.Package, Current: text.OrDash(r.Current), Latest: text.OrDash(r.Latest),
+			Package: checkLabel(r), Current: text.OrDash(r.Current), Latest: text.OrDash(r.Latest),
 			Status: status, Detail: r.Detail(),
 		})
 	}
 	return rows
+}
+
+// checkLabel names a result's row: the pack, plus the set when the result
+// came from one of several configs feeding that pack ("<pack-slug>.<set>").
+func checkLabel(r checker.Result) string {
+	slug := r.Package[strings.LastIndex(r.Package, "/")+1:]
+	if set, ok := strings.CutPrefix(r.Name, slug+"."); ok && set != "" {
+		return r.Package + " (" + set + ")"
+	}
+	return r.Package
 }
 
 // Summarise writes the one-line verdict under the check table.

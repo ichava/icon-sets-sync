@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
-	"github.com/ichava/icon-sets-sync/src/internal/core/text"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -12,6 +12,7 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
+	"github.com/ichava/icon-sets-sync/src/internal/core/text"
 	"github.com/ichava/icon-sets-sync/src/internal/ui"
 )
 
@@ -63,8 +64,10 @@ func newListPacksCommand() *cobra.Command {
 
 func newCheckCommand() *cobra.Command {
 	var (
-		pack string
-		kf   kindFlags
+		pack   string
+		kf     kindFlags
+		failOn string
+		github bool
 	)
 
 	cmd := &cobra.Command{
@@ -72,11 +75,24 @@ func newCheckCommand() *cobra.Command {
 		Short: "Check every pack against its upstream registry",
 		Long: `Check every pack against its upstream registry.
 
-Exits 1 when any pack is behind upstream, so it can gate a scheduled job.`,
+Exits 1 when any pack is behind upstream, so it can gate a scheduled job.
+--fail-on chooses what fails the run: stale (the default), error (a pack
+whose upstream could not be checked), any (either) or never. In a GitHub
+Actions step, --github also writes a summary table to $GITHUB_STEP_SUMMARY,
+stale=, errored= and stale-packs= to $GITHUB_OUTPUT, and an annotation per
+pack that is behind or could not be checked.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := kf.validate(); err != nil {
 				return err
+			}
+			if !validFailOn(failOn) {
+				return usageErr("--fail-on must be one of %s, not %q", strings.Join(failOnModes, ", "), failOn)
+			}
+			if github {
+				if _, _, err := githubFiles(); err != nil {
+					return usageErr("%s", err)
+				}
 			}
 			packs, err := app.LoadPacksIn(configDir(), pack, workspace())
 			if err != nil {
@@ -96,13 +112,21 @@ Exits 1 when any pack is behind upstream, so it can gate a scheduled job.`,
 
 			kf.report(packs)
 
-			// Exit 1 on any stale pack. Load-bearing for CI.
-			if checker.AnyStale(results) {
+			if github {
+				if err := reportCheckToGitHub(cmd.OutOrStdout(), results, !ui.JSONMode()); err != nil {
+					return failure(err)
+				}
+			}
+
+			// Exit 1 on a stale pack by default. Load-bearing for CI.
+			if checkFails(failOn, results) {
 				return &ExitError{Code: ExitFailure}
 			}
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&failOn, "fail-on", "stale", "what exits 1: stale, error (could not be checked), any, or never")
+	cmd.Flags().BoolVar(&github, "github", false, "in GitHub Actions: write a step summary, step outputs and annotations")
 	cmd.Flags().StringVar(&pack, "pack", "", "restrict to one pack slug")
 	addKindFlags(cmd.Flags(), &kf)
 	return cmd
@@ -120,6 +144,7 @@ func newSyncCommand() *cobra.Command {
 		pack     string
 		allPacks bool
 		kf       kindFlags
+		github   bool
 	)
 
 	cmd := &cobra.Command{
@@ -137,6 +162,11 @@ packs still run first.`,
 			if err := kf.validate(); err != nil {
 				return err
 			}
+			if github {
+				if _, _, err := githubFiles(); err != nil {
+					return usageErr("%s", err)
+				}
+			}
 			if pack == "" && !allPacks {
 				return usageErr("pass --pack=<slug> or --all")
 			}
@@ -149,7 +179,7 @@ packs still run first.`,
 			}
 			// The scan reads the pack checkout, so it runs after the sync has
 			// refreshed it, and whether or not the sync succeeded.
-			syncErr := runSync(cmd.Context(), packs)
+			syncErr := runSync(cmd.Context(), cmd, packs, github)
 			kf.report(packs)
 			return syncErr
 		},
@@ -158,25 +188,33 @@ packs still run first.`,
 	f.StringVar(&pack, "pack", "", "sync one pack slug")
 	addKindFlags(f, &kf)
 	f.BoolVar(&allPacks, "all", false, "sync every pack (same as sync-all)")
+	f.BoolVar(&github, "github", false, "in GitHub Actions: write a step summary, step outputs and annotations")
 	f.IntVar(&g.concurrency, "concurrency", 1, "packs synced at once with --all (setting concurrency)")
 	addRunFlags(f, true)
 	return cmd
 }
 
 func newSyncAllCommand() *cobra.Command {
+	var github bool
 	cmd := &cobra.Command{
 		Use:   "sync-all",
 		Short: "Refresh every registered pack, up to --concurrency at a time",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if github {
+				if _, _, err := githubFiles(); err != nil {
+					return usageErr("%s", err)
+				}
+			}
 			packs, err := app.LoadPacksIn(configDir(), "", workspace())
 			if err != nil {
 				return failure(err)
 			}
-			return runSync(cmd.Context(), packs)
+			return runSync(cmd.Context(), cmd, packs, github)
 		},
 	}
 	f := cmd.Flags()
+	f.BoolVar(&github, "github", false, "in GitHub Actions: write a step summary, step outputs and annotations")
 	f.IntVar(&g.concurrency, "concurrency", 1, "packs synced at once (setting concurrency)")
 	addRunFlags(f, true)
 	return cmd
@@ -193,7 +231,7 @@ var (
 	syncRun     app.RunFunc
 )
 
-func runSync(ctx context.Context, packs []*config.PackConfig) error {
+func runSync(ctx context.Context, cmd *cobra.Command, packs []*config.PackConfig, github bool) error {
 	outcomes := app.Sync(ctx, packs, app.SyncOptions{
 		Checker:     syncChecker,
 		Run:         syncRun,
@@ -235,6 +273,12 @@ func runSync(ctx context.Context, packs []*config.PackConfig) error {
 		}
 	}
 
+	if github {
+		if err := reportSyncToGitHub(cmd.OutOrStdout(), outcomes, !ui.JSONMode()); err != nil {
+			return failure(err)
+		}
+	}
+
 	if app.AnyFailed(outcomes) {
 		return &ExitError{Code: ExitFailure}
 	}
@@ -249,7 +293,7 @@ func reportOutcome(o app.Outcome) {
 	case app.StatusUpToDate:
 		ui.Success("%s: up-to-date (%s)", o.Pack, o.Current)
 	case app.StatusSynced:
-		ui.Success("%s: done -- %v", o.Pack, o.Result.Summary())
+		ui.Success("%s: done -- %s", o.Pack, o.Result.Headline())
 	default:
 		// A pack with no recipe yet is reported as a warning, not a failure.
 		// No recipe returns ErrRecipePending today, and since
@@ -292,7 +336,7 @@ func newRecipeCommand() *cobra.Command {
 					return failure(err)
 				}
 			} else {
-				ui.Printf("%v\n", outcome.Summary())
+				ui.Printf("%s\n", outcome.Headline())
 			}
 			if !outcome.Success {
 				return &ExitError{Code: ExitFailure}

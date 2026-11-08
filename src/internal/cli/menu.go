@@ -55,5 +55,5 @@ func runMenuAction(cmd *cobra.Command, action *tui.Action) error {
 	if err != nil {
 		return failure(err)
 	}
-	return runSync(cmd.Context(), packs)
+	return runSync(cmd.Context(), cmd, packs, false)
 }

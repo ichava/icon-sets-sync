@@ -95,14 +95,23 @@ func (s *Server) loadPack(w http.ResponseWriter, r *http.Request) (*config.PackC
 }
 
 // validSlug keeps a path value to the shape pack slugs have, so it can never
-// name a file outside the config directory.
+// name a file outside the config directory: lowercase letters, digits and
+// hyphens, in segments joined by single dots ("icon-sets-extras.game-icons",
+// a set config of a shared pack). No segment is empty, so ".", ".." and a
+// leading or trailing dot are refused. Until R4 the dot was refused outright,
+// and every set config's page and actions answered 404.
 func validSlug(s string) bool {
 	if s == "" || len(s) > 100 {
 		return false
 	}
-	for _, r := range s {
-		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
+	for _, seg := range strings.Split(s, ".") {
+		if seg == "" {
 			return false
+		}
+		for _, r := range seg {
+			if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
+				return false
+			}
 		}
 	}
 	return true
@@ -249,10 +258,10 @@ func (s *Server) handleRecipe(w http.ResponseWriter, r *http.Request) {
 			res, err := s.opts.Engine.Recipe(ctx, p, version, req, h)
 			switch {
 			case err != nil:
-				j.PackDone(p.Pack, string(app.StatusFailed), err.Error(), "")
+				j.PackDone(p.Pack, packStatus(app.Outcome{Status: app.StatusFailed, Err: err}), err.Error(), "")
 				return jobs.StatusFailed, err
 			case !res.Success:
-				j.PackDone(p.Pack, string(app.StatusFailed), res.Error(), "")
+				j.PackDone(p.Pack, packStatus(app.Outcome{Status: app.StatusFailed, Result: res}), res.Error(), "")
 				return jobs.StatusFailed, errors.New(res.Error())
 			}
 			j.PackDone(p.Pack, string(app.StatusSynced), "", summary(res.Metrics))
@@ -278,7 +287,7 @@ func (s *Server) hooks(j *jobs.Job) RunHooks {
 			if o.Err != nil {
 				errText = o.Err.Error()
 			}
-			j.PackDone(o.Pack, string(o.Status), errText, packDetail(o))
+			j.PackDone(o.Pack, packStatus(o), errText, packDetail(o))
 		},
 	}
 }
@@ -309,6 +318,17 @@ func packDetail(o app.Outcome) string {
 		return summary(o.Result.Metrics)
 	}
 	return ""
+}
+
+// packStatus is the status a run page shows for one pack: its outcome, or
+// "cancelled" when Cancel stopped it. Until U10 a cancelled pack read
+// "failed: <stage>: context canceled". Sync re-wraps the pipeline's error as
+// text, so the pipeline result's own error is checked too.
+func packStatus(o app.Outcome) string {
+	if errors.Is(o.Err, context.Canceled) || errors.Is(o.Result.Err, context.Canceled) {
+		return string(jobs.StatusCancelled)
+	}
+	return string(o.Status)
 }
 
 // summary renders a run's metrics as one short line.

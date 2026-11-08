@@ -5,18 +5,99 @@
   "use strict";
 
   // Reload while background work the page is waiting on is running.
+  // The reload waits while a dialog or side panel is open or a field has
+  // focus: reloading under them threw away what was being chosen (U11).
   var reload = document.body.getAttribute("data-reload-after");
+  function busy() {
+    var a = document.activeElement;
+    return document.querySelector(".modal.show, .offcanvas.show, .offcanvas.showing") ||
+      (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName));
+  }
+  function reloadWhenIdle() {
+    if (busy()) { window.setTimeout(reloadWhenIdle, 1000); return; }
+    window.location.reload();
+  }
   if (reload) {
-    window.setTimeout(function () { window.location.reload(); }, Number(reload) * 1000);
+    window.setTimeout(reloadWhenIdle, Number(reload) * 1000);
   }
 
-  // A form with data-confirm asks first. The server still requires its own
-  // typed confirmation for a real sync; this is the first of the two.
+  var tb = window.tabler || {};
+
+  // A form with data-confirm asks first, in Tabler's danger modal
+  // (#confirm-modal in the layout): data-confirm is the body text,
+  // data-confirm-title and data-confirm-button the heading and the button.
+  // The server still requires its own typed confirmation for a real sync;
+  // this is the first of the two. Without the modal script it falls back to
+  // the browser's own confirm.
+  var modalEl = document.getElementById("confirm-modal");
+  var pending = null;
   document.addEventListener("submit", function (ev) {
-    var msg = ev.target.getAttribute && ev.target.getAttribute("data-confirm");
-    if (msg && !window.confirm(msg)) {
-      ev.preventDefault();
+    var form = ev.target;
+    var msg = form.getAttribute && form.getAttribute("data-confirm");
+    if (!msg || form.getAttribute("data-confirmed") === "1" ||
+        (ev.submitter && ev.submitter.hasAttribute("data-confirm-skip"))) {
+      return;
     }
+    ev.preventDefault();
+    if (!modalEl || !tb.Modal) {
+      if (window.confirm(msg)) { form.setAttribute("data-confirmed", "1"); form.requestSubmit(ev.submitter || undefined); }
+      return;
+    }
+    pending = { form: form, submitter: ev.submitter || null };
+    document.getElementById("confirm-modal-title").textContent = form.getAttribute("data-confirm-title") || "Are you sure?";
+    document.getElementById("confirm-modal-body").textContent = msg;
+    document.getElementById("confirm-modal-ok").textContent = form.getAttribute("data-confirm-button") || "Confirm";
+    tb.Modal.getOrCreateInstance(modalEl).show();
+  });
+  if (modalEl) {
+    document.getElementById("confirm-modal-ok").addEventListener("click", function () {
+      if (!pending) { return; }
+      var p = pending;
+      pending = null;
+      tb.Modal.getOrCreateInstance(modalEl).hide();
+      p.form.setAttribute("data-confirmed", "1");
+      if (p.submitter) { p.form.requestSubmit(p.submitter); } else { p.form.requestSubmit(); }
+    });
+    modalEl.addEventListener("hidden.bs.modal", function () { pending = null; });
+  }
+
+  // Tooltips and popovers are opt-in in Bootstrap; Tabler's own pages
+  // initialise every one on load, and so does this.
+  if (tb.Tooltip) {
+    document.querySelectorAll("[data-bs-toggle=tooltip]").forEach(function (n) { tb.Tooltip.getOrCreateInstance(n); });
+  }
+  if (tb.Popover) {
+    document.querySelectorAll("[data-bs-toggle=popover]").forEach(function (n) { tb.Popover.getOrCreateInstance(n); });
+  }
+
+  // The dashboard's per-pack sync panel: one offcanvas, pointed at the pack
+  // whose row opened it. Without the script the row's button is a plain link
+  // to the pack page, which has the same form.
+  var packPanel = document.getElementById("pack-sync-panel");
+  if (packPanel) {
+    packPanel.addEventListener("show.bs.offcanvas", function (ev) {
+      var slug = ev.relatedTarget && ev.relatedTarget.getAttribute("data-pack");
+      if (!slug) { return; }
+      var base = "/packs/" + encodeURIComponent(slug);
+      packPanel.querySelector("[data-role=pack-sync-form]").setAttribute("action", base + "/sync");
+      packPanel.querySelector("[data-role=pack-page]").setAttribute("href", base);
+      packPanel.querySelector("[data-role=pack-name]").textContent = slug;
+    });
+  }
+
+  // Copy buttons: data-copy-target names the element whose text is copied.
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target.closest && ev.target.closest("[data-copy-target]");
+    if (!btn) { return; }
+    var src = document.getElementById(btn.getAttribute("data-copy-target"));
+    if (!src || !navigator.clipboard) { return; }
+    navigator.clipboard.writeText(src.textContent).then(function () {
+      var label = btn.querySelector("[data-role=copy-label]");
+      if (!label) { return; }
+      var was = label.textContent;
+      label.textContent = "Copied";
+      window.setTimeout(function () { label.textContent = was; }, 1500);
+    });
   });
 
   // Log level filter: the CSS hides the levels below the chosen one.
@@ -175,7 +256,7 @@
       var state = item.querySelector("[data-role=state]");
       state.className = badgeClass(e.state) + " me-2";
       state.textContent = e.state;
-      setLine(item, "error", "text-danger small", e.error || "");
+      setLine(item, "error", "text-danger small text-break", e.error || "");
     },
     "pack-start": function (e) {
       var li = packItem(e.pack);
@@ -191,7 +272,7 @@
       b.className = badgeClass(e.status);
       b.textContent = e.status;
       if (e.msg) { setLine(li, "detail", "text-secondary small", e.msg); }
-      setLine(li, "error", "text-danger small", e.error || "");
+      setLine(li, "error", "text-danger small text-break", e.error || "");
       status.textContent = e.pack + ": " + e.status;
     },
     "done": function (e) {

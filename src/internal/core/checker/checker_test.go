@@ -51,8 +51,8 @@ func TestParseLatest(t *testing.T) {
 		{"url value is not a string", config.SourceConfig{Type: "url"}, `{"version":7}`, ""},
 		{"github-tag empty list", config.SourceConfig{Type: "github-tag"}, `[]`, ""},
 		{"npm given a list", config.SourceConfig{Type: "npm"}, `[]`, ""},
-		// Neither declares a pollable endpoint, so neither has a latest.
-		{"github-archive has none", config.SourceConfig{Type: "github-archive"}, `{"version":"1"}`, ""},
+		// script declares no endpoint; github-archive reads tags, releases and commits only.
+		{"github-archive does not read a version field", config.SourceConfig{Type: "github-archive"}, `{"version":"1"}`, ""},
 		{"script has none", config.SourceConfig{Type: "script"}, `{"version":"1"}`, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -72,7 +72,7 @@ func TestNoticesMatchTheEmbeddedLicences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ls) != 4 {
+	if len(ls) != 5 {
 		t.Fatalf("%d licences", len(ls))
 	}
 	for _, l := range ls {
@@ -90,7 +90,7 @@ func TestNoticesMatchTheEmbeddedLicences(t *testing.T) {
 }
 
 // iconCall matches {{icon "x"}} and the icon argument of navItem.
-var iconCall = regexp.MustCompile(`(?:icon|navItem \. "[^"]+" "[^"]+") "([a-z0-9-]+)"`)
+var iconCall = regexp.MustCompile(`(?:iconc?|navItem \. "[^"]+" "[^"]+") "([a-z0-9-]+)"`)
 
 // Every icon a template asks for is in the sprite, and every icon the vendor
 // list cuts is in the sprite: a missing one renders as nothing.

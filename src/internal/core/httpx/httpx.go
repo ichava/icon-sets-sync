@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -270,6 +271,11 @@ func (c *Client) GetJSON(ctx context.Context, url string, out any) error {
 		}
 		req.Header.Set("User-Agent", UserAgent)
 		req.Header.Set("Accept", "application/json")
+		if req.URL.Scheme == "https" && req.URL.Host == githubAPIHost {
+			if tok := githubToken(); tok != "" {
+				req.Header.Set("Authorization", "Bearer "+tok)
+			}
+		}
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -289,6 +295,9 @@ func (c *Client) GetJSON(ctx context.Context, url string, out any) error {
 		}
 
 		if resp.StatusCode >= 400 {
+			if limited := githubRateLimited(resp); limited != "" {
+				return fmt.Errorf("GET %s: %s", url, limited)
+			}
 			lastErr = fmt.Errorf("GET %s: %s", url, resp.Status)
 			if retryable(resp.StatusCode) {
 				continue
@@ -390,4 +399,44 @@ func (c *Client) Download(ctx context.Context, url, dest string, force bool) (st
 	}
 
 	return "", fmt.Errorf("GET %s: after %d attempts: %w", url, Attempts, lastErr)
+}
+
+// githubAPIHost is the one host a GitHub token is ever sent to.
+const githubAPIHost = "api.github.com"
+
+// githubToken returns GH_TOKEN, else GITHUB_TOKEN, else "". Ten shipped packs
+// poll api.github.com; anonymous requests share a limit of 60 an hour, so a
+// second check within the hour failed (R5). CI already exports GH_TOKEN. The
+// token is sent over https to api.github.com only, and Go's client drops the
+// header on a redirect to any other host.
+func githubToken() string {
+	for _, k := range []string{"GH_TOKEN", "GITHUB_TOKEN"} {
+		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// githubRateLimited explains a 403 or 429 from the GitHub API whose rate
+// limit is spent, or returns "" for any other response. Retrying would only
+// spend more of the window, so the caller stops at once.
+func githubRateLimited(resp *http.Response) string {
+	if resp.Request == nil || resp.Request.URL.Host != githubAPIHost {
+		return ""
+	}
+	if resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusTooManyRequests {
+		return ""
+	}
+	if resp.Header.Get("X-RateLimit-Remaining") != "0" {
+		return ""
+	}
+	msg := "GitHub API rate limit exhausted"
+	if reset, err := strconv.ParseInt(resp.Header.Get("X-RateLimit-Reset"), 10, 64); err == nil {
+		msg += "; it resets at " + time.Unix(reset, 0).UTC().Format("15:04 UTC")
+	}
+	if githubToken() == "" {
+		msg += "; set GH_TOKEN or GITHUB_TOKEN to raise the limit"
+	}
+	return msg
 }
