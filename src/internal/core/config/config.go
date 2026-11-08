@@ -9,6 +9,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
@@ -626,12 +629,56 @@ func WriteVendoredVersion(pack *PackConfig, version string) (string, error) {
 		}
 	}
 
+	if updated, ok := stampLicenceCheck(pack, data, version); ok {
+		data, changed = updated, true
+	}
+
 	if changed {
 		if err := os.WriteFile(target, data, 0o644); err != nil {
 			return "", err
 		}
 	}
 	return target, nil
+}
+
+// stampNow is the clock for license.checked_at; a test sets it.
+var stampNow = time.Now
+
+// stampLicenceCheck advances license.checked_version and checked_at to
+// version when the record's licence file, read after the sync wrote it,
+// still hashes to license.sha256: the licence is then known to be unchanged
+// at the new version. A config with no such record, a missing file or a
+// different hash is left alone, so a changed licence still fails the pack's
+// own test and waits for a person. Until R7 the sync never advanced it, and
+// every sync PR of a pack with this record failed its AttributionTest.
+func stampLicenceCheck(pack *PackConfig, data []byte, version string) ([]byte, bool) {
+	file, ok := getStringAtPath(data, "license.file")
+	if !ok || file == "" || filepath.IsAbs(file) || strings.Contains(file, "..") {
+		return nil, false
+	}
+	recorded, ok := getStringAtPath(data, "license.sha256")
+	if !ok || recorded == "" {
+		return nil, false
+	}
+	if checked, ok := getStringAtPath(data, "license.checked_version"); !ok || checked == version {
+		return nil, false
+	}
+	body, err := os.ReadFile(filepath.Join(pack.PackRoot, filepath.FromSlash(file)))
+	if err != nil {
+		return nil, false
+	}
+	sum := sha256.Sum256(body)
+	if hex.EncodeToString(sum[:]) != strings.ToLower(recorded) {
+		return nil, false
+	}
+	out, ok, err := setStringAtPath(data, "license.checked_version", version)
+	if err != nil || !ok {
+		return nil, false
+	}
+	if at, ok2, err := setStringAtPath(out, "license.checked_at", stampNow().UTC().Format("2006-01-02")); err == nil && ok2 {
+		out = at
+	}
+	return out, true
 }
 
 // Config directory sources, as the Settings page and the startup log name them.
