@@ -17,10 +17,10 @@
           <div class="mb-3">
             <label class="form-label" for="confirm">Type <code>{{.Phrase}}</code> to confirm</label>
             <input class="form-control" id="confirm" name="confirm" required autocomplete="off" spellcheck="false" aria-describedby="confirm-help">
-            <div id="confirm-help" class="form-hint">{{if .Form.Confirm}}That did not match; nothing was started.{{else}}Nothing has been started yet.{{end}}</div>
+            <div id="confirm-help" class="form-text">{{if .Form.Confirm}}That did not match; nothing was started.{{else}}Nothing has been started yet.{{end}}</div>
           </div>
-          <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-danger">{{icon "player-play"}}<span class="ms-1">Start the real sync</span></button>
+          <div class="btn-list">
+            <button type="submit" class="btn btn-danger">{{icon "player-play"}}Start the real sync</button>
             <a class="btn btn-link" href="/">Cancel</a>
           </div>
         </form>

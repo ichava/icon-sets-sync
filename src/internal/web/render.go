@@ -178,10 +178,22 @@ func funcs(a *assetSet) template.FuncMap {
 		"outcomes": func() []string {
 			return []string{string(jobs.StatusRunning), string(jobs.StatusSucceeded), string(jobs.StatusFailed), string(jobs.StatusCancelled)}
 		},
+		"version": shortVersion,
 		"navItem": func(v view, key, href, icon, label string) navItem {
 			return navItem{Active: v.Nav == key, Href: href, Icon: icon, Label: label}
 		},
 	}
+}
+
+// shortVersion shows a version that is a full commit SHA (a pack whose
+// upstream has no tags) as its first 12 characters, with the whole SHA in the
+// title. Printed in full, twice per row, those SHAs pushed the packs table
+// past its card at desktop width (U2). Any other version is only escaped.
+func shortVersion(v string) template.HTML {
+	if len(v) == 40 && strings.Trim(v, "0123456789abcdef") == "" {
+		return template.HTML(`<span title="` + v + `">` + v[:12] + `</span>`) //nolint:gosec // v is 40 lowercase hex characters
+	}
+	return template.HTML(template.HTMLEscapeString(v)) //nolint:gosec // escaped
 }
 
 // iconHTML renders a Tabler icon from the inline sprite. Icons are

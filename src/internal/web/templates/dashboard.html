@@ -9,29 +9,31 @@
         {{else}}Upstream checked <time datetime="{{iso .CheckedAt}}">{{when .CheckedAt}}</time>.{{end}}
       </div>
     </div>
-    <div class="col-auto ms-auto d-flex gap-2 flex-wrap">
+    <div class="col-auto ms-auto">
+      <div class="btn-list">
       {{if not $.ReadOnly}}
       <form method="post" action="/sync-all" class="d-inline">
         <input type="hidden" name="csrf" value="{{$.CSRF}}">
         <input type="hidden" name="mode" value="dry-run">
-        <button type="submit" class="btn btn-primary">{{icon "player-play"}}<span class="ms-1">Sync stale packs (dry run)</span></button>
+        <button type="submit" class="btn btn-primary">{{icon "player-play"}}Sync stale packs (dry run)</button>
       </form>
       {{end}}
       <form method="post" action="/check" class="d-inline">
         <input type="hidden" name="csrf" value="{{$.CSRF}}">
-        <button type="submit" class="btn btn-outline-primary"{{if .Running}} disabled{{end}}>{{icon "refresh"}}<span class="ms-1">Refresh check</span></button>
+        <button type="submit" class="btn btn-outline-primary"{{if .Running}} disabled{{end}}>{{icon "refresh"}}Refresh check</button>
       </form>
+      </div>
     </div>
   </div>
 </div>
 
-{{if .Err}}<div class="alert alert-danger" role="alert">{{icon "alert-circle"}} {{.Err}}</div>{{end}}
+{{if .Err}}<div class="alert alert-danger text-break" role="alert">{{icon "alert-circle"}} {{.Err}}</div>{{end}}
 
 <div class="row row-cards mb-3">
   <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="text-secondary">Packs</div><div class="h2 mb-0">{{.Totals.Packs}}</div></div></div></div>
-  <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="text-secondary">Up to date</div><div class="h2 mb-0">{{.Totals.OK}}</div></div></div></div>
-  <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="text-secondary">Behind upstream</div><div class="h2 mb-0">{{.Totals.Stale}}</div></div></div></div>
-  <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="text-secondary">Vendored SVGs</div><div class="h2 mb-0">{{thousands .Totals.SVGs}}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="text-secondary">Up to date</div><div class="h2 mb-0">{{if .CheckedAt.IsZero}}–{{else}}{{.Totals.OK}}{{end}}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="text-secondary">Behind upstream</div><div class="h2 mb-0">{{if .CheckedAt.IsZero}}–{{else}}{{.Totals.Stale}}{{end}}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="text-secondary">Vendored SVGs</div><div class="h2 mb-0">{{if .CheckedAt.IsZero}}–{{else}}{{thousands .Totals.SVGs}}{{end}}</div></div></div></div>
 </div>
 
 <div class="card">
@@ -53,12 +55,12 @@
         {{range .Rows}}
         <tr>
           <th scope="row"><div><a href="/packs/{{.Slug}}">{{.Slug}}</a></div><div class="text-secondary small fw-normal">{{.Pack}}</div></th>
-          <td>{{template "status_badge" .}}{{if and .Checked .Result.Reason}}<div class="text-secondary small">{{.Result.Reason}}</div>{{end}}</td>
-          <td><code>{{orDash .Current}}</code></td>
-          <td>{{if .Checked}}<code>{{orDash .Result.Latest}}</code>{{if .Result.ReleaseURL}} <a href="{{.Result.ReleaseURL}}" rel="noreferrer noopener" target="_blank">{{icon "external-link"}}<span class="visually-hidden">Release notes for {{.Slug}} (opens in a new tab)</span></a>{{end}}{{else}}–{{end}}</td>
+          <td>{{template "status_badge" .}}{{if and .Checked .Result.Reason}}<div class="text-secondary small text-break">{{.Result.Reason}}</div>{{end}}</td>
+          <td class="text-nowrap"><code>{{version (orDash .Current)}}</code></td>
+          <td class="text-nowrap">{{if .Checked}}<code>{{version (orDash .Result.Latest)}}</code>{{if .Result.ReleaseURL}} <a href="{{.Result.ReleaseURL}}" rel="noreferrer noopener" target="_blank">{{icon "external-link"}}<span class="visually-hidden">Release notes for {{.Slug}} (opens in a new tab)</span></a>{{end}}{{else}}–{{end}}</td>
           <td>{{if .Checked}}{{thousands .Stats.SVGs}}{{else}}–{{end}}</td>
-          <td>{{if .Stats.Err}}<span class="text-danger small">{{.Stats.Err}}</span>{{else if .Stats.Branch}}{{icon "git-branch"}} <code>{{.Stats.Branch}}</code>{{if .Stats.Dirty}} <span class="badge badge-warn">uncommitted changes</span>{{end}}{{else}}–{{end}}</td>
-          <td>{{orDash .Recipe}}</td>
+          <td>{{if .Stats.Err}}<span class="text-danger small text-break">{{.Stats.Err}}</span>{{else if .Stats.Branch}}{{icon "git-branch"}} <code>{{.Stats.Branch}}</code>{{if .Stats.Dirty}} <span class="badge badge-warn">uncommitted changes</span>{{end}}{{else}}–{{end}}</td>
+          <td class="text-nowrap">{{orDash .Recipe}}</td>
         </tr>
         {{else}}
         <tr><td colspan="7" class="text-secondary">No packs are registered in this config directory.</td></tr>

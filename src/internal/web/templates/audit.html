@@ -16,7 +16,7 @@
         <input class="form-control" id="audit-package" name="package" autocomplete="off" spellcheck="false" value="{{.Pkg}}">
       </div>
       <div class="col-sm-3">
-        <button type="submit" class="btn btn-primary w-100"{{if .Live}} disabled{{end}}>{{icon "player-play"}}<span class="ms-1">Start audit</span></button>
+        <button type="submit" class="btn btn-primary w-100"{{if .Live}} disabled{{end}}>{{icon "player-play"}}Start audit</button>
       </div>
     </form>
   </div>
@@ -28,7 +28,7 @@
   <span class="badge {{runClass .Job.Status}}">{{.Job.Status}}</span>
   <span>Latest audit: {{.Job.Label}}, started <time datetime="{{iso .Job.Started}}">{{when .Job.Started}}</time>.</span>
   <a href="/jobs/{{.Job.ID}}">Watch the run</a>
-  {{if .Results}}<a class="ms-auto btn btn-outline-secondary btn-sm" href="/manifest-pack/audit/{{.Job.ID}}/manifest.json">{{icon "download"}}<span class="ms-1">Download as a set manifest</span></a>{{end}}
+  {{if .Results}}<a class="ms-auto btn btn-outline-secondary btn-sm" href="/manifest-pack/audit/{{.Job.ID}}/manifest.json">{{icon "download"}}Download as a set manifest</a>{{end}}
 </div>
 {{if .Results}}
 <div class="row row-cards mb-3">

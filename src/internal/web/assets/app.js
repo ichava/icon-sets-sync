@@ -175,7 +175,7 @@
       var state = item.querySelector("[data-role=state]");
       state.className = badgeClass(e.state) + " me-2";
       state.textContent = e.state;
-      setLine(item, "error", "text-danger small", e.error || "");
+      setLine(item, "error", "text-danger small text-break", e.error || "");
     },
     "pack-start": function (e) {
       var li = packItem(e.pack);
@@ -191,7 +191,7 @@
       b.className = badgeClass(e.status);
       b.textContent = e.status;
       if (e.msg) { setLine(li, "detail", "text-secondary small", e.msg); }
-      setLine(li, "error", "text-danger small", e.error || "");
+      setLine(li, "error", "text-danger small text-break", e.error || "");
       status.textContent = e.pack + ": " + e.status;
     },
     "done": function (e) {

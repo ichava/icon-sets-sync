@@ -15,7 +15,7 @@
       {{range outcomes}}<option value="{{.}}"{{if eq . $.Data.Outcome}} selected{{end}}>{{.}}</option>{{end}}
     </select>
   </div>
-  <div class="col-auto"><button type="submit" class="btn btn-outline-primary">{{icon "search"}}<span class="ms-1">Filter</span></button></div>
+  <div class="col-auto"><button type="submit" class="btn btn-outline-primary">{{icon "search"}}Filter</button></div>
 </form>
 <div class="card">
   <div class="table-responsive">
@@ -25,11 +25,11 @@
       <tbody>
         {{range .Runs}}
         <tr>
-          <td><a href="/jobs/{{.ID}}"><time datetime="{{iso .Started}}">{{when .Started}}</time></a></td>
-          <td>{{.Kind}}</td>
+          <td class="text-nowrap"><a href="/jobs/{{.ID}}"><time datetime="{{iso .Started}}">{{when .Started}}</time></a></td>
+          <td class="text-nowrap">{{.Kind}}</td>
           <td>{{range $i, $p := .Packs}}{{if $i}}, {{end}}<code>{{$p}}</code>{{end}}</td>
-          <td>{{if .DryRun}}dry run{{else}}real{{end}}</td>
-          <td><span class="badge {{runClass .Status}}">{{.Status}}</span>{{if .Err}}<div class="text-secondary small">{{.Err}}</div>{{end}}</td>
+          <td class="text-nowrap">{{if .DryRun}}dry run{{else}}real{{end}}</td>
+          <td><span class="badge {{runClass .Status}}">{{.Status}}</span>{{if .Err}}<div class="text-secondary small text-break">{{.Err}}</div>{{end}}</td>
           <td>{{.Duration $.Data.Now}}</td>
           <td><a href="/jobs/{{.ID}}/log.jsonl">{{icon "download"}}<span class="visually-hidden">Download the log of the run started {{when .Started}}</span></a></td>
         </tr>

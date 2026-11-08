@@ -23,9 +23,9 @@
       <textarea class="editor-text" id="editor-text" name="content" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-describedby="editor-findings"{{if not .Editable}} readonly{{end}}>{{.Text}}</textarea>
     </div>
   </div>
-  <div class="d-flex gap-2 mb-3">
-    <button type="submit" class="btn btn-outline-primary" formaction="/config/{{.Doc.Name}}/validate">{{icon "shield-check"}}<span class="ms-1">Validate</span></button>
-    {{if .Editable}}<button type="submit" class="btn btn-primary" id="editor-save">{{icon "device-floppy"}}<span class="ms-1">Save</span></button>{{end}}
+  <div class="btn-list mb-3">
+    <button type="submit" class="btn btn-outline-primary" formaction="/config/{{.Doc.Name}}/validate">{{icon "shield-check"}}Validate</button>
+    {{if .Editable}}<button type="submit" class="btn btn-primary" id="editor-save">{{icon "device-floppy"}}Save</button>{{end}}
   </div>
 </form>
 
