@@ -48,3 +48,7 @@ main:focus { outline: none; }
 .page-body p a, .page-body dd a, .page-body .text-secondary a, .alert a { text-decoration: underline; }
 
 .licence-text:focus-visible, .log-pane:focus-visible { outline: 2px solid var(--tblr-primary); outline-offset: 2px; }
+
+/* A copyable command: wraps rather than scrolling sideways in a side panel. */
+.cli-snippet { white-space: pre-wrap; word-break: break-all; font-size: .8125rem; }
+.cell-reason { max-width: 16rem; cursor: help; }

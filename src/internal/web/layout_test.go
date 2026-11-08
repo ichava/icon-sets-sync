@@ -112,7 +112,8 @@ func TestDashboardTotalsWaitForTheFirstCheck(t *testing.T) {
 
 // U9: a check failure's reason is one long URL with no break opportunity, so
 // it set the Status column's width and pushed the packs table past its card.
-// Every error text inside a table cell may break anywhere.
+// Every error text inside a table cell may break anywhere, or is truncated
+// with the whole text in its tooltip.
 func TestTableErrorTextMayBreak(t *testing.T) {
 	for _, name := range []string{"templates/dashboard.html", "templates/jobs.html"} {
 		b, err := templateFS.ReadFile(name)
@@ -123,8 +124,8 @@ func TestTableErrorTextMayBreak(t *testing.T) {
 		for _, field := range []string{"{{.Result.Reason}}", "{{.Stats.Err}}", "{{.Err}}"} {
 			for i := strings.Index(s, field); i >= 0; {
 				open := strings.LastIndex(s[:i], "<")
-				if !strings.Contains(s[open:i], "text-break") {
-					t.Errorf("%s: %s sits in %q without text-break", name, field, s[open:i])
+				if !strings.Contains(s[open:i], "text-break") && !strings.Contains(s[open:i], "text-truncate") {
+					t.Errorf("%s: %s sits in %q without text-break or text-truncate", name, field, s[open:i])
 				}
 				next := strings.Index(s[i+1:], field)
 				if next < 0 {

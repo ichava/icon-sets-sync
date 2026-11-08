@@ -9,7 +9,7 @@
     <div class="col-auto ms-auto btn-list">
       <a class="btn btn-outline-secondary" href="/jobs/{{.Info.ID}}/log.jsonl">{{icon "download"}}Download log</a>
       {{if and .Live (not $.ReadOnly)}}
-      <form method="post" action="/jobs/{{.Info.ID}}/cancel" data-confirm="Cancel this run? The stage in flight is stopped and nothing after it runs.">
+      <form method="post" action="/jobs/{{.Info.ID}}/cancel" data-confirm="The stage in flight is stopped and nothing after it runs." data-confirm-title="Cancel this run?" data-confirm-button="Cancel run">
         <input type="hidden" name="csrf" value="{{$.CSRF}}">
         <button type="submit" class="btn btn-outline-danger">{{icon "player-stop"}}Cancel</button>
       </form>

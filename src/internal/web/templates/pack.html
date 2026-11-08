@@ -2,11 +2,16 @@
 <div class="page-header d-print-none mb-3">
   <div class="row g-2 align-items-center">
     <div class="col">
-      <div class="page-pretitle"><a href="/">{{icon "arrow-left"}} Packs</a></div>
+      <div class="page-pretitle"><a href="/">{{iconc "arrow-left" "icon-inline"}} Packs</a></div>
       <h1 class="page-title">{{.Pack.Name}}</h1>
       <div class="text-secondary mt-1">{{.Pack.Pack}} · recipe {{orDash .Recipe}} · vendored <code>{{version (orDash .Current)}}</code>
         {{if .Checked}} · upstream <code>{{version (orDash .Result.Latest)}}</code> <span class="badge {{statusClass .Status}}">{{statusText .Status}}</span>{{end}}
         {{if .Result.ReleaseURL}} · <a href="{{.Result.ReleaseURL}}" rel="noreferrer noopener" target="_blank">release notes{{icon "external-link"}}<span class="visually-hidden"> (opens in a new tab)</span></a>{{end}}
+      </div>
+    </div>
+    <div class="col-auto ms-auto">
+      <div class="btn-list">
+        <a href="#cli-panel" class="btn" data-bs-toggle="offcanvas" role="button" aria-controls="cli-panel">{{icon "terminal-2"}}CLI &amp; CI</a>
       </div>
     </div>
   </div>
@@ -93,6 +98,25 @@
       </div>
       {{else}}<div class="card-body text-secondary">No runs yet.</div>{{end}}
     </div>
+  </div>
+</div>
+{{end}}{{end}}
+
+{{define "panels"}}{{with .Data}}
+<div class="offcanvas offcanvas-end" tabindex="-1" id="cli-panel" role="dialog" aria-labelledby="cli-panel-title">
+  <div class="offcanvas-header">
+    <h2 class="offcanvas-title" id="cli-panel-title">{{.Pack.Name}} from the command line</h2>
+    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body">
+    <p class="text-secondary">What this page does, as commands. Add <code>--json --non-interactive</code> in a script or CI.</p>
+    {{template "cli_snippet" (cli "cli-check" "Check upstream" (printf "icon-sets-sync check --pack %s" .Pack.Name))}}
+    {{template "cli_snippet" (cli "cli-dry" "Dry run" (printf "icon-sets-sync sync --pack %s --dry-run" .Pack.Name))}}
+    {{template "cli_snippet" (cli "cli-real" "Real sync (commits, pushes, opens a pull request)" (printf "icon-sets-sync sync --pack %s --non-interactive" .Pack.Name))}}
+    {{template "cli_snippet" (cli "cli-recipe" "Recipe at a version" (printf "icon-sets-sync recipe %s --version %s --dry-run" .Pack.Name .Pack.CurrentVersion))}}
+    <h3 class="h4 mt-4">{{icon "brand-github"}} GitHub Actions</h3>
+    <p class="text-secondary small">In the pack repository's <code>.github/workflows/sync-upstream.yml</code>. Pin <code>toolkit-ref</code> and the <code>uses</code> line to the same commit SHA.</p>
+    {{template "cli_snippet" (cli "cli-gha" "Workflow job" (printf "jobs:\n  sync:\n    uses: ichava/icon-sets-sync/.github/workflows/sync-pack.yml@<sha>\n    with:\n      pack: %s\n      toolkit-ref: <sha>\n      refresh-app-client-id: ${{ vars.REFRESH_APP_CLIENT_ID }}\n    secrets:\n      refresh-app-private-key: ${{ secrets.REFRESH_APP_PRIVATE_KEY }}" (repo .Pack.Pack)))}}
   </div>
 </div>
 {{end}}{{end}}
