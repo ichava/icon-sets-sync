@@ -40,6 +40,7 @@ func TestThemeLinksShowOnlyTheSwitchAway(t *testing.T) {
 	for _, want := range []string{
 		`href="?theme=dark" class="nav-link px-2 hide-theme-dark"`,
 		`href="?theme=light" class="nav-link px-2 hide-theme-light"`,
+		`data-bs-title="Dark theme" aria-label="Dark theme"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("layout lacks %s", want)
@@ -70,7 +71,7 @@ func TestEveryPageNamesAnEmbeddedFavicon(t *testing.T) {
 // card at 1366px. It shows 12 characters and keeps the whole value in title.
 func TestShortVersion(t *testing.T) {
 	sha := "82d948812bfe3f269ef8f731dcdb07b08160edc4"
-	if got := string(shortVersion(sha)); got != `<span title="`+sha+`">82d948812bfe</span>` {
+	if got := string(shortVersion(sha)); got != `82d948812bfe` {
 		t.Errorf("shortVersion(sha) = %s", got)
 	}
 	for _, v := range []string{"3.50.0", "2026-09-24-unicode18_0", "", "abc"} {

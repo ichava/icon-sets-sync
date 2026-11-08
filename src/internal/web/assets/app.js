@@ -15,6 +15,7 @@
   }
   function reloadWhenIdle() {
     if (busy()) { window.setTimeout(reloadWhenIdle, 1000); return; }
+    disposeTips();
     window.location.reload();
   }
   if (reload) {
@@ -61,11 +62,38 @@
     modalEl.addEventListener("hidden.bs.modal", function () { pending = null; });
   }
 
-  // Tooltips and popovers are opt-in in Bootstrap; Tabler's own pages
-  // initialise every one on load, and so does this.
-  if (tb.Tooltip) {
-    document.querySelectorAll("[data-bs-toggle=tooltip]").forEach(function (n) { tb.Tooltip.getOrCreateInstance(n); });
+  // Tooltips, after the owner's rules of 2026-11-08: only on icon-only
+  // controls (a test holds the templates to that), one at a time, never over
+  // an open menu, panel or dialog, gone on click, Escape or scroll, and never
+  // on a touch screen, where a tap would leave one stuck. This is the one
+  // place they are created and the one place they are disposed.
+  var tips = [];
+  function hideTips(except) {
+    tips.forEach(function (t) { if (t !== except) { t.hide(); } });
   }
+  function disposeTips() {
+    tips.forEach(function (t) { t.dispose(); });
+    tips = [];
+  }
+  function initTips(root) {
+    if (!tb.Tooltip || (window.matchMedia && window.matchMedia("(hover: none)").matches)) { return; }
+    root.querySelectorAll("[data-bs-toggle=tooltip]").forEach(function (n) {
+      var t = tb.Tooltip.getOrCreateInstance(n);
+      tips.push(t);
+      n.addEventListener("show.bs.tooltip", function (ev) {
+        if (document.querySelector(".dropdown-menu.show, .modal.show, .offcanvas.show")) { ev.preventDefault(); return; }
+        hideTips(t);
+      });
+    });
+  }
+  initTips(document);
+  ["show.bs.dropdown", "show.bs.offcanvas", "show.bs.modal"].forEach(function (type) {
+    document.addEventListener(type, function () { hideTips(null); });
+  });
+  document.addEventListener("click", function () { hideTips(null); }, true);
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { hideTips(null); } }, true);
+  window.addEventListener("scroll", function () { hideTips(null); }, { capture: true, passive: true });
+  window.addEventListener("pagehide", disposeTips);
   if (tb.Popover) {
     document.querySelectorAll("[data-bs-toggle=popover]").forEach(function (n) { tb.Popover.getOrCreateInstance(n); });
   }
