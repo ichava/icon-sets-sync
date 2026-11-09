@@ -161,6 +161,11 @@ func TestAnOldAuditsReadErrorIsExplained(t *testing.T) {
 		!strings.Contains(p.Cause, "no set directory named tabler") {
 		t.Fatalf("%+v %+v", rs, got)
 	}
+	// With the config not loaded there is no set list to suggest from.
+	unloaded := explainAuditErrors([]manifestpack.Resolution{{Set: "tabler", Note: rs[0].Error}}, nil)["tabler"]
+	if !strings.Contains(unloaded.Fix, "Load the aggregator pack's config") {
+		t.Errorf("fix without a set list: %q", unloaded.Fix)
+	}
 }
 
 // A survey that could not read a set did not survey it: the run fails.
@@ -174,7 +179,8 @@ func TestAnAuditWithAnUnreadableSetFails(t *testing.T) {
 		t.Fatalf("%+v", info)
 	}
 	body := c.get("/manifest-pack/audit").Body.String()
-	for _, want := range []string{"could not read", "permission denied", `data-role="set-problem"`} {
+	for _, want := range []string{"could not read", "permission denied", `data-role="set-problem"`,
+		`<div class="text-secondary">none</div><div class="h2 mb-0">0</div>`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("audit page lacks %q", want)
 		}

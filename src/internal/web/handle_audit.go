@@ -71,9 +71,13 @@ func explainAuditErrors(rs []manifestpack.Resolution, sets []string) map[string]
 		if strings.Contains(rs[i].Error, "no such file or directory") {
 			p.Cause = "The pack has no set directory named " + rs[i].Set + ": it was renamed, or never existed."
 			p.Suggestions = app.SuggestSets(rs[i].Set, sets)
-			p.Fix = "Audit the set by its directory name."
-			if len(p.Suggestions) == 0 {
-				p.Fix = "Leave the set empty to audit every set, or pick one from the list."
+			switch {
+			case len(p.Suggestions) > 0:
+				p.Fix = "Audit the set by its directory name:"
+			case len(sets) == 0:
+				p.Fix = "Load the aggregator pack's config (above); the set field then lists the pack's real set names."
+			default:
+				p.Fix = "Leave the set empty to audit every set, or pick one from the set field's list."
 			}
 		}
 		out[rs[i].Set] = p
@@ -133,7 +137,15 @@ func (s *Server) renderAudit(w http.ResponseWriter, r *http.Request, status int,
 		d.Results = auditResults(events)
 		d.Problems = explainAuditErrors(d.Results, d.Sets)
 		d.Errors = manifestpack.CountErrors(d.Results)
-		d.Summary = manifestpack.Summary(d.Results)
+		// An unreadable set has no confidence to count; it is counted once,
+		// as could not read.
+		var surveyed []manifestpack.Resolution
+		for _, res := range d.Results {
+			if res.Error == "" {
+				surveyed = append(surveyed, res)
+			}
+		}
+		d.Summary = manifestpack.Summary(surveyed)
 	}
 	v := s.newView(r, "audit", "Manifest pack audit", d)
 	v.Reload = d.Live

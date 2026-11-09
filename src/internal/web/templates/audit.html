@@ -30,13 +30,13 @@
       {{end}}
     </div>
     {{else if not $.ReadOnly}}
-    <p>No pack checkout with a <code>.dev/icon-sets-sync/</code> directory was found under <code>packages_dirs</code>, the workspace or beside this checkout. Check out the aggregator pack, or set where the packs live on the <a href="/settings#packages-dirs">Settings</a> page.</p>
+    <p>No pack checkout with a <code>.dev/icon-sets-sync/</code> directory was found under <code>packages_dirs</code>, the workspace or beside this checkout. Check out the aggregator pack, or set where the packs live on the <a class="text-decoration-underline" href="/settings#packages-dirs">Settings</a> page.</p>
     {{end}}
     <p class="mb-1">Or set it yourself, any of these:</p>
     <ul class="mb-0">
       <li>start with <code>--private-config-dir &lt;pack&gt;/.dev/icon-sets-sync</code></li>
       <li>export <code>ICHAVA_PRIVATE_CONFIG_DIR</code></li>
-      <li>add <code>"private_config_dir"</code> to the <a href="/config/global">global config</a></li>
+      <li>add <code>"private_config_dir"</code> to the <a class="text-decoration-underline" href="/config/global">global config</a></li>
     </ul>
   </div>
 </div>
@@ -93,8 +93,8 @@
 </div>
 {{if .Results}}
 <div class="row row-cards mb-3">
-  {{if .Errors}}<div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">could not read</div><div class="h2 mb-0">{{.Errors}}</div></div></div></div>{{end}}
-  {{range .Order}}<div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">{{.}}</div><div class="h2 mb-0">{{index $.Data.Summary .}}</div></div></div></div>{{end}}
+  {{if .Errors}}<div class="col-6 col-md-4 col-lg"><div class="card card-sm"><div class="card-body"><div class="text-secondary">could not read</div><div class="h2 mb-0">{{.Errors}}</div></div></div></div>{{end}}
+  {{range .Order}}<div class="col-6 col-md-4 col-lg"><div class="card card-sm"><div class="card-body"><div class="text-secondary">{{.}}</div><div class="h2 mb-0">{{index $.Data.Summary .}}</div></div></div></div>{{end}}
 </div>
 <div class="card">
   <div class="table-responsive">
