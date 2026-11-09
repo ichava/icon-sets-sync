@@ -163,7 +163,7 @@ func writePackAnnotations(w io.Writer, reports []packcheck.Report) {
 			if f.Path != "" {
 				props = "file=" + prop.Replace(f.Path) + "," + props
 			}
-			fmt.Fprintf(w, "::%s %s::%s\n", kind, props, body.Replace(f.Text))
+			_, _ = fmt.Fprintf(w, "::%s %s::%s\n", kind, props, body.Replace(f.Text))
 		}
 	}
 }
@@ -172,8 +172,8 @@ func packSummaryMarkdown(reports []packcheck.Report, errs, warns int) string {
 	var b strings.Builder
 	b.WriteString("### Pack structure\n\n| Pack | Sets | SVGs | Errors | Warnings |\n|---|---|---|---|---|\n")
 	for _, r := range reports {
-		fmt.Fprintf(&b, "| %s | %d | %d | %d | %d |\n", cell(r.Name), r.Sets, r.SVGs, r.Errors(), r.Warnings())
+		_, _ = fmt.Fprintf(&b, "| %s | %d | %d | %d | %d |\n", cell(r.Name), r.Sets, r.SVGs, r.Errors(), r.Warnings())
 	}
-	fmt.Fprintf(&b, "\n%d pack(s): %d error(s), %d warning(s).\n\n", len(reports), errs, warns)
+	_, _ = fmt.Fprintf(&b, "\n%d pack(s): %d error(s), %d warning(s).\n\n", len(reports), errs, warns)
 	return b.String()
 }

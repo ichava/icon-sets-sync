@@ -145,7 +145,7 @@ func reportSyncToGitHub(w io.Writer, outcomes []app.Outcome, annotate bool) erro
 			review = append(review, o.Pack)
 			for _, r := range o.Reviews() {
 				if annotate {
-					fmt.Fprint(w, annotation("warning", o.Pack+" needs review", r.Message))
+					_, _ = fmt.Fprint(w, annotation("warning", o.Pack+" needs review", r.Message))
 				}
 				reviewDetails = append(reviewDetails, reviewMarkdown(o.Pack, r))
 			}

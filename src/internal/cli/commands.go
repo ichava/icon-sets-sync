@@ -262,14 +262,14 @@ func runSync(ctx context.Context, cmd *cobra.Command, packs []*config.PackConfig
 			}
 			if group {
 				opened[p.Pack] = true
-				fmt.Fprintf(out, "::group::%s\n", p.Pack)
+				_, _ = fmt.Fprintf(out, "::group::%s\n", p.Pack)
 			}
 			ui.Info("%s: refreshing from %s %s %s%s", p.Pack, text.OrDash(r.Current), ui.Sym.Arrow, r.Latest, mode)
 		},
 		Done: func(o app.Outcome) {
 			reportOutcome(o)
 			if opened[o.Pack] {
-				fmt.Fprintln(out, "::endgroup::")
+				_, _ = fmt.Fprintln(out, "::endgroup::")
 			}
 		},
 	})

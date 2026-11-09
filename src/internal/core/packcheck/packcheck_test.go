@@ -51,19 +51,19 @@ func TestEveryCheckCanFail(t *testing.T) {
 		mutate func(root string)
 		want   string
 	}{
-		"composer missing": {func(r string) { os.Remove(filepath.Join(r, "composer.json")) }, "composer.json"},
+		"composer missing": {func(r string) { _ = os.Remove(filepath.Join(r, "composer.json")) }, "composer.json"},
 		"composer wrong type": {func(r string) {
 			put(t, r, map[string]string{"composer.json": `{"name":"ichava/icon-sets-demo","type":"library"}`})
 		}, "ichava-icon-set"},
-		"manifest missing": {func(r string) { os.Remove(filepath.Join(r, "resources/assets/svg/config.json")) }, "manifest"},
+		"manifest missing": {func(r string) { _ = os.Remove(filepath.Join(r, "resources/assets/svg/config.json")) }, "manifest"},
 		"manifest mismatch": {func(r string) {
 			put(t, r, map[string]string{"resources/assets/svg/config.json": `{"schema_version":"1.0","package":{"name":"ichava/other"}}`})
 		}, "names ichava/other"},
 		"no pack config":  {func(r string) {}, "no pack config"},
-		"no licence":      {func(r string) { os.RemoveAll(filepath.Join(r, "resources/assets/svg/licenses")) }, "licence"},
-		"no root LICENSE": {func(r string) { os.Remove(filepath.Join(r, "LICENSE")) }, "LICENSE"},
-		"empty set":       {func(r string) { os.MkdirAll(filepath.Join(r, "resources/assets/svg/files/empty"), 0o755) }, "empty"},
-		"empty category":  {func(r string) { os.MkdirAll(filepath.Join(r, "resources/assets/svg/files/outline/nothing"), 0o755) }, "nothing"},
+		"no licence":      {func(r string) { _ = os.RemoveAll(filepath.Join(r, "resources/assets/svg/licenses")) }, "licence"},
+		"no root LICENSE": {func(r string) { _ = os.Remove(filepath.Join(r, "LICENSE")) }, "LICENSE"},
+		"empty set":       {func(r string) { _ = os.MkdirAll(filepath.Join(r, "resources/assets/svg/files/empty"), 0o755) }, "empty"},
+		"empty category":  {func(r string) { _ = os.MkdirAll(filepath.Join(r, "resources/assets/svg/files/outline/nothing"), 0o755) }, "nothing"},
 		"stray file": {func(r string) {
 			put(t, r, map[string]string{"resources/assets/svg/files/outline/readme.png": "x"})
 		}, "readme.png"},

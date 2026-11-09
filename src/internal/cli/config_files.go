@@ -56,14 +56,14 @@ from that list ("global" for the global config), print the file.`,
 			for _, f := range files {
 				rows = append(rows, []string{f.Name, f.Kind, f.Path})
 			}
-			fmt.Fprint(out, ui.Table([]string{"NAME", "KIND", "PATH"}, rows))
+			_, _ = fmt.Fprint(out, ui.Table([]string{"NAME", "KIND", "PATH"}, rows))
 			g := state.global
-			fmt.Fprintf(out, "\nglobal config: %s\n", orNone(g.Path))
+			_, _ = fmt.Fprintf(out, "\nglobal config: %s\n", orNone(g.Path))
 			if g.Path != "" {
-				fmt.Fprintf(out, "  chosen by:   %s\n", g.Layer)
+				_, _ = fmt.Fprintf(out, "  chosen by:   %s\n", g.Layer)
 			}
-			fmt.Fprintf(out, "  belongs at:  %s\n", g.Default)
-			fmt.Fprintf(out, "precedence, highest first: flags, ICHAVA_* environment, global config, pack settings, defaults\n")
+			_, _ = fmt.Fprintf(out, "  belongs at:  %s\n", g.Default)
+			_, _ = fmt.Fprintf(out, "precedence, highest first: flags, ICHAVA_* environment, global config, pack settings, defaults\n")
 			return nil
 		},
 	}
@@ -154,7 +154,7 @@ YAML is left alone. Shows the diff, then asks; --yes answers.`,
 			for _, c := range fixed.Changes {
 				ui.Info("%s", c)
 			}
-			fmt.Fprint(cmd.OutOrStdout(), confighistory.Unified(doc.Path, doc.Path+" (fixed)", string(doc.Data), string(fixed.Data)))
+			_, _ = fmt.Fprint(cmd.OutOrStdout(), confighistory.Unified(doc.Path, doc.Path+" (fixed)", string(doc.Data), string(fixed.Data)))
 			if err := confirm(fmt.Sprintf("Write these changes to %s?", doc.Path)); err != nil {
 				return err
 			}
@@ -192,7 +192,7 @@ history_keep sets how many are kept. ` + "`config diff`" + ` and ` + "`config re
 			for _, e := range entries {
 				rows = append(rows, []string{e.ID, e.Time.Local().Format("2006-01-02 15:04:05"), fmt.Sprintf("%d bytes", e.Size)})
 			}
-			fmt.Fprint(cmd.OutOrStdout(), ui.Table([]string{"ID", "SAVED", "SIZE"}, rows))
+			_, _ = fmt.Fprint(cmd.OutOrStdout(), ui.Table([]string{"ID", "SAVED", "SIZE"}, rows))
 			return nil
 		},
 	}
@@ -241,7 +241,7 @@ func newConfigDiffCommand() *cobra.Command {
 				ui.Success("%s is identical to copy %s", doc.Name, id)
 				return nil
 			}
-			fmt.Fprint(cmd.OutOrStdout(), d)
+			_, _ = fmt.Fprint(cmd.OutOrStdout(), d)
 			return nil
 		},
 	}
@@ -270,7 +270,7 @@ undone. Shows the diff, then asks; --yes answers.`,
 				ui.Success("%s is already identical to copy %s", doc.Name, id)
 				return nil
 			}
-			fmt.Fprint(cmd.OutOrStdout(), d)
+			_, _ = fmt.Fprint(cmd.OutOrStdout(), d)
 			if err := confirm(fmt.Sprintf("Restore copy %s over %s?", id, doc.Path)); err != nil {
 				return err
 			}
