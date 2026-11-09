@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
@@ -115,6 +116,10 @@ const (
 	StatusSynced     Status = "synced"
 	StatusFailed     Status = "failed"
 	StatusUnresolved Status = "unresolved"
+	// StatusNeedsReview is a run a guard stopped for a person to decide: a
+	// refresh would rename or remove shipped icons. A dry run that would hit
+	// the guard ends here too, having reported every icon, rather than failing.
+	StatusNeedsReview Status = "needs-review"
 )
 
 // Outcome is one pack's result.
@@ -136,6 +141,32 @@ func (o Outcome) Failed() bool { return o.Status == StatusFailed || o.Status == 
 // error is flattened to text, so the pipeline result's error is checked too.
 func (o Outcome) LicenceChanged() bool {
 	return errors.Is(o.Err, sinks.ErrLicenceChanged) || errors.Is(o.Result.Err, sinks.ErrLicenceChanged)
+}
+
+// NeedsReview reports whether a guard stopped the run for a person to decide.
+func (o Outcome) NeedsReview() bool { return o.Status == StatusNeedsReview }
+
+// Reviews is what a person has to look at: the dry run's recorded reviews, or
+// the real run's refusal.
+func (o Outcome) Reviews() []sinks.Review {
+	if r, ok := o.Result.Metrics["reviews"].([]sinks.Review); ok && len(r) > 0 {
+		return r
+	}
+	var re *sinks.ReviewError
+	if errors.As(o.Result.Err, &re) {
+		return []sinks.Review{{Target: re.Target, Reason: re.Reason, Message: re.Error(), Removals: re.Removals}}
+	}
+	return nil
+}
+
+// AnyNeedsReview reports whether any outcome needs review.
+func AnyNeedsReview(outcomes []Outcome) bool {
+	for _, o := range outcomes {
+		if o.NeedsReview() {
+			return true
+		}
+	}
+	return false
 }
 
 // AnyFailed reports whether any outcome failed.
@@ -285,8 +316,17 @@ func syncOne(ctx context.Context, pack *config.PackConfig, opts SyncOptions, chk
 	switch {
 	case err != nil:
 		o.Status, o.Err = StatusFailed, err
+	case !res.Success && errors.Is(res.Err, sinks.ErrNeedsReview):
+		o.Status, o.Err = StatusNeedsReview, fmt.Errorf("%s", res.Error())
 	case !res.Success:
 		o.Status, o.Err = StatusFailed, fmt.Errorf("%s", res.Error())
+	case len(o.Reviews()) > 0:
+		o.Status = StatusNeedsReview
+		msgs := make([]string, 0)
+		for _, r := range o.Reviews() {
+			msgs = append(msgs, r.Message)
+		}
+		o.Err = fmt.Errorf("a real run would stop for review: %s", strings.Join(msgs, "; "))
 	default:
 		o.Status = StatusSynced
 	}
@@ -316,15 +356,34 @@ func RunRecipe(ctx context.Context, pack *config.PackConfig, version string, opt
 	}
 
 	var last pipeline.Result
+	var all []pipeline.Result
 	for _, p := range built {
 		result, err := p.RunContext(ctx)
 		if err != nil {
 			return result, err
 		}
 		last = result
+		all = append(all, result)
 		if !result.Success {
 			return result, nil
 		}
 	}
+	if reviews := collectReviews(all); len(reviews) > 0 {
+		if last.Metrics == nil {
+			last.Metrics = map[string]any{}
+		}
+		last.Metrics["reviews"] = reviews
+	}
 	return last, nil
+}
+
+// collectReviews gathers the dry-run review each pipeline recorded, in order.
+func collectReviews(results []pipeline.Result) []sinks.Review {
+	var out []sinks.Review
+	for _, r := range results {
+		if rv, ok := sinks.ReviewOf(r.Metrics); ok {
+			out = append(out, rv)
+		}
+	}
+	return out
 }

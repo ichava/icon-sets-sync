@@ -38,6 +38,8 @@ type fakeEngine struct {
 	cfg *AppEngine
 	// packsFn, when set, replaces the fixed pack list (to fail like a real engine).
 	packsFn func() ([]*config.PackConfig, error)
+	// outcome, when set, replaces a sync's synced outcome for a pack.
+	outcome func(p *config.PackConfig, req RunRequest) *app.Outcome
 }
 
 func (f *fakeEngine) ConfigFiles() ([]ConfigFile, error)     { return f.cfg.ConfigFiles() }
@@ -214,6 +216,11 @@ func (f *fakeEngine) Sync(ctx context.Context, packs []*config.PackConfig, req R
 		h.Observer.StageFinished(p.Name+"@9.9.9", "NpmTarball", map[string]any{"npm": map[string]any{"files": 3}}, nil)
 		out[i] = app.Outcome{Pack: p.Pack, Status: app.StatusSynced, DryRun: req.DryRun,
 			Result: pipeline.Result{Success: true, Metrics: map[string]any{"filesystem": map[string]any{"copied": 3}}}}
+		if f.outcome != nil {
+			if o := f.outcome(p, req); o != nil {
+				out[i] = *o
+			}
+		}
 		h.Done(out[i])
 	}
 	return out

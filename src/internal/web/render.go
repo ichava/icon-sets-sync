@@ -156,6 +156,8 @@ func funcs(a *assetSet) template.FuncMap {
 				return "badge-info"
 			case "cancelled":
 				return "badge-muted"
+			case "needs-review":
+				return "badge-warn"
 			}
 			return "badge-bad"
 		},
@@ -167,6 +169,8 @@ func funcs(a *assetSet) template.FuncMap {
 				return "alert-info"
 			case jobs.StatusCancelled:
 				return "alert-secondary"
+			case jobs.StatusNeedsReview:
+				return "alert-warning"
 			}
 			return "alert-danger"
 		},
@@ -178,6 +182,8 @@ func funcs(a *assetSet) template.FuncMap {
 				return "Running"
 			case jobs.StatusCancelled:
 				return "Cancelled"
+			case jobs.StatusNeedsReview:
+				return "Needs review"
 			}
 			return "Failed"
 		},
@@ -200,7 +206,7 @@ func funcs(a *assetSet) template.FuncMap {
 			return "badge-bad"
 		},
 		"outcomes": func() []string {
-			return []string{string(jobs.StatusRunning), string(jobs.StatusSucceeded), string(jobs.StatusFailed), string(jobs.StatusCancelled)}
+			return []string{string(jobs.StatusRunning), string(jobs.StatusSucceeded), string(jobs.StatusNeedsReview), string(jobs.StatusFailed), string(jobs.StatusCancelled)}
 		},
 		"version":      shortVersion,
 		"appName":      func() string { return AppName },

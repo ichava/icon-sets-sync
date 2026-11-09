@@ -266,6 +266,9 @@ func runSync(ctx context.Context, cmd *cobra.Command, packs []*config.PackConfig
 			if o.LicenceChanged() {
 				row["licence_changed"] = true
 			}
+			if reviews := o.Reviews(); len(reviews) > 0 {
+				row["reviews"] = reviews
+			}
 			rows = append(rows, row)
 		}
 		if err := ui.JSON(rows); err != nil {
@@ -282,6 +285,9 @@ func runSync(ctx context.Context, cmd *cobra.Command, packs []*config.PackConfig
 	if app.AnyFailed(outcomes) {
 		return &ExitError{Code: ExitFailure}
 	}
+	if app.AnyNeedsReview(outcomes) {
+		return &ExitError{Code: ExitNeedsReview}
+	}
 	return nil
 }
 
@@ -294,6 +300,21 @@ func reportOutcome(o app.Outcome) {
 		ui.Success("%s: up-to-date (%s)", o.Pack, o.Current)
 	case app.StatusSynced:
 		ui.Success("%s: done -- %s", o.Pack, o.Result.Headline())
+	case app.StatusNeedsReview:
+		ui.Warning("%s: needs review", o.Pack)
+		for _, r := range o.Reviews() {
+			if r.Reason != "" {
+				ui.Warning("  %s", r.Reason)
+			}
+			for _, rm := range r.Removals {
+				if rm.RenamedTo != "" {
+					ui.Warning("  renamed  %s -> %s", rm.Path, rm.RenamedTo)
+				} else {
+					ui.Warning("  removed  %s", rm.Path)
+				}
+			}
+		}
+		ui.Warning("%s: check these, then re-run with --force to let them through", o.Pack)
 	default:
 		// A pack with no recipe yet is reported as a warning, not a failure.
 		// No recipe returns ErrRecipePending today, and since

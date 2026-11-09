@@ -218,14 +218,20 @@ func (s *Server) startSync(w http.ResponseWriter, r *http.Request, kind jobs.Kin
 	j, err := s.jobs.Start(jobs.Spec{Kind: kind, Packs: names, DryRun: req.DryRun, Label: label},
 		func(ctx context.Context, j *jobs.Job) (jobs.Status, error) {
 			outcomes := s.opts.Engine.Sync(ctx, packs, req, s.hooks(j))
-			failed := 0
+			failed, review := 0, 0
 			for _, o := range outcomes {
-				if o.Failed() {
+				switch {
+				case o.Failed():
 					failed++
+				case o.NeedsReview():
+					review++
 				}
 			}
 			if failed > 0 {
 				return jobs.StatusFailed, fmt.Errorf("%d of %d packs failed", failed, len(outcomes))
+			}
+			if review > 0 {
+				return jobs.StatusNeedsReview, fmt.Errorf("%d of %d packs need review", review, len(outcomes))
 			}
 			return jobs.StatusSucceeded, nil
 		})
@@ -287,6 +293,11 @@ func (s *Server) hooks(j *jobs.Job) RunHooks {
 			if o.Err != nil {
 				errText = o.Err.Error()
 			}
+			for _, rv := range o.Reviews() {
+				if err := j.Record(reviewRecord{Kind: "review", Pack: o.Pack, Review: rv}); err != nil {
+					j.Logf("error", "recording the review: %v", err)
+				}
+			}
 			j.PackDone(o.Pack, packStatus(o), errText, packDetail(o))
 		},
 	}
@@ -316,6 +327,18 @@ func packDetail(o app.Outcome) string {
 		return "up to date at " + o.Current
 	case o.Status == app.StatusSynced:
 		return summary(o.Result.Metrics)
+	case o.NeedsReview():
+		renamed, removed := 0, 0
+		for _, rv := range o.Reviews() {
+			for _, rm := range rv.Removals {
+				if rm.RenamedTo != "" {
+					renamed++
+				} else {
+					removed++
+				}
+			}
+		}
+		return fmt.Sprintf("a real run would stop here: %d renamed, %d removed -- see the list below", renamed, removed)
 	}
 	return ""
 }

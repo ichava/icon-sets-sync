@@ -7,8 +7,10 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
 	"github.com/ichava/icon-sets-sync/src/internal/web/jobs"
 )
 
@@ -23,7 +25,25 @@ type stageProgress struct {
 	Pipeline, Stage, State, Err string
 }
 
+// reviewRecord is the result event a sync records for each review, so the
+// list survives a restart with the rest of the run.
+type reviewRecord struct {
+	Kind   string       `json:"kind"`
+	Pack   string       `json:"pack"`
+	Review sinks.Review `json:"review"`
+}
+
+// reviewView is one review on the run page.
+type reviewView struct {
+	Pack, Target, Reason string
+	Removals             []sinks.Removal
+	Renamed, Removed     int
+}
+
 type jobData struct {
+	Reviews []reviewView
+	// Force is the re-run with --force a run that needs review offers.
+	Force    *forceRerun
 	Info     jobs.Info
 	Live     bool
 	Packs    []packProgress
@@ -78,10 +98,26 @@ func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
 			d.Stages = upsertStage(d.Stages, e)
 		case jobs.EventLog:
 			d.Log = append(d.Log, e)
+		case jobs.EventResult:
+			var rec reviewRecord
+			if json.Unmarshal(e.Data, &rec) == nil && rec.Kind == "review" {
+				rv := reviewView{Pack: rec.Pack, Target: rec.Review.Target, Reason: rec.Review.Reason, Removals: rec.Review.Removals}
+				for _, rm := range rv.Removals {
+					if rm.RenamedTo != "" {
+						rv.Renamed++
+					} else {
+						rv.Removed++
+					}
+				}
+				d.Reviews = append(d.Reviews, rv)
+			}
 		}
 	}
 	if len(events) > 0 && events[0].ID > 1 {
 		d.Dropped = true
+	}
+	if len(d.Reviews) > 0 && !s.opts.ReadOnly {
+		d.Force = newForceRerun(info, d.Reviews)
 	}
 	if len(d.Log) > maxLogLines {
 		d.Log, d.Dropped = d.Log[len(d.Log)-maxLogLines:], true
@@ -234,4 +270,52 @@ func writeEvent(w io.Writer, e jobs.Event) {
 		data = []byte(`{"type":"log","msg":"unencodable event"}`)
 	}
 	_, _ = fmt.Fprintf(w, "id: %d\nevent: %s\ndata: %s\n\n", e.ID, e.Type, data)
+}
+
+// forceRerun is the form that re-runs a run that needs review with --force.
+type forceRerun struct {
+	Action, Mode, Confirm string
+}
+
+// maxConfirmNames caps the icons a confirm dialog names; the page above it
+// lists every one.
+const maxConfirmNames = 40
+
+func newForceRerun(info jobs.Info, reviews []reviewView) *forceRerun {
+	f := &forceRerun{Mode: "real"}
+	if info.DryRun {
+		f.Mode = "dry-run"
+	}
+	switch {
+	case info.Kind == jobs.KindSync && len(info.Packs) == 1:
+		f.Action = "/packs/" + info.Packs[0] + "/sync"
+	case info.Kind == jobs.KindSyncAll:
+		f.Action = "/sync-all"
+	default:
+		return nil
+	}
+	var names []string
+	total := 0
+	for _, rv := range reviews {
+		for _, rm := range rv.Removals {
+			total++
+			if len(names) < maxConfirmNames {
+				if rm.RenamedTo != "" {
+					names = append(names, rm.Path+" -> "+rm.RenamedTo)
+				} else {
+					names = append(names, rm.Path+" (removed)")
+				}
+			}
+		}
+	}
+	what := "A dry run again, with the guard let through: it writes nothing."
+	if f.Mode == "real" {
+		what = "A real run that writes, commits and opens a pull request."
+	}
+	f.Confirm = fmt.Sprintf("%s It lets %d icon(s) go: %s", what, total, strings.Join(names, ", "))
+	if total > len(names) {
+		f.Confirm += fmt.Sprintf(", and %d more listed on this page", total-len(names))
+	}
+	f.Confirm += "."
+	return f
 }

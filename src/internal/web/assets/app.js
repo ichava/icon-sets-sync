@@ -292,6 +292,7 @@
       case "succeeded": case "synced": case "up-to-date": case "finished": return "badge badge-ok";
       case "running": case "started": return "badge badge-info";
       case "cancelled": return "badge badge-muted";
+      case "needs-review": return "badge badge-warn";
       default: return "badge badge-bad";
     }
   }

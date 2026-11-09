@@ -8,6 +8,7 @@ import (
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
 	"github.com/ichava/icon-sets-sync/src/internal/core/text"
 )
 
@@ -122,7 +123,8 @@ func reportSyncToGitHub(w io.Writer, outcomes []app.Outcome, annotate bool) erro
 	}
 	var b strings.Builder
 	b.WriteString("### Sync\n\n| Pack | From | To | Outcome |\n|---|---|---|---|\n")
-	var synced, failed []string
+	var reviewDetails []string
+	var synced, failed, review []string
 	for _, o := range outcomes {
 		outcome := string(o.Status)
 		switch {
@@ -137,13 +139,46 @@ func reportSyncToGitHub(w io.Writer, outcomes []app.Outcome, annotate bool) erro
 		case o.Status == app.StatusSynced:
 			synced = append(synced, o.Pack)
 			outcome += ": " + o.Result.Headline()
+		case o.NeedsReview():
+			review = append(review, o.Pack)
+			for _, r := range o.Reviews() {
+				if annotate {
+					fmt.Fprint(w, annotation("warning", o.Pack+" needs review", r.Message))
+				}
+				reviewDetails = append(reviewDetails, reviewMarkdown(o.Pack, r))
+			}
 		}
 		fmt.Fprintf(&b, "| %s | %s | %s | %s |\n", cell(o.Pack), cell(o.Current), cell(o.Latest), cell(outcome))
 	}
-	fmt.Fprintf(&b, "\n%d synced, %d failed, of %d.\n\n", len(synced), len(failed), len(outcomes))
+	fmt.Fprintf(&b, "\n%d synced, %d need review, %d failed, of %d.\n\n", len(synced), len(review), len(failed), len(outcomes))
+	for _, d := range reviewDetails {
+		b.WriteString(d)
+	}
 	if err := appendFile(summaryPath, b.String()); err != nil {
 		return err
 	}
-	return appendFile(outputPath, fmt.Sprintf("synced=%d\nfailed=%d\nsynced-packs=%s\nfailed-packs=%s\n",
-		len(synced), len(failed), strings.Join(synced, ","), strings.Join(failed, ",")))
+	return appendFile(outputPath, fmt.Sprintf("synced=%d\nfailed=%d\nsynced-packs=%s\nfailed-packs=%s\nreview=%d\nreview-packs=%s\n",
+		len(synced), len(failed), strings.Join(synced, ","), strings.Join(failed, ","), len(review), strings.Join(review, ",")))
+}
+
+// reviewMarkdown lists every icon a review names, folded under <details> so a
+// long list does not bury the summary table.
+func reviewMarkdown(pack string, r sinks.Review) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "<details><summary>%s needs review: %d icon(s) in <code>%s</code></summary>\n\n", pack, len(r.Removals), r.Target)
+	if r.Reason != "" {
+		fmt.Fprintf(&b, "%s\n\n", r.Reason)
+	}
+	if len(r.Removals) > 0 {
+		b.WriteString("| Shipped today | Becomes |\n|---|---|\n")
+		for _, rm := range r.Removals {
+			to := "removed"
+			if rm.RenamedTo != "" {
+				to = "`" + rm.RenamedTo + "`"
+			}
+			fmt.Fprintf(&b, "| `%s` | %s |\n", rm.Path, to)
+		}
+	}
+	b.WriteString("\n</details>\n\n")
+	return b.String()
 }

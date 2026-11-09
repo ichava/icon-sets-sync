@@ -26,10 +26,15 @@ import (
 // exiting 1 on a stale pack is what makes it usable as a CI gate, and Click
 // used 2 for a usage error, which anything wrapping the earlier binary may
 // already depend on.
+//
+// ExitNeedsReview (3) is a sync a guard stopped for a person: it would rename
+// or remove shipped icons. A dry run that would hit the guard exits 3 too,
+// having listed every icon. A failure in the same run wins: 1.
 const (
-	ExitOK      = 0
-	ExitFailure = 1
-	ExitUsage   = 2
+	ExitOK          = 0
+	ExitFailure     = 1
+	ExitUsage       = 2
+	ExitNeedsReview = 3
 )
 
 // ExitError carries an exit code out of a command.
