@@ -420,6 +420,7 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `private_config_dir` | none | `ICHAVA_PRIVATE_CONFIG_DIR` | no | private pack configs merged over `config_dir` at run time; see [Private packs](#private-packs) |
 | `log_level` | `info` | `ICHAVA_LOG_LEVEL` | no | `debug`, `info`, `warn`, `error` |
 | `concurrency` | `1` | `ICHAVA_CONCURRENCY` | no | packs synced at once by `sync-all` |
+| `packages_dirs` (alias `packages_dir`) | none | `ICHAVA_PACKAGES_DIRS` (OS list separator) | no | directories holding the pack checkouts, searched in order; see [Where the packs live](#where-the-packs-live) |
 | `workspace` | none | `ICHAVA_WORKSPACE` | no | directory a relative `pack_root` resolves against |
 | `allowed_hosts` | none | `ICHAVA_ALLOWED_HOSTS` | no | extra upstream hosts the client may fetch from, comma separated; see [Upstream hosts and https](#upstream-hosts-and-https) |
 | `npm_path` | none | `ICHAVA_NPM_PATH` (and `ICHAVA_NPM`) | no | the npm for the `npm pack` fallback; see [npm packages need no npm](#npm-packages-need-no-npm) |
@@ -441,6 +442,26 @@ The run-wide settings (the four marked "no") cannot appear in a pack config's `s
 `--config-dir`, `-v` (`log_level=debug`), `-q` (`log_level=error`), `--dry-run`, `--commit`
 (`dry_run=false`), `--force`, `--concurrency`. A flag counts only when it is given: an unset
 `--dry-run` does not override `ICHAVA_DRY_RUN=1`.
+
+### Where the packs live
+
+`packages_dirs` lists the directories holding the ichava pack checkouts. For each pack the toolkit
+looks for `<dir>/<pack>/` in each entry, in order, before `workspace`, `/work` and the checkouts beside
+this repository. That is how a shipped config's `/work/icon-sets-openmoji` becomes a path on this
+machine.
+
+```json
+{ "packages_dirs": ["~/projects/ichava/packages", "/srv/ichava"] }
+```
+
+A single string works too, and so does the singular `packages_dir`. `~` is the home directory, and a
+relative entry resolves against the config file that names it (or the working directory, for
+`--packages-dir` and the environment). `--packages-dir` repeats, and `ICHAVA_PACKAGES_DIRS` uses the OS
+list separator (`:`, or `;` on Windows). An entry that is not a directory is skipped with a warning,
+never a crash.
+
+The Settings page edits it as a list, with a found or missing mark beside each entry, and saves it into
+the global config.
 
 ### The global config
 

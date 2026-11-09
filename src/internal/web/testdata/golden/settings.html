@@ -161,6 +161,33 @@
 </div>
 <div class="row row-cards">
   <div class="col-lg-8">
+    
+    <div class="card mb-3" id="packages-dirs">
+      <div class="card-header"><h2 class="card-title">Where the ichava packs live</h2></div>
+      <form method="post" action="/settings/packages-dirs">
+        <input type="hidden" name="csrf" value="CSRF">
+        <div class="card-body">
+          <p class="text-secondary">Directories holding the pack checkouts (<code>icon-sets-tabler/</code>, <code>icon-sets-openmoji/</code>…), searched in order. <code>packages_dirs</code> in the global config; <code>--packages-dir</code> and <code>ICHAVA_PACKAGES_DIRS</code> override it.</p>
+          <div data-list="packages-dirs">
+            
+            <p class="text-secondary" data-list-empty>None set: packs are found through <code>workspace</code>, <code>/work</code>, or beside this checkout.</p>
+            
+          </div>
+          <template data-list-template>
+            <div class="input-group mb-2" data-list-row>
+              <input class="form-control font-monospace" name="dir" placeholder="~/projects/ichava/packages" aria-label="Packs directory">
+              <button type="button" class="btn btn-icon" data-list-remove aria-label="Remove this directory"><i class="icon ti ti-trash" aria-hidden="true"></i></button>
+            </div>
+          </template>
+        </div>
+        
+        <div class="card-footer d-flex gap-2">
+          <button type="button" class="btn" data-list-add="packages-dirs"><i class="icon ti ti-plus" aria-hidden="true"></i>Add a directory</button>
+          <button type="submit" class="btn btn-primary ms-auto"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save to the global config</button>
+        </div>
+        
+      </form>
+    </div>
     <div class="card">
       <div class="card-header"><h2 class="card-title">Effective settings</h2></div>
       <div class="card-body pb-0">
@@ -210,6 +237,12 @@
             
             <tr>
               <th scope="row"><code>npm_path</code><div class="text-secondary small fw-normal">the npm executable, for the npm pack fallback when the registry fetch fails (default: PATH, then Homebrew, Volta, fnm, asdf and nvm&#39;s directories; npm&#39;s own on Windows)</div></th>
+              <td><code class="text-break">–</code></td>
+              <td><span class="badge badge-muted">default</span></td>
+            </tr>
+            
+            <tr>
+              <th scope="row"><code>packages_dirs</code><div class="text-secondary small fw-normal">directories holding the ichava pack checkouts, searched in order for &lt;pack&gt;/ (a string or a list; ~ and paths relative to the config file are resolved; ICHAVA_PACKAGES_DIRS uses the OS list separator; --packages-dir repeats). Searched before workspace</div></th>
               <td><code class="text-break">–</code></td>
               <td><span class="badge badge-muted">default</span></td>
             </tr>

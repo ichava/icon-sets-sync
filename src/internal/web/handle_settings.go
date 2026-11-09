@@ -1,9 +1,12 @@
 package web
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/webvendor"
 )
@@ -13,6 +16,8 @@ type settingsData struct {
 	BindAddr string
 	ReadOnly bool
 	Version  string
+	// Saved names what a save just changed; Problem is why it was refused.
+	Saved, Problem string
 }
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
@@ -21,8 +26,57 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		BindAddr:     s.opts.BindAddr,
 		ReadOnly:     s.opts.ReadOnly,
 		Version:      s.opts.Version,
+		Saved:        r.URL.Query().Get("saved"),
 	}
 	s.render(w, http.StatusOK, "settings", s.newView(r, "settings", "Settings", d))
+}
+
+// handlePackagesDirsSave writes the packages_dirs list editor into the global
+// config, keeping every other key in it. It goes through WriteConfig, so the
+// save is validated, atomic, refused on a concurrent change and kept in the
+// history like an editor save.
+func (s *Server) handlePackagesDirsSave(w http.ResponseWriter, r *http.Request) {
+	var dirs []string
+	for _, d := range r.PostForm["dir"] {
+		if d = strings.TrimSpace(d); d != "" {
+			dirs = append(dirs, d)
+		}
+	}
+	err := s.savePackagesDirs(dirs)
+	if err == nil {
+		http.Redirect(w, r, "/settings?saved=packages_dirs#packages-dirs", http.StatusSeeOther)
+		return
+	}
+	d := settingsData{SettingsView: s.opts.Engine.Settings(), BindAddr: s.opts.BindAddr, ReadOnly: s.opts.ReadOnly,
+		Version: s.opts.Version, Problem: err.Error()}
+	s.render(w, http.StatusUnprocessableEntity, "settings", s.newView(r, "settings", "Settings", d))
+}
+
+func (s *Server) savePackagesDirs(dirs []string) error {
+	doc, err := s.opts.Engine.ReadConfig(GlobalName)
+	if err != nil {
+		return err
+	}
+	tree := map[string]any{}
+	if doc.Exists && len(strings.TrimSpace(string(doc.Data))) > 0 {
+		if docfile.IsYAML(doc.Path) {
+			return fmt.Errorf("%s is YAML; edit packages_dirs in the config editor so its comments are kept", doc.Path)
+		}
+		if err := json.Unmarshal(doc.Data, &tree); err != nil {
+			return fmt.Errorf("%s is not valid JSON (%v); fix it in the config editor first", doc.Path, err)
+		}
+	}
+	delete(tree, "packages_dir")
+	if len(dirs) == 0 {
+		delete(tree, "packages_dirs")
+	} else {
+		tree["packages_dirs"] = dirs
+	}
+	data, err := json.MarshalIndent(tree, "", "  ")
+	if err != nil {
+		return err
+	}
+	return s.opts.Engine.WriteConfig(GlobalName, append(data, '\n'), doc.Rev)
 }
 
 type licenseEntry struct {

@@ -124,6 +124,7 @@ func ParseGlobal(path string, data []byte) (Values, error) {
 	if err != nil {
 		return nil, wrapPath(path, err)
 	}
+	ResolvePaths(values, filepath.Dir(path))
 	return values, nil
 }
 

@@ -197,6 +197,30 @@
     if (ev.key === "t") { ev.preventDefault(); toggleTheme(); }
   });
 
+  // List editors: data-list-add appends the form's <template data-list-template>
+  // row to its [data-list]; data-list-remove removes its row.
+  document.addEventListener("click", function (ev) {
+    var add = ev.target.closest && ev.target.closest("[data-list-add]");
+    if (add) {
+      var form = add.closest("form");
+      var list = form && form.querySelector("[data-list=\"" + add.getAttribute("data-list-add") + "\"]");
+      var tpl = form && form.querySelector("template[data-list-template]");
+      if (list && tpl) {
+        var empty = list.querySelector("[data-list-empty]");
+        if (empty) { empty.remove(); }
+        list.appendChild(tpl.content.cloneNode(true));
+        var inputs = list.querySelectorAll("input");
+        if (inputs.length) { inputs[inputs.length - 1].focus(); }
+      }
+      return;
+    }
+    var remove = ev.target.closest && ev.target.closest("[data-list-remove]");
+    if (remove) {
+      var row = remove.closest("[data-list-row]");
+      if (row) { row.remove(); }
+    }
+  });
+
   // Copy buttons: data-copy-target names the element whose text is copied.
   document.addEventListener("click", function (ev) {
     var btn = ev.target.closest && ev.target.closest("[data-copy-target]");

@@ -53,6 +53,7 @@ func (s *Server) writeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /sync-all", s.handleSyncAll)
 	mux.HandleFunc("POST /jobs/{id}/cancel", s.handleCancel)
 	mux.HandleFunc("POST /config/{name}", s.handleConfigSave)
+	mux.HandleFunc("POST /settings/packages-dirs", s.handlePackagesDirsSave)
 	mux.HandleFunc("POST "+auditPath, s.handleAuditStart)
 }
 

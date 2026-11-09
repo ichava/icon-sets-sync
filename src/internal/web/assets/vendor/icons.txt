@@ -5,6 +5,7 @@
 adjustments
 alert-circle
 alert-triangle
+arrow-back-up
 arrow-left
 bell
 book
@@ -12,6 +13,7 @@ box
 brand-github
 bug
 check
+checklist
 circle-check
 circle-x
 clock
@@ -24,7 +26,9 @@ external-link
 eye
 file-code
 file-text
+folder
 git-branch
+git-compare
 git-pull-request
 help-circle
 history
@@ -38,12 +42,16 @@ moon
 packages
 player-play
 player-stop
+plus
 power
 refresh
 search
 server
 settings
 shield-check
+stethoscope
 sun
 terminal-2
+trash
+wand
 x

@@ -251,7 +251,11 @@ func (e *AppEngine) WriteConfig(name string, data []byte, base string) error {
 		e.mu.Lock()
 		e.Stack.Global = values
 		e.GlobalPath = doc.Path
+		resolved := e.Stack.Resolve(nil)
 		e.mu.Unlock()
+		// packages_dirs is read where packs are loaded, so a save takes effect
+		// on the next page without a restart.
+		app.SetPackagesDirs(resolved.Strings("packages_dirs"))
 	}
 	return nil
 }

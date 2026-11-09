@@ -128,6 +128,16 @@ type SettingsView struct {
 	ConfigSource string
 	// Global is where the global config was found and where it belongs.
 	Global settings.GlobalLocation
+	// PackagesDirs is the packages_dirs setting, each entry with whether it
+	// exists, and the layer that set it.
+	PackagesDirs       []DirStatus
+	PackagesDirsOrigin string
+}
+
+// DirStatus is one directory setting entry and whether it is there.
+type DirStatus struct {
+	Path   string
+	Exists bool
 }
 
 // AppEngine is the production Engine over internal/app.
@@ -145,7 +155,7 @@ type AppEngine struct {
 	// chose it, the default, and whether it sits at a legacy location.
 	GlobalLocation settings.GlobalLocation
 	Stack          settings.Stack
-	Git        *gitx.Git
+	Git            *gitx.Git
 
 	// mu guards Stack and GlobalPath, which a global-config save replaces;
 	// writeMu serialises saves.
@@ -362,6 +372,11 @@ func ReadPackStats(ctx context.Context, git *gitx.Git, pack *config.PackConfig) 
 // registry's order, with each key's origin and help.
 func BuildSettingsView(r settings.Resolved, configDir, globalPath string) SettingsView {
 	v := SettingsView{ConfigDir: configDir, GlobalPath: globalPath}
+	for _, d := range r.Strings("packages_dirs") {
+		info, err := os.Stat(d)
+		v.PackagesDirs = append(v.PackagesDirs, DirStatus{Path: d, Exists: err == nil && info.IsDir()})
+	}
+	v.PackagesDirsOrigin = string(r.Origin("packages_dirs"))
 	if v.ConfigDir == "" {
 		v.ConfigDir = config.DefaultConfigDir()
 	}
@@ -372,6 +387,8 @@ func BuildSettingsView(r settings.Resolved, configDir, globalPath string) Settin
 			value = boolString(r.Bool(k.Name))
 		case settings.Int:
 			value = strconv.Itoa(r.Int(k.Name))
+		case settings.List:
+			value = settings.FormatValue(r, k.Name)
 		default:
 			value = r.String(k.Name)
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -69,5 +70,19 @@ func TestSyncJSONLeavesOtherFailuresAlone(t *testing.T) {
 	out, _ := run(t, "--config-dir", dir, "--json", "sync", "--pack", "icon-sets-demo")
 	if strings.Contains(out, "licence_changed") {
 		t.Fatalf("an unrelated failure reported a licence change:\n%s", out)
+	}
+}
+
+// --packages-dir repeats, and a missing one is a warning, not a failure.
+func TestPackagesDirFlagRepeatsAndWarnsOnAMissingDir(t *testing.T) {
+	isolate(t)
+	dir := fixture(t, "", "")
+	a := t.TempDir()
+	out, code := run(t, "--config-dir", dir, "--packages-dir", a, "--packages-dir", filepath.Join(a, "nope"), "config", "print")
+	if code != ExitOK {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+	if !strings.Contains(out, "is not a directory; skipped") || !strings.Contains(out, a) {
+		t.Errorf("output:\n%s", out)
 	}
 }

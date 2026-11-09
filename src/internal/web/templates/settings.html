@@ -2,6 +2,39 @@
 {{template "page_header" "Settings"}}
 <div class="row row-cards">
   <div class="col-lg-8">
+    {{if .Problem}}<div class="alert alert-danger" role="alert"><strong>Not saved:</strong> <span class="text-break">{{.Problem}}</span></div>{{end}}
+    <div class="card mb-3" id="packages-dirs">
+      <div class="card-header"><h2 class="card-title">Where the ichava packs live</h2>{{if eq .Saved "packages_dirs"}}<span class="badge badge-ok ms-auto" role="status">{{icon "circle-check"}}saved</span>{{end}}</div>
+      <form method="post" action="/settings/packages-dirs">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <div class="card-body">
+          <p class="text-secondary">Directories holding the pack checkouts (<code>icon-sets-tabler/</code>, <code>icon-sets-openmoji/</code>…), searched in order. <code>packages_dirs</code> in the global config; <code>--packages-dir</code> and <code>ICHAVA_PACKAGES_DIRS</code> override it{{if ne .PackagesDirsOrigin "default"}}, and right now the value comes from: <span class="badge badge-info">{{.PackagesDirsOrigin}}</span>{{end}}.</p>
+          <div data-list="packages-dirs">
+            {{range .PackagesDirs}}
+            <div class="input-group mb-2" data-list-row>
+              <input class="form-control font-monospace" name="dir" value="{{.Path}}" aria-label="Packs directory"{{if $.ReadOnly}} readonly{{end}}>
+              <span class="input-group-text">{{if .Exists}}<span class="badge badge-ok">{{icon "circle-check"}}found</span>{{else}}<span class="badge badge-bad">{{icon "alert-circle"}}missing</span>{{end}}</span>
+              {{if not $.ReadOnly}}<button type="button" class="btn btn-icon" data-list-remove aria-label="Remove {{.Path}}">{{icon "trash"}}</button>{{end}}
+            </div>
+            {{else}}
+            <p class="text-secondary" data-list-empty>None set: packs are found through <code>workspace</code>, <code>/work</code>, or beside this checkout.</p>
+            {{end}}
+          </div>
+          <template data-list-template>
+            <div class="input-group mb-2" data-list-row>
+              <input class="form-control font-monospace" name="dir" placeholder="~/projects/ichava/packages" aria-label="Packs directory">
+              <button type="button" class="btn btn-icon" data-list-remove aria-label="Remove this directory">{{icon "trash"}}</button>
+            </div>
+          </template>
+        </div>
+        {{if not $.ReadOnly}}
+        <div class="card-footer d-flex gap-2">
+          <button type="button" class="btn" data-list-add="packages-dirs">{{icon "plus"}}Add a directory</button>
+          <button type="submit" class="btn btn-primary ms-auto">{{icon "device-floppy"}}Save to the global config</button>
+        </div>
+        {{end}}
+      </form>
+    </div>
     <div class="card">
       <div class="card-header"><h2 class="card-title">Effective settings</h2></div>
       <div class="card-body pb-0">

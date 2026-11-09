@@ -69,6 +69,7 @@ type globals struct {
 	quiet        bool
 	noColor      bool
 	noInput      bool
+	packagesDirs []string
 	assumeYes    bool
 	jsonOut      bool
 
@@ -177,6 +178,7 @@ the interactive terminal menu.`,
 	pf.StringVar(&g.configDir, "config-dir", "", "where pack configs live (setting config_dir; default: config/ beside the binary, else ./config, else the repository's own config/)")
 	pf.StringVar(&g.privateDir, "private-config-dir", "", "directory of private pack configs merged over --config-dir (setting private_config_dir; default: none)")
 	pf.StringVar(&g.workspace, "workspace", "", "directory holding the pack checkouts; replaces /work/<pack> in shipped configs (setting workspace)")
+	pf.StringArrayVar(&g.packagesDirs, "packages-dir", nil, "a directory holding ichava pack checkouts; repeat for several, searched in order (setting packages_dirs)")
 	pf.StringVar(&g.globalConfig, "global-config", "", "global config file (default: ~/.config/icon-sets-sync/config.{json,yaml} on every OS; $XDG_CONFIG_HOME replaces ~/.config)")
 	pf.StringArrayVar(&g.sets, "set", nil, "set any setting, as key=value (repeatable; see `config print`)")
 	pf.BoolVarP(&g.verbose, "verbose", "v", false, "debug logging (log_level=debug)")
@@ -201,6 +203,9 @@ the interactive terminal menu.`,
 			Err:       cmd.ErrOrStderr(),
 		})
 		setupLogging(state.run.String("log_level"))
+		for _, d := range app.MissingPackagesDirs(state.run.Strings("packages_dirs")) {
+			ui.Warning("packages_dirs: %s is not a directory; skipped", d)
+		}
 		if state.global.Legacy && cmd.Name() != "migrate" {
 			ui.Warning("using the global config at its old location %s; it belongs at %s. "+
 				"Run `icon-sets-sync config migrate` to copy it there (the old file is left in place)",
@@ -255,6 +260,13 @@ func resolveState(cmd *cobra.Command) error {
 		setFlag("config-dir", "config_dir", g.configDir)
 		setFlag("private-config-dir", "private_config_dir", g.privateDir)
 		setFlag("workspace", "workspace", g.workspace)
+		if changed("packages-dir") {
+			if err := flagValues.Set("packages_dirs", g.packagesDirs); err != nil {
+				return fmt.Errorf("--packages-dir: %s", err)
+			}
+			cwd, _ := os.Getwd()
+			settings.ResolvePaths(flagValues, cwd)
+		}
 		if g.verbose {
 			flagValues["log_level"] = "debug"
 		}
@@ -302,6 +314,7 @@ func resolveState(cmd *cobra.Command) error {
 	// same way: on every run, empty included.
 	httpx.SetExtraAllowedHosts(httpx.ParseHostList(state.run.String("allowed_hosts")))
 	sources.SetNpmPath(state.run.String("npm_path"))
+	app.SetPackagesDirs(state.run.Strings("packages_dirs"))
 	if err := config.CheckPrivateConfigDir(); err != nil {
 		return usageErr("%s", err)
 	}
