@@ -158,16 +158,3 @@ func TestFindNpmOrderAndMessage(t *testing.T) {
 		t.Errorf("npm_path not preferred: %s", s.Found)
 	}
 }
-
-func TestNewestFirstOrdersNodeVersionsNumerically(t *testing.T) {
-	root := t.TempDir()
-	for _, v := range []string{"v9.1.0", "v22.3.0", "v18.20.1"} {
-		if err := os.MkdirAll(filepath.Join(root, v, "bin"), 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	got := newestFirst(filepath.Join(root, "*", "bin"))
-	if len(got) != 3 || !strings.Contains(got[0], "v22.3.0") || !strings.Contains(got[2], "v9.1.0") {
-		t.Fatalf("order %v", got)
-	}
-}

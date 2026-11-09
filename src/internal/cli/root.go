@@ -70,6 +70,7 @@ type globals struct {
 	noColor      bool
 	noInput      bool
 	packagesDirs []string
+	output       string
 	assumeYes    bool
 	jsonOut      bool
 
@@ -187,9 +188,17 @@ the interactive terminal menu.`,
 	pf.BoolVar(&g.noInput, "no-input", false, "never prompt; fail instead of asking")
 	pf.BoolVar(&g.noInput, "non-interactive", false, "same as --no-input, the name CI mode uses")
 	pf.BoolVar(&g.assumeYes, "yes", false, "assume yes for confirmations")
-	pf.BoolVar(&g.jsonOut, "json", false, "machine-readable output")
+	pf.BoolVar(&g.jsonOut, "json", false, "machine-readable output (the same as --output json)")
+	pf.StringVar(&g.output, "output", "text", "output format: text or json")
 
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		switch g.output {
+		case "json":
+			g.jsonOut = true
+		case "text", "":
+		default:
+			return usageErr("--output must be text or json, not %q", g.output)
+		}
 		if err := resolveState(cmd); err != nil {
 			return err
 		}
@@ -222,6 +231,7 @@ the interactive terminal menu.`,
 		newListPacksCommand(),
 		newCheckCommand(),
 		newValidateCommand(),
+		newDoctorCommand(),
 		newSyncCommand(),
 		newSyncAllCommand(),
 		newRecipeCommand(),

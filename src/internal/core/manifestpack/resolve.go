@@ -28,7 +28,11 @@ func (f NpmFetcher) Fetch(ctx context.Context, pkg, dest string) (string, error)
 		return "", err
 	}
 
-	cmd := exec.CommandContext(ctx, "npm", sources.NpmPackArgs(pkg)...)
+	found, err := sources.FindNpm()
+	if err != nil {
+		return "", err
+	}
+	cmd := exec.CommandContext(ctx, found.Found, sources.NpmPackArgs(pkg)...)
 	cmd.Dir = dest
 	out, err := cmd.Output()
 	if err != nil {

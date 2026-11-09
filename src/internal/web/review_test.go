@@ -71,3 +71,18 @@ func TestValidatePage(t *testing.T) {
 		}
 	}
 }
+
+// The dashboard warns before a run when a tool a real run needs is missing.
+func TestDashboardPreflightNamesMissingTools(t *testing.T) {
+	s, _ := newTestServer(t, func(o *Options) {
+		o.Tools = func() []app.Tool { return []app.Tool{{Name: "gh", Why: "opens the pull request"}} }
+	})
+	body := signIn(t, s).get("/").Body.String()
+	if !strings.Contains(body, `data-role="preflight"`) || !strings.Contains(body, "<code>gh</code> opens the pull request") {
+		t.Error("no preflight warning naming gh")
+	}
+	s2, _ := newTestServer(t)
+	if strings.Contains(signIn(t, s2).get("/").Body.String(), `data-role="preflight"`) {
+		t.Error("a preflight warning with nothing missing")
+	}
+}

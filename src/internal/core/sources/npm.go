@@ -13,13 +13,11 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"runtime"
-	"sort"
-	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
+	"github.com/ichava/icon-sets-sync/src/internal/core/toolpath"
 )
 
 // NpmRegistry is where a package's tarball is fetched from without npm.
@@ -57,7 +55,7 @@ type NpmSearch struct {
 // npmEnv and npmDirs are seams for tests.
 var (
 	npmEnv  = os.Getenv
-	npmDirs = defaultNpmDirs
+	npmDirs = func() []string { return toolpath.Dirs() }
 )
 
 // FindNpm resolves the npm executable: the npm_path setting, then ICHAVA_NPM,
@@ -73,7 +71,7 @@ func FindNpm() (NpmSearch, error) {
 			return false
 		}
 		s.Searched = append(s.Searched, label+" "+p)
-		if isExecutable(p) {
+		if toolpath.IsExecutable(p) {
 			s.Found = p
 			return true
 		}
@@ -92,7 +90,7 @@ func FindNpm() (NpmSearch, error) {
 	}
 	s.Searched = append(s.Searched, "PATH ("+npmEnv("PATH")+")")
 	for _, dir := range npmDirs() {
-		for _, name := range npmNames() {
+		for _, name := range toolpath.Names("npm") {
 			if try("", filepath.Join(dir, name)) {
 				return s, nil
 			}
@@ -108,82 +106,6 @@ func trimLabels(in []string) []string {
 		out[i] = strings.TrimSpace(s)
 	}
 	return out
-}
-
-func npmNames() []string {
-	if runtime.GOOS == "windows" {
-		return []string{"npm.cmd", "npm.exe"}
-	}
-	return []string{"npm"}
-}
-
-func isExecutable(p string) bool {
-	info, err := os.Stat(p)
-	if err != nil || info.IsDir() {
-		return false
-	}
-	return runtime.GOOS == "windows" || info.Mode()&0o111 != 0
-}
-
-// defaultNpmDirs lists the usual install directories, newest node first where
-// a version manager keeps several.
-func defaultNpmDirs() []string {
-	home, _ := os.UserHomeDir()
-	var dirs []string
-	if runtime.GOOS == "windows" {
-		for _, env := range []string{"ProgramFiles", "ProgramFiles(x86)"} {
-			if v := npmEnv(env); v != "" {
-				dirs = append(dirs, filepath.Join(v, "nodejs"))
-			}
-		}
-		if v := npmEnv("APPDATA"); v != "" {
-			dirs = append(dirs, filepath.Join(v, "npm"))
-		}
-		if v := npmEnv("LOCALAPPDATA"); v != "" {
-			dirs = append(dirs, filepath.Join(v, "Volta", "bin"))
-		}
-		if v := npmEnv("NVM_SYMLINK"); v != "" {
-			dirs = append(dirs, v)
-		}
-		return dirs
-	}
-	dirs = append(dirs, "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin")
-	if home != "" {
-		dirs = append(dirs,
-			filepath.Join(home, ".volta", "bin"),
-			filepath.Join(home, ".local", "share", "fnm", "aliases", "default", "bin"),
-			filepath.Join(home, ".fnm", "aliases", "default", "bin"),
-			filepath.Join(home, ".asdf", "shims"),
-			filepath.Join(home, ".local", "bin"),
-		)
-		dirs = append(dirs, newestFirst(filepath.Join(home, ".nvm", "versions", "node", "*", "bin"))...)
-	}
-	return dirs
-}
-
-// newestFirst globs pattern and orders the matches by the version in their
-// path, newest first, so v22 beats v9.
-func newestFirst(pattern string) []string {
-	matches, _ := filepath.Glob(pattern)
-	key := func(p string) []int {
-		v := strings.TrimPrefix(filepath.Base(filepath.Dir(p)), "v")
-		var out []int
-		for _, part := range strings.Split(v, ".") {
-			n, _ := strconv.Atoi(part)
-			out = append(out, n)
-		}
-		return out
-	}
-	sort.Slice(matches, func(i, j int) bool {
-		a, b := key(matches[i]), key(matches[j])
-		for k := 0; k < len(a) && k < len(b); k++ {
-			if a[k] != b[k] {
-				return a[k] > b[k]
-			}
-		}
-		return len(a) > len(b)
-	})
-	return matches
 }
 
 // registryVersion is the part of a registry version document used here.

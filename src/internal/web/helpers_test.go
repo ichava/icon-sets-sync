@@ -269,6 +269,7 @@ func newTestServer(t *testing.T, mutate ...func(*Options)) (*Server, *fakeEngine
 	dir, home := configFixture(t)
 	eng.cfg = &AppEngine{ConfigDir: dir, GlobalHome: home, History: confighistory.Store{Dir: filepath.Join(t.TempDir(), "history"), Keep: 5}}
 	opts := Options{
+		Tools:        func() []app.Tool { return []app.Tool{{Name: "git", Found: true}, {Name: "gh", Found: true}} },
 		Engine:       eng,
 		Token:        testToken,
 		AllowedHosts: AllowedHosts("127.0.0.1", 7878, nil),

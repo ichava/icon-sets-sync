@@ -21,6 +21,8 @@ func isolate(t *testing.T) {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("HOME", t.TempDir())
+	// A test run inside GitHub Actions must not turn on --github by itself.
+	t.Setenv("GITHUB_ACTIONS", "")
 	for _, kv := range os.Environ() {
 		if name, _, _ := strings.Cut(kv, "="); strings.HasPrefix(name, "ICHAVA_") {
 			t.Setenv(name, "")

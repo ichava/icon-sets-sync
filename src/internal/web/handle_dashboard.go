@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 )
@@ -19,18 +20,21 @@ type packRow struct {
 }
 
 type dashboardData struct {
-	Rows      []packRow
-	CheckedAt time.Time
-	Running   bool
-	Err       string
-	Totals    struct{ Packs, OK, Stale, Failed, SVGs int }
+	// MissingTools are the programs a real run needs and cannot find: the
+	// preflight a person sees before starting one.
+	MissingTools []app.Tool
+	Rows         []packRow
+	CheckedAt    time.Time
+	Running      bool
+	Err          string
+	Totals       struct{ Packs, OK, Stale, Failed, SVGs int }
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	s.refreshIfStale()
 	snap := s.status.snapshot()
 
-	d := dashboardData{CheckedAt: snap.At, Running: snap.Running, Err: snap.Err}
+	d := dashboardData{CheckedAt: snap.At, Running: snap.Running, Err: snap.Err, MissingTools: s.missingTools()}
 	packs := snap.Packs
 	if packs == nil {
 		// No check has finished yet: still list the packs, from disk.
@@ -72,4 +76,12 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	s.refresh()
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (s *Server) missingTools() []app.Tool {
+	tools := s.opts.Tools
+	if tools == nil {
+		tools = app.Tools
+	}
+	return app.MissingTools(tools())
 }

@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/pflag"
+
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
@@ -181,4 +183,15 @@ func reviewMarkdown(pack string, r sinks.Review) string {
 	}
 	b.WriteString("\n</details>\n\n")
 	return b.String()
+}
+
+// githubMode is --github when it was given, else on whenever this runs as a
+// GitHub Actions step with its summary and output files: GITHUB_ACTIONS is
+// "true" and GITHUB_STEP_SUMMARY and GITHUB_OUTPUT are set. --github=false
+// turns it off.
+func githubMode(cmd interface{ Flags() *pflag.FlagSet }, flag bool) bool {
+	if f := cmd.Flags().Lookup("github"); f != nil && f.Changed {
+		return flag
+	}
+	return os.Getenv("GITHUB_ACTIONS") == "true" && os.Getenv("GITHUB_STEP_SUMMARY") != "" && os.Getenv("GITHUB_OUTPUT") != ""
 }

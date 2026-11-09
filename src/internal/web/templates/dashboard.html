@@ -1,4 +1,16 @@
 {{define "content"}}{{with .Data}}
+{{if .MissingTools}}
+<div class="alert alert-warning" role="alert" data-role="preflight">
+  <div class="d-flex gap-2">
+    <div>{{icon "alert-triangle"}}</div>
+    <div>
+      <h2 class="alert-title h4">A real run needs {{range $i, $t := .MissingTools}}{{if $i}} and {{end}}<code>{{$t.Name}}</code>{{end}}, which this server cannot find</h2>
+      <ul class="alert-description mb-1">{{range .MissingTools}}<li><code>{{.Name}}</code> {{.Why}}.</li>{{end}}</ul>
+      <div class="alert-description">Dry runs still work. Install it, or start the server from a shell that has it on PATH; <code>icon-sets-sync doctor</code> says where it looked.</div>
+    </div>
+  </div>
+</div>
+{{end}}
 <div class="page-header d-print-none mb-3">
   <div class="row g-2 align-items-center">
     <div class="col">

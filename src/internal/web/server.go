@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/web/jobs"
@@ -51,6 +52,10 @@ func DefaultHistoryDir(lookup func(string) (string, bool)) string {
 type Options struct {
 	// Engine is the sync engine. Required.
 	Engine Engine
+
+	// Tools reports the external programs a run needs; nil is app.Tools.
+	// Tests pin it so a page does not depend on what the machine has.
+	Tools func() []app.Tool
 
 	// Token is the launch token printed in the URL. Required.
 	Token string
