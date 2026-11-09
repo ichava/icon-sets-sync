@@ -474,6 +474,26 @@ YAML alone, because re-encoding it would drop its comments, and it reports broke
 guessing what was meant. `--yes` answers the questions. Without a terminal and without `--yes` they are
 a usage error (exit 2), never a hang.
 
+### Checking the pack checkouts
+
+`icon-sets-sync validate` (and the web UI's Validate page) checks each ichava pack checkout under
+`packages_dirs`, or each registered pack's checkout when that is unset:
+
+- `composer.json` exists, parses and has type `ichava-icon-set`
+- the manifest `resources/assets/svg/config.json` parses and names the same package
+- a pack config in the config directory syncs it (a warning when none does)
+- `resources/assets/svg/files/` holds sets, either one directory per set or the SVGs directly for a
+  single-set pack, and no set is empty
+- a root `LICENSE` and the upstream licence texts under `resources/assets/svg/licenses/`
+- no empty category directories (a warning)
+- no file under the sets that is not an SVG
+- every SVG parses with the toolkit's own parser (`--skip-svg-parse` skips this on the CLI; the web page
+  makes it a checkbox, because the largest packs hold over 100,000)
+
+It exits 1 on an error, or on a warning with `--strict`. `--json` prints a report. In GitHub Actions
+(`GITHUB_ACTIONS=true`, or `--github`) each problem is also an annotation on its file, and a table goes
+to the step summary.
+
 ### Where the packs live
 
 `packages_dirs` lists the directories holding the ichava pack checkouts. For each pack the toolkit

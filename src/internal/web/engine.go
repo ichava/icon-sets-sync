@@ -19,6 +19,7 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
 	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
+	"github.com/ichava/icon-sets-sync/src/internal/core/packcheck"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
@@ -69,6 +70,9 @@ type Engine interface {
 	// WriteConfig validates and saves, refusing a stale base revision. The
 	// file's previous contents go to the history first.
 	WriteConfig(name string, data []byte, base string) error
+	// ValidatePacks checks the structure of every pack checkout, as the
+	// validate command does; parse also parses every SVG.
+	ValidatePacks(parse bool) ([]packcheck.Report, error)
 	// FixConfig proposes the safe repairs to a document; it writes nothing.
 	FixConfig(name string, data []byte) (app.Fixed, error)
 	// ConfigHistory lists a document's saved copies, newest first, and
@@ -192,6 +196,33 @@ func (e *AppEngine) Check(ctx context.Context, packs []*config.PackConfig) []che
 // PackStats implements Engine.
 func (e *AppEngine) PackStats(ctx context.Context, pack *config.PackConfig) PackStats {
 	return ReadPackStats(ctx, e.Git, pack)
+}
+
+// ValidatePacks implements Engine: every pack under packages_dirs, else every
+// registered pack's checkout.
+func (e *AppEngine) ValidatePacks(parse bool) ([]packcheck.Report, error) {
+	packs, err := app.LoadPacksIn(e.configDir(), "", e.Workspace)
+	if err != nil {
+		return nil, err
+	}
+	configs := map[string]string{}
+	var roots []string
+	seen := map[string]bool{}
+	for _, p := range packs {
+		configs[p.Pack] = p.Name + ".json"
+		if info, err := os.Stat(p.PackRoot); err == nil && info.IsDir() && !seen[p.PackRoot] {
+			seen[p.PackRoot] = true
+			roots = append(roots, p.PackRoot)
+		}
+	}
+	if dirs := app.PackagesDirs(); len(dirs) > 0 {
+		roots, _ = packcheck.Discover(dirs)
+	}
+	out := make([]packcheck.Report, 0, len(roots))
+	for _, r := range roots {
+		out = append(out, packcheck.Check(r, packcheck.Options{PackConfigs: configs, ParseSVGs: parse}))
+	}
+	return out, nil
 }
 
 // Settings implements Engine.

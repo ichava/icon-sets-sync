@@ -221,6 +221,7 @@ the interactive terminal menu.`,
 	root.AddCommand(
 		newListPacksCommand(),
 		newCheckCommand(),
+		newValidateCommand(),
 		newSyncCommand(),
 		newSyncAllCommand(),
 		newRecipeCommand(),

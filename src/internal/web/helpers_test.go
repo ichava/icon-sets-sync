@@ -19,6 +19,7 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/confighistory"
 	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
+	"github.com/ichava/icon-sets-sync/src/internal/core/packcheck"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 )
@@ -50,6 +51,13 @@ func (f *fakeEngine) ValidateConfig(n string, d []byte) []app.Finding {
 }
 func (f *fakeEngine) WriteConfig(n string, d []byte, base string) error {
 	return f.cfg.WriteConfig(n, d, base)
+}
+func (f *fakeEngine) ValidatePacks(parse bool) ([]packcheck.Report, error) {
+	r := packcheck.Report{Root: "/work/icon-sets-demo", Name: "ichava/icon-sets-demo", Sets: 1, SVGs: 3, Findings: []packcheck.Finding{}}
+	if parse {
+		r.Findings = append(r.Findings, packcheck.Finding{Level: packcheck.Error, Check: "svg", Path: "resources/assets/svg/files/bad.svg", Text: "bad.svg does not parse"})
+	}
+	return []packcheck.Report{r}, nil
 }
 func (f *fakeEngine) FixConfig(n string, d []byte) (app.Fixed, error) { return f.cfg.FixConfig(n, d) }
 func (f *fakeEngine) ConfigHistory(n string) ([]confighistory.Entry, error) {

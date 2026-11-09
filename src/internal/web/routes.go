@@ -22,6 +22,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /events/jobs/{id}", s.handleEvents)
 	mux.HandleFunc("GET "+auditPath, s.handleAudit)
 	mux.HandleFunc("GET "+auditPath+"/{id}/manifest.json", s.handleAuditManifest)
+	mux.HandleFunc("GET /validate", s.handleValidate)
 	mux.HandleFunc("GET /config", s.handleConfigList)
 	mux.HandleFunc("GET /config/{name}", s.handleConfigEdit)
 	// Validation writes nothing, so a read-only server keeps it.

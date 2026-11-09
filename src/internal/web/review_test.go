@@ -56,3 +56,18 @@ func TestADryRunThatNeedsReviewListsEveryIconAndOffersForce(t *testing.T) {
 		t.Errorf("forced re-run = %s", got)
 	}
 }
+
+// The Validate page runs on request and lists each pack's findings.
+func TestValidatePage(t *testing.T) {
+	s, _ := newTestServer(t)
+	c := signIn(t, s)
+	if body := c.get("/validate").Body.String(); strings.Contains(body, "pack-report") {
+		t.Error("the page checked before it was asked")
+	}
+	body := c.get("/validate?run=1&parse=1").Body.String()
+	for _, want := range []string{`data-role="pack-report"`, "ichava/icon-sets-demo", "bad.svg does not parse", "1 error(s)"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("validate page lacks %q", want)
+		}
+	}
+}
