@@ -126,6 +126,8 @@ type SettingsView struct {
 	// ConfigSource names the layer that chose ConfigDir: flag, env, cwd,
 	// executable or embedded (config.Source*).
 	ConfigSource string
+	// Global is where the global config was found and where it belongs.
+	Global settings.GlobalLocation
 }
 
 // AppEngine is the production Engine over internal/app.
@@ -139,7 +141,10 @@ type AppEngine struct {
 	// GlobalHome is $XDG_CONFIG_HOME (or ~/.config): where the editor creates
 	// a global config when none exists yet.
 	GlobalHome string
-	Stack      settings.Stack
+	// GlobalLocation explains GlobalPath on the Settings page: the layer that
+	// chose it, the default, and whether it sits at a legacy location.
+	GlobalLocation settings.GlobalLocation
+	Stack          settings.Stack
 	Git        *gitx.Git
 
 	// mu guards Stack and GlobalPath, which a global-config save replaces;
@@ -176,6 +181,14 @@ func (e *AppEngine) Settings() SettingsView {
 	e.mu.Unlock()
 	v := BuildSettingsView(stack.Resolve(nil), e.ConfigDir, global)
 	v.ConfigSource = e.ConfigSource
+	v.Global = e.GlobalLocation
+	if v.Global.Default == "" {
+		v.Global.Default = e.globalPath()
+	}
+	if global != "" && global != e.GlobalLocation.Path {
+		// Saved from the editor since start-up: it is at the default now.
+		v.Global.Path, v.Global.Layer, v.Global.Legacy = global, "saved from this UI", false
+	}
 	return v
 }
 

@@ -25,16 +25,37 @@
     </div>
   </div>
   <div class="col-lg-4">
-    <div class="card">
+    <div class="card mb-3">
       <div class="card-header"><h2 class="card-title">This server</h2></div>
       <div class="card-body">
         <dl class="row mb-0">
           <dt class="col-5">Version</dt><dd class="col-7">{{versionLabel .Version}}</dd>
           <dt class="col-5">Listening on</dt><dd class="col-7"><code>{{.BindAddr}}</code></dd>
-          <dt class="col-5">Config dir</dt><dd class="col-7"><code class="text-break">{{.ConfigDir}}</code>{{with .ConfigSource}} <span class="badge badge-muted">found via {{.}}</span>{{end}}</dd>
-          <dt class="col-5">Global config</dt><dd class="col-7">{{if .GlobalPath}}<code class="text-break">{{.GlobalPath}}</code>{{else}}none{{end}} · <a href="/config/global">{{if $.ReadOnly}}view{{else}}edit{{end}}</a></dd>
           <dt class="col-5">Mode</dt><dd class="col-7">{{if .ReadOnly}}{{icon "lock"}} read-only{{else}}runs and edits allowed{{end}}</dd>
         </dl>
+      </div>
+    </div>
+    <div class="card" data-role="config-locations">
+      <div class="card-header"><h2 class="card-title">Where the configs live</h2></div>
+      <div class="list-group list-group-flush">
+        <div class="list-group-item">
+          <div class="fw-medium">Pack configs</div>
+          <div class="text-secondary small mb-1">The registry (<code>packs.json</code>) and one config per pack: its upstream, its recipe and where its checkout is. Not settings.</div>
+          <code class="text-break">{{.ConfigDir}}</code>{{with .ConfigSource}} <span class="badge badge-muted">chosen by: {{.}}</span>{{end}}
+          <div class="text-secondary small mt-1">Order: <code>--config-dir</code>, <code>ICHAVA_CONFIG_DIR</code>, <code>config/</code> beside the binary, the checkout around the working directory, then the configs built into the binary.</div>
+        </div>
+        <div class="list-group-item">
+          <div class="fw-medium">Global config</div>
+          <div class="text-secondary small mb-1">Your settings for every run on this machine: the values in the table, and nothing about packs.</div>
+          {{if .Global.Path}}<code class="text-break">{{.Global.Path}}</code> <span class="badge {{if .Global.Legacy}}badge-warn{{else}}badge-muted{{end}}">chosen by: {{.Global.Layer}}</span>{{else}}<span>none yet</span>{{end}}
+          {{if .Global.Legacy}}<div class="alert alert-warning mt-2 mb-0" role="status">This file is at an old location. It belongs at <code class="text-break">{{.Global.Default}}</code>; run <code>icon-sets-sync config migrate</code> to copy it there.</div>{{end}}
+          {{if not .Global.Path}}<div class="text-secondary small mt-1">It would be created at <code class="text-break">{{.Global.Default}}</code>.</div>{{end}}
+          <div class="mt-2"><a class="btn btn-sm" href="/config/global">{{icon "file-code"}}{{if $.ReadOnly}}View{{else if .Global.Path}}Edit{{else}}Create{{end}}</a></div>
+        </div>
+        <div class="list-group-item">
+          <div class="fw-medium">Precedence</div>
+          <div class="text-secondary small">For each setting, the first layer that sets it wins: <code>--set</code> and flags, then <code>ICHAVA_*</code> environment, then the global config, then a pack's own <code>settings</code>, then the defaults. The "From" column names the layer.</div>
+        </div>
       </div>
     </div>
   </div>

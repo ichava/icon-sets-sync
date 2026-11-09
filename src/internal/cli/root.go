@@ -88,6 +88,7 @@ type runState struct {
 	stack      settings.Stack
 	run        settings.Resolved
 	globalPath string
+	global     settings.GlobalLocation
 }
 
 var state runState
@@ -158,7 +159,8 @@ stamps the version and opens a pull request.
 
 Settings resolve in this order, highest first:
   flags > ICHAVA_* environment > global config > pack config > defaults
-The global config is $XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml}.
+The global config is ~/.config/icon-sets-sync/config.{json,yaml} on every OS
+($XDG_CONFIG_HOME replaces ~/.config); "config migrate" moves an old one there.
 Run "config print --origins" to see where every value came from.
 
 Run with no arguments (or double-click the binary) to open the web UI in your
@@ -175,7 +177,7 @@ the interactive terminal menu.`,
 	pf.StringVar(&g.configDir, "config-dir", "", "where pack configs live (setting config_dir; default: config/ beside the binary, else ./config, else the repository's own config/)")
 	pf.StringVar(&g.privateDir, "private-config-dir", "", "directory of private pack configs merged over --config-dir (setting private_config_dir; default: none)")
 	pf.StringVar(&g.workspace, "workspace", "", "directory holding the pack checkouts; replaces /work/<pack> in shipped configs (setting workspace)")
-	pf.StringVar(&g.globalConfig, "global-config", "", "global config file (default: $XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml})")
+	pf.StringVar(&g.globalConfig, "global-config", "", "global config file (default: ~/.config/icon-sets-sync/config.{json,yaml} on every OS; $XDG_CONFIG_HOME replaces ~/.config)")
 	pf.StringArrayVar(&g.sets, "set", nil, "set any setting, as key=value (repeatable; see `config print`)")
 	pf.BoolVarP(&g.verbose, "verbose", "v", false, "debug logging (log_level=debug)")
 	pf.BoolVarP(&g.quiet, "quiet", "q", false, "only errors (log_level=error) and no status output")
@@ -199,6 +201,11 @@ the interactive terminal menu.`,
 			Err:       cmd.ErrOrStderr(),
 		})
 		setupLogging(state.run.String("log_level"))
+		if state.global.Legacy && cmd.Name() != "migrate" {
+			ui.Warning("using the global config at its old location %s; it belongs at %s. "+
+				"Run `icon-sets-sync config migrate` to copy it there (the old file is left in place)",
+				state.global.Path, state.global.Default)
+		}
 		return nil
 	}
 
@@ -270,7 +277,7 @@ func resolveState(cmd *cobra.Command) error {
 	// The layering itself lives in app.BuildStack, so the web UI resolves
 	// precedence through the same code. This function keeps the CLI-only
 	// parts: the contradiction checks and the mapping onto exit codes.
-	stack, path, err := app.BuildStack(app.StackInput{
+	stack, loc, err := app.BuildStackLocated(app.StackInput{
 		GlobalPath:  g.globalConfig,
 		Lookup:      os.LookupEnv,
 		Assignments: g.sets,
@@ -283,7 +290,8 @@ func resolveState(cmd *cobra.Command) error {
 		return failure(err)
 	}
 
-	state.globalPath = path
+	state.globalPath = loc.Path
+	state.global = loc
 	state.stack = stack
 	state.run = state.stack.Resolve(nil)
 	// Every config loader reads the private overlay from here, so the CLI,

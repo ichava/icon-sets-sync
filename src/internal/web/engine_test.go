@@ -85,3 +85,19 @@ func TestPackStatsWithoutACheckoutNamesTheWorkspace(t *testing.T) {
 		t.Fatalf("Err = %q", st.Err)
 	}
 }
+
+// Settings explains where the global config came from, and says so when it is
+// at a legacy location.
+func TestSettingsViewExplainsTheGlobalConfig(t *testing.T) {
+	e := &AppEngine{ConfigDir: t.TempDir(), GlobalHome: "/home/me/.config",
+		GlobalPath:     "/home/me/Library/Application Support/icon-sets-sync/config.json",
+		GlobalLocation: settings.GlobalLocation{Path: "/home/me/Library/Application Support/icon-sets-sync/config.json", Default: "/home/me/.config/icon-sets-sync/config.json", Layer: "legacy location", Legacy: true}}
+	v := e.Settings()
+	if !v.Global.Legacy || v.Global.Default != "/home/me/.config/icon-sets-sync/config.json" {
+		t.Fatalf("view = %+v", v.Global)
+	}
+	e2 := &AppEngine{ConfigDir: t.TempDir(), GlobalHome: "/home/me/.config"}
+	if v := e2.Settings(); v.Global.Path != "" || v.Global.Default != "/home/me/.config/icon-sets-sync/config.json" {
+		t.Fatalf("no file: %+v", v.Global)
+	}
+}

@@ -20,7 +20,7 @@ func newConfigCommand() *cobra.Command {
 		Use:   "config",
 		Short: "Validate the configs, or print the effective settings",
 	}
-	cmd.AddCommand(newConfigValidateCommand(), newConfigPrintCommand())
+	cmd.AddCommand(newConfigValidateCommand(), newConfigPrintCommand(), newConfigMigrateCommand())
 	return cmd
 }
 

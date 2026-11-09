@@ -444,9 +444,22 @@ The run-wide settings (the four marked "no") cannot appear in a pack config's `s
 
 ### The global config
 
-Optional. `$XDG_CONFIG_HOME/icon-sets-sync/config.json`, `.yaml` or `.yml`, falling back to
-`~/.config/icon-sets-sync/` when `XDG_CONFIG_HOME` is unset (macOS included). `--global-config` or
-`ICHAVA_GLOBAL_CONFIG` names another file. It nests the dotted names:
+Optional. **`~/.config/icon-sets-sync/config.json` on every OS, Windows included** (`.yaml` and
+`.yml` work too). `$XDG_CONFIG_HOME` overrides the `~/.config` part, and `--global-config` or
+`ICHAVA_GLOBAL_CONFIG` names another file.
+
+This deliberately overrides the organisation's default of `%AppData%` on Windows (and the OS's
+`~/Library/Application Support` on macOS): one documented path, the same on every machine, that a
+person can find without looking it up.
+
+A config left at one of those old locations is still read. Every command then warns once and names
+`config migrate`, which copies the file to `~/.config/icon-sets-sync/` after asking (`--yes`
+answers). The old file is never moved or deleted for you. The Settings page says which layer chose the
+file and shows the same warning.
+
+It holds settings, the values `config print` lists, and nothing about packs. Pack configs live in the
+config directory (`--config-dir`), a different thing: the registry and one file per pack. It nests the
+dotted names:
 
 ```yaml
 concurrency: 2

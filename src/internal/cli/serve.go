@@ -118,7 +118,7 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 	srv, err := web.New(web.Options{
 		Engine: &web.AppEngine{
 			ConfigDir: cfgDir, ConfigSource: cfgSource, Workspace: workspace(),
-			GlobalPath: state.globalPath, GlobalHome: configHome(), Stack: state.stack, Git: gitx.New(),
+			GlobalPath: state.globalPath, GlobalHome: configHome(), GlobalLocation: state.global, Stack: state.stack, Git: gitx.New(),
 		},
 		Token:        token,
 		AllowedHosts: web.AllowedHosts(host, bound, o.allowHosts),
