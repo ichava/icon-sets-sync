@@ -78,17 +78,26 @@ func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
 	s.render(w, http.StatusOK, "about", s.newView(r, "about", "About", d))
 }
 
-// versionLabel is the short form of a version for the header: "v0.1.0" for
-// "0.1.0-SNAPSHOT-907a2a5" or "0.1.0", and a name like "dev" as it is.
+// versionLabel is the one label every page shows for this build: "v0.1.0"
+// for a release, "v0.1.0+907a2a5" for the snapshot build of commit 907a2a5
+// ("0.1.0-SNAPSHOT-907a2a5"), and a name like "dev" as it is. The header, the
+// footer, Settings and About all use it, so they cannot disagree: until
+// 2026-11-09 the header said v0.1.0 while the rest said
+// 0.1.0-SNAPSHOT-9201d04.
 func versionLabel(v string) string {
 	if v == "" {
 		return "dev"
 	}
+	build := ""
 	if i := strings.Index(v, "-SNAPSHOT"); i > 0 {
+		build = strings.TrimLeft(v[i+len("-SNAPSHOT"):], "-")
 		v = v[:i]
 	}
 	if v[0] >= '0' && v[0] <= '9' {
-		return "v" + v
+		v = "v" + v
+	}
+	if build != "" {
+		v += "+" + build
 	}
 	return v
 }

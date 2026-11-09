@@ -125,7 +125,7 @@ func TestServerMenuIsShort(t *testing.T) {
 	if n := strings.Count(menu, `class="dropdown-item`); n != 4 {
 		t.Errorf("server menu has %d items, want 4 (About, Settings, Shortcuts, Stop server)", n)
 	}
-	for _, want := range []string{">About</a>", ">Settings</a>", ">Shortcuts</button>", ">Stop server</button>", ">Server</div>", ">v0.1.0</div>"} {
+	for _, want := range []string{">About</a>", ">Settings</a>", ">Shortcuts</button>", ">Stop server</button>", ">Server</div>", ">v0.1.0&#43;907a2a5</div>"} {
 		if !strings.Contains(menu, want) {
 			t.Errorf("server menu lacks %s", want)
 		}
@@ -139,7 +139,7 @@ func TestServerMenuIsShort(t *testing.T) {
 
 func TestShortVersionLabel(t *testing.T) {
 	for in, want := range map[string]string{
-		"0.1.0-SNAPSHOT-907a2a5": "v0.1.0", "0.1.0": "v0.1.0", "v1.2.3": "v1.2.3", "dev": "dev", "test": "test", "": "dev",
+		"0.1.0-SNAPSHOT-907a2a5": "v0.1.0+907a2a5", "0.1.0-SNAPSHOT": "v0.1.0", "0.1.0": "v0.1.0", "v1.2.3": "v1.2.3", "dev": "dev", "test": "test", "": "dev",
 	} {
 		if got := versionLabel(in); got != want {
 			t.Errorf("versionLabel(%q) = %q, want %q", in, got, want)
@@ -183,6 +183,25 @@ func TestAboutTabs(t *testing.T) {
 	for _, want := range []string{"/tree/main/docs", "/issues", "CHANGELOG.md"} {
 		if !strings.Contains(help, want) {
 			t.Errorf("the Help tab lacks %s", want)
+		}
+	}
+}
+
+// One label everywhere: the header, the footer, Settings and About show the
+// same string for a snapshot build (the owner's screenshot, 2026-11-09).
+func TestEveryPageShowsTheSameVersionLabel(t *testing.T) {
+	s, _ := newTestServer(t, func(o *Options) {
+		o.Version = "0.1.0-SNAPSHOT-9201d04"
+		o.Build.Version = "0.1.0-SNAPSHOT-9201d04"
+	})
+	c := signIn(t, s)
+	for _, page := range []string{"/", "/settings", "/about"} {
+		body := c.get(page).Body.String()
+		if strings.Contains(body, "0.1.0-SNAPSHOT-9201d04") {
+			t.Errorf("%s shows the raw version string", page)
+		}
+		if !strings.Contains(body, "v0.1.0&#43;9201d04") { // html/template writes + as &#43;
+			t.Errorf("%s lacks the label v0.1.0+9201d04", page)
 		}
 	}
 }

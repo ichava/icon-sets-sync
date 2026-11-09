@@ -147,7 +147,7 @@
           </div>
           <div class="col-12 col-lg-auto mt-3 mt-lg-0">
             <ul class="list-inline list-inline-dots mb-0 text-secondary">
-              <li class="list-inline-item">{{appName}} <a class="link-secondary" href="/about">{{.Version}}</a></li>
+              <li class="list-inline-item">{{appName}} <a class="link-secondary" href="/about">{{versionLabel .Version}}</a></li>
               {{if .ReadOnly}}<li class="list-inline-item">{{icon "lock"}} read-only</li>{{end}}
             </ul>
           </div>
