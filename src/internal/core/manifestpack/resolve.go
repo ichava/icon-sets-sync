@@ -111,7 +111,7 @@ func ResolveSet(ctx context.Context, setDir string, fetch Fetcher, workDir strin
 
 	fp, err := FingerprintSet(setDir)
 	if err != nil {
-		return Resolution{Set: filepath.Base(setDir), Confidence: ConfidenceNone, Note: err.Error()}
+		return Resolution{Set: filepath.Base(setDir), Confidence: ConfidenceNone, Error: err.Error()}
 	}
 
 	res := Resolution{Set: fp.Name, Icons: fp.Count(), Confidence: ConfidenceNone}

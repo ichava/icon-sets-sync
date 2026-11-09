@@ -54,6 +54,15 @@ func (s *Server) handlePackagesDirsSave(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) savePackagesDirs(dirs []string) error {
+	if len(dirs) == 0 {
+		return s.saveGlobalKey("packages_dirs", nil)
+	}
+	return s.saveGlobalKey("packages_dirs", dirs)
+}
+
+// saveGlobalKey sets one top-level key of the global config (nil removes it),
+// keeping every other key, through WriteConfig. It drops the key's aliases.
+func (s *Server) saveGlobalKey(key string, value any) error {
 	doc, err := s.opts.Engine.ReadConfig(GlobalName)
 	if err != nil {
 		return err
@@ -67,11 +76,15 @@ func (s *Server) savePackagesDirs(dirs []string) error {
 			return fmt.Errorf("%s is not valid JSON (%v); fix it in the config editor first", doc.Path, err)
 		}
 	}
-	delete(tree, "packages_dir")
-	if len(dirs) == 0 {
-		delete(tree, "packages_dirs")
+	if k, ok := settings.Lookup(key); ok {
+		for _, a := range k.Aliases {
+			delete(tree, a)
+		}
+	}
+	if value == nil {
+		delete(tree, key)
 	} else {
-		tree["packages_dirs"] = dirs
+		tree[key] = value
 	}
 	data, err := json.MarshalIndent(tree, "", "  ")
 	if err != nil {

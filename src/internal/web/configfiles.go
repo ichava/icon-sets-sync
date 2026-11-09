@@ -302,6 +302,7 @@ func (e *AppEngine) WriteConfig(name string, data []byte, base string) error {
 		// packages_dirs is read where packs are loaded, so a save takes effect
 		// on the next page without a restart.
 		app.SetPackagesDirs(resolved.Strings("packages_dirs"))
+		config.SetPrivateConfigDir(resolved.String("private_config_dir"))
 	}
 	return nil
 }

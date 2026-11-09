@@ -136,3 +136,47 @@ func (f recordingFetcher) Fetch(_ context.Context, pkg, dest string) (string, er
 	f[pkg] = dest
 	return "", errors.New("no network in tests")
 }
+
+// "tabler" is not a set in the aggregator pack ("tabler-icons" is). The audit
+// used to accept the name, read a directory that does not exist, and report
+// the run as succeeded with an lstat error in the set's note (2026-11-09).
+func TestAuditRefusesAnUnknownSetAndSuggestsOne(t *testing.T) {
+	configDir, _ := manifestPackFixture(t)
+	_, err := AuditManifestPack(context.Background(), AuditOptions{ConfigDir: configDir, Set: "demo", Fetcher: copyFetcher{}})
+	if !IsUsage(err) {
+		t.Fatalf("want a usage error, got %v", err)
+	}
+	var unknown *UnknownSetError
+	if !errors.As(err, &unknown) || len(unknown.Suggestions) != 1 || unknown.Suggestions[0] != "demo-icons" {
+		t.Fatalf("err = %#v", err)
+	}
+	if got := err.Error(); got != `there is no set "demo" in icon-sets-bundled; did you mean demo-icons?` {
+		t.Errorf("message = %q", got)
+	}
+}
+
+func TestSuggestSets(t *testing.T) {
+	sets := []string{"tabler-icons", "tabler-flags", "lucide-icons", "mdi", "twemoji"}
+	for in, want := range map[string]string{
+		"tabler": "tabler-flags tabler-icons", "lucide": "lucide-icons", "tabler-icon": "tabler-icons",
+		"mdl": "mdi", "nothing-like-it": "",
+	} {
+		got := fmt.Sprint(SuggestSets(in, sets))
+		if want == "" && got != "[]" || want != "" && got != "["+want+"]" {
+			t.Errorf("SuggestSets(%q) = %s, want [%s]", in, got, want)
+		}
+	}
+}
+
+// A set that cannot be read is an error, apart from an unresolved one: the
+// survey could not look at it.
+func TestAnUnreadableSetIsAnError(t *testing.T) {
+	root := t.TempDir()
+	rs := ResolveSets(context.Background(), []string{"missing"}, root, t.TempDir(), 1, "", copyFetcher{})
+	if len(rs) != 1 || rs[0].Error == "" || rs[0].Confidence != manifestpack.ConfidenceNone {
+		t.Fatalf("%+v", rs)
+	}
+	if manifestpack.CountErrors(rs) != 1 {
+		t.Errorf("CountErrors = %d", manifestpack.CountErrors(rs))
+	}
+}

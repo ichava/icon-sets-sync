@@ -40,6 +40,10 @@ type fakeEngine struct {
 	cfg *AppEngine
 	// packsFn, when set, replaces the fixed pack list (to fail like a real engine).
 	packsFn func() ([]*config.PackConfig, error)
+	// privateCandidates is what PrivateConfigCandidates answers;
+	// auditSetsErr makes AuditSets fail like an unloaded private config.
+	privateCandidates []string
+	auditSetsErr      error
 	// outcome, when set, replaces a sync's synced outcome for a pack.
 	outcome func(p *config.PackConfig, req RunRequest) *app.Outcome
 }
@@ -52,6 +56,13 @@ func (f *fakeEngine) ValidateConfig(n string, d []byte) []app.Finding {
 func (f *fakeEngine) WriteConfig(n string, d []byte, base string) error {
 	return f.cfg.WriteConfig(n, d, base)
 }
+func (f *fakeEngine) AuditSets() ([]string, error) {
+	if f.auditSetsErr != nil {
+		return nil, f.auditSetsErr
+	}
+	return []string{"broken-set", "mystery-icons", "tabler-icons", "tabler-outline"}, nil
+}
+func (f *fakeEngine) PrivateConfigCandidates() []string { return f.privateCandidates }
 func (f *fakeEngine) ValidatePacks(parse bool) ([]packcheck.Report, error) {
 	r := packcheck.Report{Root: "/work/icon-sets-demo", Name: "ichava/icon-sets-demo", Sets: 1, SVGs: 3, Findings: []packcheck.Finding{}}
 	if parse {
@@ -250,6 +261,11 @@ func (f *fakeEngine) Recipe(_ context.Context, p *config.PackConfig, version str
 
 func (f *fakeEngine) AuditManifestPack(_ context.Context, req AuditRequest, h AuditHooks) ([]manifestpack.Resolution, error) {
 	f.record(runCall{Kind: "audit", Packs: []string{req.Set, req.Package}})
+	if req.Set == "broken-set" {
+		r := manifestpack.Resolution{Set: "broken-set", Confidence: manifestpack.ConfidenceNone, Error: "open /work/broken-set: permission denied"}
+		h.SetDone(r)
+		return []manifestpack.Resolution{r}, nil
+	}
 	h.Starting(2, "/work/aggregate/resources/assets/svg/files")
 	rs := []manifestpack.Resolution{
 		{Set: "tabler-outline", Icons: 4900, Package: "@tabler/icons", Version: "3.49.0", Path: "icons/outline", Matched: 4900, Identical: 4900, Confidence: manifestpack.ConfidenceExact},

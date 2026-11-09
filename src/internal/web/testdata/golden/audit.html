@@ -165,13 +165,28 @@
 <p class="text-secondary">For every set in the aggregator pack, fetches candidate npm packages and scores them against the committed icons. Nothing is accepted on a name: a candidate is believed only when the bytes it ships match the bytes already committed. A survey, not a gate: unresolved sets are work for a person. It reads the pack tree and writes only temporary downloads.</p>
 
 
-<div class="alert alert-warning" role="alert">
-  <div class="alert-icon"><i class="icon ti ti-alert-triangle alert-icon" aria-hidden="true"></i></div>
-  <div>
-    <h2 class="alert-heading h4">The aggregator pack's config is not loaded</h2>
-    <div class="alert-description">The audit reads the aggregator pack, whose config is private. Start the server with <code>--private-config-dir</code> pointing at that pack's <code>.dev/icon-sets-sync</code> directory.</div>
+
+
+<div class="card mb-3" data-role="audit-unavailable">
+  <div class="card-header"><h2 class="card-title"><i class="icon ti ti-alert-triangle" aria-hidden="true"></i>The aggregator pack's config is not loaded</h2></div>
+  <div class="card-body">
+    <h3 class="h4">Cause</h3>
+    
+    <p>The aggregator pack's config is private: it lives in that pack's checkout, under <code>.dev/icon-sets-sync/</code>, not in the shipped <code>config/</code>. This server has no private config directory, so the pack is not registered and nothing can be audited.</p>
+    
+    <h3 class="h4">Fix</h3>
+    
+    <p>No pack checkout with a <code>.dev/icon-sets-sync/</code> directory was found under <code>packages_dirs</code>, the workspace or beside this checkout. Check out the aggregator pack, or set where the packs live on the <a href="/settings#packages-dirs">Settings</a> page.</p>
+    
+    <p class="mb-1">Or set it yourself, any of these:</p>
+    <ul class="mb-0">
+      <li>start with <code>--private-config-dir &lt;pack&gt;/.dev/icon-sets-sync</code></li>
+      <li>export <code>ICHAVA_PRIVATE_CONFIG_DIR</code></li>
+      <li>add <code>"private_config_dir"</code> to the <a href="/config/global">global config</a></li>
+    </ul>
   </div>
 </div>
+
 
 
 <div class="card mb-3">
@@ -181,15 +196,17 @@
       <div class="col-sm-4">
         <label class="form-label" for="audit-set">Set <span class="text-secondary">(optional)</span></label>
         <input class="form-control" id="audit-set" name="set" placeholder="every set" autocomplete="off" spellcheck="false" value="">
+        
       </div>
       <div class="col-sm-5">
         <label class="form-label" for="audit-package">Verify this npm package <span class="text-secondary">(needs a set)</span></label>
         <input class="form-control" id="audit-package" name="package" autocomplete="off" spellcheck="false" value="">
       </div>
       <div class="col-sm-3">
-        <button type="submit" class="btn btn-primary w-100" disabled><i class="icon ti ti-player-play" aria-hidden="true"></i>Start audit</button>
+        <button type="submit" class="btn btn-primary w-100" disabled aria-describedby="audit-start-why"><i class="icon ti ti-player-play" aria-hidden="true"></i>Start audit</button>
       </div>
     </form>
+    <div class="form-text" id="audit-start-why">Load the aggregator pack's config first: see the fix above.</div>
   </div>
 </div>
 
@@ -197,12 +214,13 @@
 
 <div class="d-flex flex-wrap gap-2 align-items-center mb-3" role="status" aria-live="polite">
   <span class="badge badge-ok">succeeded</span>
-  <span>Latest audit: every set, started <time datetime="2026-10-23T12:00:00Z">2026-10-23 12:00:00 UTC</time>.</span>
+  <span>Latest audit: every set, started <time datetime="2026-10-23T12:00:00Z">2026-10-23 12:00:00 UTC</time>. <span class="text-secondary">From before this server's config; run it again once the config is loaded.</span></span>
   <a href="/jobs/JOBID">Watch the run</a>
   <a class="ms-auto btn btn-outline-secondary btn-sm" href="/manifest-pack/audit/JOBID/manifest.json"><i class="icon ti ti-download" aria-hidden="true"></i>Download as a set manifest</a>
 </div>
 
 <div class="row row-cards mb-3">
+  
   <div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">exact</div><div class="h2 mb-0">1</div></div></div></div><div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">strong</div><div class="h2 mb-0">0</div></div></div></div><div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">package</div><div class="h2 mb-0">0</div></div></div></div><div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">ambiguous</div><div class="h2 mb-0">0</div></div></div></div><div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">partial</div><div class="h2 mb-0">0</div></div></div></div><div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">none</div><div class="h2 mb-0">1</div></div></div></div>
 </div>
 <div class="card">
@@ -213,7 +231,8 @@
       <tbody>
         
         <tr>
-          <th scope="row"><code>tabler-outline</code></th>
+          <th scope="row"><code>tabler-outline</code>
+            <div class="small fw-normal mt-1" data-role="set-problem"><div><strong>Cause:</strong> <span class="text-break"></span></div><div><strong>Fix:</strong> </div></div></th>
           <td>4,900</td>
           <td><span class="badge badge-ok">exact</span></td>
           <td>4900/4900</td>
@@ -222,7 +241,8 @@
         </tr>
         
         <tr>
-          <th scope="row"><code>mystery-icons</code><div class="text-secondary small fw-normal">no candidate reproduced any icon</div></th>
+          <th scope="row"><code>mystery-icons</code><div class="text-secondary small fw-normal">no candidate reproduced any icon</div>
+            <div class="small fw-normal mt-1" data-role="set-problem"><div><strong>Cause:</strong> <span class="text-break"></span></div><div><strong>Fix:</strong> </div></div></th>
           <td>120</td>
           <td><span class="badge badge-bad">none</span></td>
           <td>0/120</td>

@@ -80,6 +80,12 @@ type Engine interface {
 	ConfigHistory(name string) ([]confighistory.Entry, error)
 	ConfigHistoryRead(name, id string) ([]byte, error)
 
+	// AuditSets lists the manifest pack's sets, for the audit form.
+	AuditSets() ([]string, error)
+	// PrivateConfigCandidates finds pack checkouts' private config
+	// directories, offered when the manifest pack's config is not loaded.
+	PrivateConfigCandidates() []string
+
 	// AuditManifestPack surveys where each of the manifest pack's sets came
 	// from, as `manifest-pack audit` does.
 	AuditManifestPack(ctx context.Context, req AuditRequest, hooks AuditHooks) ([]manifestpack.Resolution, error)
@@ -258,6 +264,14 @@ func (e *AppEngine) Settings() SettingsView {
 		v.Global.Path, v.Global.Layer, v.Global.Legacy = global, "saved from this UI", false
 	}
 	return v
+}
+
+// AuditSets implements Engine.
+func (e *AppEngine) AuditSets() ([]string, error) { return app.AuditSets(e.configDir(), e.Workspace) }
+
+// PrivateConfigCandidates implements Engine.
+func (e *AppEngine) PrivateConfigCandidates() []string {
+	return app.PrivateConfigCandidates(e.Workspace)
 }
 
 // AuditManifestPack implements Engine.
