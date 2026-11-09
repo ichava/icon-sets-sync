@@ -175,8 +175,11 @@ func reviewMarkdown(pack string, r sinks.Review) string {
 		b.WriteString("| Shipped today | Becomes |\n|---|---|\n")
 		for _, rm := range r.Removals {
 			to := "removed"
-			if rm.RenamedTo != "" {
+			switch {
+			case rm.RenamedTo != "":
 				to = "`" + rm.RenamedTo + "`"
+			case rm.SameAs != "":
+				to = "removed (the same bytes stay at `" + rm.SameAs + "`)"
 			}
 			fmt.Fprintf(&b, "| `%s` | %s |\n", rm.Path, to)
 		}

@@ -118,3 +118,27 @@ func TestForcedRunNeedsNoReview(t *testing.T) {
 		t.Error("a forced run recorded a review")
 	}
 }
+
+// OpenMoji's black flags share one outline: identical bytes at many paths
+// are not a rename. A rename needs exactly one new path with the bytes; bytes
+// that stay at a path shipped today too make a dropped duplicate.
+func TestIdenticalArtworkIsNotARename(t *testing.T) {
+	existing := map[string][32]byte{
+		"flags/flag-afghanistan.svg": {1}, "flags/flag-albania.svg": {1},
+		"uncategorised/2691.svg": {1}, "uncategorised/old.svg": {2}, "uncategorised/twin.svg": {3},
+	}
+	incoming := map[string][32]byte{
+		"flags/flag-afghanistan.svg": {1}, "flags/flag-albania.svg": {1},
+		"flags/new-a.svg": {3}, "flags/new-b.svg": {3},
+		"animals/orca.svg": {2},
+	}
+	got := removals(existing, incoming)
+	want := []Removal{
+		{Path: "uncategorised/2691.svg", SameAs: "flags/flag-afghanistan.svg"},
+		{Path: "uncategorised/old.svg", RenamedTo: "animals/orca.svg"},
+		{Path: "uncategorised/twin.svg"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("removals = %+v\nwant %+v", got, want)
+	}
+}

@@ -333,9 +333,12 @@ func reportOutcome(o app.Outcome) {
 				ui.Warning("  %s", r.Reason)
 			}
 			for _, rm := range r.Removals {
-				if rm.RenamedTo != "" {
+				switch {
+				case rm.RenamedTo != "":
 					ui.Warning("  renamed  %s -> %s", rm.Path, rm.RenamedTo)
-				} else {
+				case rm.SameAs != "":
+					ui.Warning("  removed  %s (the same bytes stay at %s)", rm.Path, rm.SameAs)
+				default:
 					ui.Warning("  removed  %s", rm.Path)
 				}
 			}

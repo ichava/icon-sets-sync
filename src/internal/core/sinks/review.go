@@ -18,6 +18,10 @@ var ErrNeedsReview = errors.New("needs review")
 type Removal struct {
 	Path      string `json:"path"`
 	RenamedTo string `json:"renamed_to,omitempty"`
+	// SameAs is set instead when the same bytes stay at a path that ships
+	// today too: a duplicate dropped, not a rename (OpenMoji's black flags
+	// share one outline, so content alone cannot say which one moved).
+	SameAs string `json:"same_as,omitempty"`
 }
 
 // ReviewError is a guard's refusal, with every icon it concerns.
@@ -53,9 +57,12 @@ func (e *ReviewError) Error() string {
 		len(e.Removals), e.Target, e.Renamed(), e.Removed())
 	parts := make([]string, 0, len(e.Removals))
 	for _, r := range e.Removals {
-		if r.RenamedTo != "" {
+		switch {
+		case r.RenamedTo != "":
 			parts = append(parts, r.Path+" -> "+r.RenamedTo)
-		} else {
+		case r.SameAs != "":
+			parts = append(parts, r.Path+" (same bytes stay at "+r.SameAs+")")
+		default:
 			parts = append(parts, r.Path)
 		}
 	}
@@ -97,18 +104,17 @@ func ReviewOf(metrics map[string]any) (Review, bool) {
 }
 
 // removals lists every path in existing with no counterpart in incoming,
-// sorted, and names a byte-identical incoming file as its rename. When
-// several incoming files match, the first by path is named.
+// sorted. A rename is named only when it is unambiguous: exactly one path
+// new to incoming holds the same bytes. Otherwise, when those bytes stay at a
+// path that ships today too, that path is named as SameAs.
 func removals(existing, incoming map[string][32]byte) []Removal {
-	byHash := map[[32]byte]string{}
-	paths := make([]string, 0, len(incoming))
-	for p := range incoming {
-		paths = append(paths, p)
-	}
-	sort.Strings(paths)
-	for _, p := range paths {
-		if _, seen := byHash[incoming[p]]; !seen {
-			byHash[incoming[p]] = p
+	newPaths := map[[32]byte][]string{}
+	keptPaths := map[[32]byte][]string{}
+	for p, sum := range incoming {
+		if _, before := existing[p]; before {
+			keptPaths[sum] = append(keptPaths[sum], p)
+		} else {
+			newPaths[sum] = append(newPaths[sum], p)
 		}
 	}
 	var out []Removal
@@ -117,8 +123,13 @@ func removals(existing, incoming map[string][32]byte) []Removal {
 			continue
 		}
 		r := Removal{Path: p}
-		if to, ok := byHash[sum]; ok {
-			r.RenamedTo = to
+		switch cands := newPaths[sum]; {
+		case len(cands) == 1:
+			r.RenamedTo = cands[0]
+		case len(keptPaths[sum]) > 0:
+			kept := append([]string(nil), keptPaths[sum]...)
+			sort.Strings(kept)
+			r.SameAs = kept[0]
 		}
 		out = append(out, r)
 	}

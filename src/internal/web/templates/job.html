@@ -42,14 +42,14 @@
     </div>
     <div class="card-body">
       {{if .Reason}}<p class="text-break">{{.Reason}}</p>{{end}}
-      <p class="mb-0 text-secondary">A real run stops here. A renamed icon has a byte-identical file at its new path; a removed one has none. Consumers address icons by path, so either change breaks a stored id. Target: <code class="text-break">{{.Target}}</code></p>
+      <p class="mb-0 text-secondary">A real run stops here. A renamed icon has a byte-identical file at exactly one new path; a dropped duplicate's bytes stay at a path shipped today too; a removed one has no copy. Consumers address icons by path, so either change breaks a stored id. Target: <code class="text-break">{{.Target}}</code></p>
     </div>
     {{if .Removals}}
     <div class="table-responsive">
       <table class="table table-vcenter card-table">
         <thead><tr><th>Shipped today</th><th>Becomes</th></tr></thead>
         <tbody>
-          {{range .Removals}}<tr><td><code class="text-break">{{.Path}}</code></td><td>{{if .RenamedTo}}<code class="text-break">{{.RenamedTo}}</code>{{else}}<span class="badge badge-bad">removed</span>{{end}}</td></tr>{{end}}
+          {{range .Removals}}<tr><td><code class="text-break">{{.Path}}</code></td><td>{{if .RenamedTo}}<code class="text-break">{{.RenamedTo}}</code>{{else if .SameAs}}<span class="badge badge-warn">dropped duplicate</span> <span class="small">the same bytes stay at</span> <code class="text-break">{{.SameAs}}</code>{{else}}<span class="badge badge-bad">removed</span>{{end}}</td></tr>{{end}}
         </tbody>
       </table>
     </div>
