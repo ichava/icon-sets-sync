@@ -66,7 +66,7 @@
       <div class="card-header"><h2 class="card-title">Sync</h2></div>
       <div class="card-body">
         <p class="text-secondary">Checks upstream first and refreshes only when the pack is behind, unless forced.</p>
-        <form method="post" action="/packs/{{.Pack.Name}}/sync">
+        <form method="post" action="/packs/{{.Pack.Name}}/sync" data-real-phrase="{{.Pack.Name}}" data-real-packs="{{.Pack.Name}}">
           <input type="hidden" name="csrf" value="{{$.CSRF}}">
           {{template "run_mode"}}
           <label class="form-check mb-3"><input class="form-check-input" type="checkbox" name="force" value="1"><span class="form-check-label">Refresh even if up to date</span></label>
@@ -78,7 +78,7 @@
       <div class="card-header"><h2 class="card-title">Run the recipe at a version</h2></div>
       <div class="card-body">
         <p class="text-secondary">Skips the upstream check and fetches exactly this version.</p>
-        <form method="post" action="/packs/{{.Pack.Name}}/recipe">
+        <form method="post" action="/packs/{{.Pack.Name}}/recipe" data-real-phrase="{{.Pack.Name}}" data-real-packs="{{.Pack.Name}}">
           <input type="hidden" name="csrf" value="{{$.CSRF}}">
           <div class="mb-3">
             <label class="form-label" for="recipe-version">Version</label>

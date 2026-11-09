@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -63,5 +64,32 @@ func TestToastsAndProgressMarkup(t *testing.T) {
 	}
 	if !strings.Contains(c.get("/config/icon-sets-demo.json?saved=1").Body.String(), `data-toast="success"`) {
 		t.Error("a save renders no toast")
+	}
+}
+
+// A real sync is confirmed in a modal on the page that starts it: every form
+// that can start one names what to type, and the layout carries the modal.
+// The server still checks the phrase, and the confirmation page stays as the
+// fallback without JavaScript, now without a second dialog stacked on it.
+func TestRealSyncConfirmsInAModal(t *testing.T) {
+	s, _ := newTestServer(t)
+	c := signIn(t, s)
+	pack := c.get("/packs/icon-sets-flag").Body.String()
+	for _, want := range []string{
+		`action="/packs/icon-sets-flag/sync" data-real-phrase="icon-sets-flag"`,
+		`action="/packs/icon-sets-flag/recipe" data-real-phrase="icon-sets-flag"`,
+		`id="real-run-modal"`, `id="real-run-confirm"`, `id="real-run-start" disabled`,
+	} {
+		if !strings.Contains(pack, want) {
+			t.Errorf("pack page lacks %q", want)
+		}
+	}
+	dash := c.get("/").Body.String()
+	if !strings.Contains(dash, `action="/sync-all" data-real-phrase="all packs"`) || !strings.Contains(dash, `data-role="pack-sync-form" data-real-phrase=""`) {
+		t.Error("the dashboard's run forms do not name a phrase")
+	}
+	confirm := c.post("/packs/icon-sets-flag/sync", url.Values{"mode": {"real"}}).Body.String()
+	if !strings.Contains(confirm, `name="confirm"`) || strings.Contains(confirm, `data-confirm-title="Start a real sync?"`) {
+		t.Error("the fallback page is missing its field, or still stacks a second confirm")
 	}
 }

@@ -291,6 +291,8 @@ func writeEvent(w io.Writer, e jobs.Event) {
 // forceRerun is the form that re-runs a run that needs review with --force.
 type forceRerun struct {
 	Action, Mode, Confirm string
+	// Phrase and Packs feed the typed confirmation a real re-run needs.
+	Phrase, Packs string
 }
 
 // maxConfirmNames caps the icons a confirm dialog names; the page above it
@@ -304,9 +306,9 @@ func newForceRerun(info jobs.Info, reviews []reviewView) *forceRerun {
 	}
 	switch {
 	case info.Kind == jobs.KindSync && len(info.Packs) == 1:
-		f.Action = "/packs/" + info.Packs[0] + "/sync"
+		f.Action, f.Phrase = "/packs/"+info.Packs[0]+"/sync", info.Packs[0]
 	case info.Kind == jobs.KindSyncAll:
-		f.Action = "/sync-all"
+		f.Action, f.Phrase = "/sync-all", "all packs"
 	default:
 		return nil
 	}
@@ -328,6 +330,7 @@ func newForceRerun(info jobs.Info, reviews []reviewView) *forceRerun {
 	if f.Mode == "real" {
 		what = "A real run that writes, commits and opens a pull request."
 	}
+	f.Packs = strings.Join(info.Packs, " ")
 	f.Confirm = fmt.Sprintf("%s It lets %d icon(s) go: %s", what, total, strings.Join(names, ", "))
 	if total > len(names) {
 		f.Confirm += fmt.Sprintf(", and %d more listed on this page", total-len(names))

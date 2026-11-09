@@ -50,6 +50,76 @@
   }
   window.iconSetsToast = showToast;
 
+  // A real sync asks for its typed confirmation in a modal on the page that
+  // starts it, instead of a separate confirmation page. A form that can start
+  // one carries data-real-phrase (what to type) and data-real-packs. The
+  // server still checks the phrase, and without this script it shows its
+  // confirmation page.
+  var realModal = document.getElementById("real-run-modal");
+  var realForm = null;
+  function isReal(form, submitter) {
+    if (submitter && submitter.name === "mode") { return submitter.value === "real"; }
+    var mode = form.querySelector("input[name=mode]:checked") || form.querySelector("input[type=hidden][name=mode]");
+    return !!mode && mode.value === "real";
+  }
+  if (realModal && tb.Modal) {
+    var realInput = document.getElementById("real-run-confirm");
+    var realStart = document.getElementById("real-run-start");
+    var realHelp = document.getElementById("real-run-help");
+    var phraseOf = function () { return realForm ? realForm.getAttribute("data-real-phrase") : ""; };
+    var match = function () { return realInput.value.trim() === phraseOf(); };
+    realInput.addEventListener("input", function () {
+      realStart.disabled = !match();
+      realHelp.textContent = realInput.value === "" || match() ? "Nothing has been started yet." : "That does not match yet.";
+    });
+    realInput.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); if (match()) { realStart.click(); } }
+    });
+    realModal.addEventListener("shown.bs.modal", function () { realInput.focus(); });
+    realStart.addEventListener("click", function () {
+      if (!realForm || !match()) { return; }
+      var input = realForm.querySelector("input[name=confirm]");
+      if (!input) {
+        input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "confirm";
+        realForm.appendChild(input);
+      }
+      input.value = phraseOf();
+      realForm.setAttribute("data-real-confirmed", "1");
+      var form = realForm;
+      tb.Modal.getOrCreateInstance(realModal).hide();
+      form.requestSubmit();
+    });
+    document.addEventListener("submit", function (ev) {
+      var form = ev.target;
+      if (!form.hasAttribute || !form.hasAttribute("data-real-phrase") || !form.getAttribute("data-real-phrase")) { return; }
+      if (!isReal(form, ev.submitter) || form.getAttribute("data-real-confirmed") === "1") { return; }
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      realForm = form;
+      realModal.querySelector("[data-role=real-phrase]").textContent = phraseOf();
+      var list = realModal.querySelector("[data-role=real-packs]");
+      while (list.firstChild) { list.removeChild(list.firstChild); }
+      (form.getAttribute("data-real-packs") || "").split(" ").filter(Boolean).forEach(function (p) {
+        var li = document.createElement("li");
+        var code = document.createElement("code");
+        code.textContent = p;
+        li.appendChild(code);
+        list.appendChild(li);
+      });
+      var note = realModal.querySelector("[data-role=real-note]");
+      note.textContent = form.getAttribute("data-real-note") || "";
+      note.hidden = !note.textContent;
+      realInput.value = "";
+      realStart.disabled = true;
+      realHelp.textContent = "Nothing has been started yet.";
+      var panel = form.closest(".offcanvas");
+      if (panel && tb.Offcanvas) { tb.Offcanvas.getOrCreateInstance(panel).hide(); }
+      tb.Modal.getOrCreateInstance(realModal).show();
+    }, true);
+  }
+
   // A page asks for a toast with a hidden [data-toast] element: a save, a
   // finished check or run, rendered after the redirect that follows it.
   document.querySelectorAll("[data-toast]").forEach(function (el) {
@@ -197,7 +267,10 @@
       var slug = ev.relatedTarget && ev.relatedTarget.getAttribute("data-pack");
       if (!slug) { return; }
       var base = "/packs/" + encodeURIComponent(slug);
-      packPanel.querySelector("[data-role=pack-sync-form]").setAttribute("action", base + "/sync");
+      var packForm = packPanel.querySelector("[data-role=pack-sync-form]");
+      packForm.setAttribute("action", base + "/sync");
+      packForm.setAttribute("data-real-phrase", slug);
+      packForm.setAttribute("data-real-packs", slug);
       packPanel.querySelector("[data-role=pack-page]").setAttribute("href", base);
       packPanel.querySelector("[data-role=pack-name]").textContent = slug;
     });

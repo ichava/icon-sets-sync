@@ -57,7 +57,7 @@
   </div>
   {{end}}
   {{with .Force}}
-  <form class="mb-3" method="post" action="{{.Action}}" data-confirm="{{.Confirm}}" data-confirm-title="Re-run with --force?" data-confirm-button="Re-run with --force">
+  <form class="mb-3" method="post" action="{{.Action}}" {{if eq .Mode "real"}}data-real-phrase="{{.Phrase}}" data-real-packs="{{.Packs}}" data-real-note="{{.Confirm}}"{{else}}data-confirm="{{.Confirm}}" data-confirm-title="Re-run with --force?" data-confirm-button="Re-run with --force"{{end}}>
     <input type="hidden" name="csrf" value="{{$.CSRF}}">
     <input type="hidden" name="mode" value="{{.Mode}}">
     <input type="hidden" name="force" value="1">
