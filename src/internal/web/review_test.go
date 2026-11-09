@@ -21,7 +21,7 @@ func TestADryRunThatNeedsReviewListsEveryIconAndOffersForce(t *testing.T) {
 	for i := 0; i < 15; i++ {
 		removals = append(removals, sinks.Removal{Path: "uncategorised/e0" + string(rune('a'+i)) + ".svg", RenamedTo: "flags/f" + string(rune('a'+i)) + ".svg"})
 	}
-	removals = append(removals, sinks.Removal{Path: "gone.svg"})
+	removals = append(removals, sinks.Removal{Path: "gone.svg"}, sinks.Removal{Path: "twin.svg", SameAs: "flags/kept.svg"})
 	eng.outcome = func(p *config.PackConfig, req RunRequest) *app.Outcome {
 		if req.Force {
 			return nil
@@ -38,7 +38,7 @@ func TestADryRunThatNeedsReviewListsEveryIconAndOffersForce(t *testing.T) {
 	}
 	body := c.get(path).Body.String()
 	for _, want := range []string{
-		"Needs review", "uncategorised/e0o.svg", "flags/fo.svg", "gone.svg", "15 renamed, 1 removed",
+		"Needs review", "uncategorised/e0o.svg", "flags/fo.svg", "gone.svg", "15 renamed, 1 dropped duplicate(s), 1 removed", "the same bytes stay at",
 		`name="force" value="1"`, `name="mode" value="dry-run"`, `data-confirm-title="Re-run with --force?"`,
 	} {
 		if !strings.Contains(body, want) {

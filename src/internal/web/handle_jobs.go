@@ -38,6 +38,8 @@ type reviewView struct {
 	Pack, Target, Reason string
 	Removals             []sinks.Removal
 	Renamed, Removed     int
+	// Duplicates are removals whose bytes stay at a path shipped today.
+	Duplicates int
 }
 
 type jobData struct {
@@ -107,9 +109,12 @@ func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
 			if json.Unmarshal(e.Data, &rec) == nil && rec.Kind == "review" {
 				rv := reviewView{Pack: rec.Pack, Target: rec.Review.Target, Reason: rec.Review.Reason, Removals: rec.Review.Removals}
 				for _, rm := range rv.Removals {
-					if rm.RenamedTo != "" {
+					switch {
+					case rm.RenamedTo != "":
 						rv.Renamed++
-					} else {
+					case rm.SameAs != "":
+						rv.Duplicates++
+					default:
 						rv.Removed++
 					}
 				}

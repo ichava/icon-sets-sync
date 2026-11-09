@@ -38,7 +38,7 @@
   <div class="card mb-3" data-role="review">
     <div class="card-header">
       <h2 class="card-title">{{icon "alert-triangle"}}Needs review: <code>{{.Pack}}</code></h2>
-      <div class="card-subtitle ms-2">{{.Renamed}} renamed, {{.Removed}} removed</div>
+      <div class="card-subtitle ms-2">{{.Renamed}} renamed, {{if .Duplicates}}{{.Duplicates}} dropped duplicate(s), {{end}}{{.Removed}} removed</div>
     </div>
     <div class="card-body">
       {{if .Reason}}<p class="text-break">{{.Reason}}</p>{{end}}
