@@ -82,3 +82,12 @@ main:focus { outline: none; }
    dark card (ui-a11y, a pack repo error in the packs table). The same red
    the dark outline-danger button uses is above 4.5:1. */
 :root[data-bs-theme=dark] .text-danger { color: #ff8f8f !important; }
+
+/* Motion: the alert bar's spinner, the run and check progress bars and the
+   saving bar animate; with reduced motion they hold still, and an
+   indeterminate bar shows as a steady half-tone fill instead of a sweep.
+   Tabler slows these but does not stop them. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner-border, .progress-bar-indeterminate::before, .progress-bar-indeterminate::after { animation: none; }
+  .progress-bar-indeterminate { width: 100%; opacity: .5; }
+}

@@ -2,10 +2,10 @@
 {{template "page_header" "Settings"}}
 <div class="row row-cards">
   <div class="col-lg-8">
-    {{if .Problem}}<div class="alert alert-danger" role="alert"><strong>Not saved:</strong> <span class="text-break">{{.Problem}}</span></div>{{end}}
+    {{if .Problem}}<div class="alert alert-danger" role="alert"><strong>Not saved:</strong> <span class="text-break">{{.Problem}}</span></div><div hidden data-toast="danger" data-toast-title="Not saved" data-toast-body="{{.Problem}}"></div>{{end}}
     <div class="card mb-3" id="packages-dirs">
-      <div class="card-header"><h2 class="card-title">Where the ichava packs live</h2>{{if eq .Saved "packages_dirs"}}<span class="badge badge-ok ms-auto" role="status">{{icon "circle-check"}}saved</span>{{end}}</div>
-      <form method="post" action="/settings/packages-dirs">
+      <div class="card-header"><h2 class="card-title">Where the ichava packs live</h2>{{if eq .Saved "packages_dirs"}}<span class="badge badge-ok ms-auto" role="status">{{icon "circle-check"}}saved</span><div hidden data-toast="success" data-toast-title="Saved packages_dirs" data-toast-body="Written to the global config."></div>{{end}}</div>
+      <form method="post" action="/settings/packages-dirs" data-progress="Saving packages_dirs">
         <input type="hidden" name="csrf" value="{{$.CSRF}}">
         <div class="card-body">
           <p class="text-secondary">Directories holding the pack checkouts (<code>icon-sets-tabler/</code>, <code>icon-sets-openmoji/</code>…), searched in order. <code>packages_dirs</code> in the global config; <code>--packages-dir</code> and <code>ICHAVA_PACKAGES_DIRS</code> override it{{if ne .PackagesDirsOrigin "default"}}, and right now the value comes from: <span class="badge badge-info">{{.PackagesDirsOrigin}}</span>{{end}}.</p>

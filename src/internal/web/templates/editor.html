@@ -9,11 +9,11 @@
   </div>
 </div>
 
-{{if .Saved}}<div class="alert alert-success" role="status">{{icon "circle-check"}} Saved. The next run reads it.</div>{{end}}
+{{if .Saved}}<div class="alert alert-success" role="status">{{icon "circle-check"}} Saved. The next run reads it.</div><div hidden data-toast="success" data-toast-title="Saved {{.Doc.Name}}" data-toast-body="The previous copy is in the history."></div>{{end}}
 {{if .Conflict}}<div class="alert alert-warning" role="alert">{{icon "alert-triangle"}} This file changed on disk after you opened it, so nothing was saved. Your text is below; <a href="/config/{{.Doc.Name}}">reload the file</a> to see the current version, then apply your change again.</div>{{end}}
 {{if .Doc.ReadOnly}}<div class="alert alert-info" role="status">{{icon "lock"}} Read-only: {{.Doc.Why}}</div>{{else if $.ReadOnly}}<div class="alert alert-info" role="status">{{icon "lock"}} This server was started with --read-only.</div>{{end}}
 
-<form method="post" action="/config/{{.Doc.Name}}" id="editor-form" data-validate-url="/config/{{.Doc.Name}}/validate" data-confirm="The file on disk is replaced with the contents of the editor." data-confirm-title="Save {{.Doc.Name}}?" data-confirm-button="Save">
+<form method="post" action="/config/{{.Doc.Name}}" id="editor-form" data-progress="Saving {{.Doc.Name}}" data-validate-url="/config/{{.Doc.Name}}/validate" data-confirm="The file on disk is replaced with the contents of the editor." data-confirm-title="Save {{.Doc.Name}}?" data-confirm-button="Save">
   <input type="hidden" name="csrf" value="{{$.CSRF}}">
   <input type="hidden" name="base" value="{{.Base}}">
   <div class="card mb-3">

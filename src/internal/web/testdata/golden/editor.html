@@ -169,7 +169,7 @@
 
 
 
-<form method="post" action="/config/icon-sets-demo.json" id="editor-form" data-validate-url="/config/icon-sets-demo.json/validate" data-confirm="The file on disk is replaced with the contents of the editor." data-confirm-title="Save icon-sets-demo.json?" data-confirm-button="Save">
+<form method="post" action="/config/icon-sets-demo.json" id="editor-form" data-progress="Saving icon-sets-demo.json" data-validate-url="/config/icon-sets-demo.json/validate" data-confirm="The file on disk is replaced with the contents of the editor." data-confirm-title="Save icon-sets-demo.json?" data-confirm-button="Save">
   <input type="hidden" name="csrf" value="CSRF">
   <input type="hidden" name="base" value="df8541a09e2cf94065aa6e060ec4dacc7eb903fd824fb50e909a831f900c7d28">
   <div class="card mb-3">
@@ -315,6 +315,17 @@
     </div>
   </div>
 </div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
+<template id="toast-template">
+  <div class="toast" role="status" aria-live="polite" aria-atomic="true">
+    <div class="toast-header">
+      <span class="badge me-2" data-role="toast-badge"></span>
+      <strong class="me-auto" data-role="toast-title"></strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body"><span data-role="toast-body"></span> <a data-role="toast-link" hidden>Open the run</a></div>
+  </div>
+</template>
 <script src="/assets/HASH/vendor/tabler/tabler.min.js" defer></script>
 <script src="/assets/HASH/app.js" defer></script>
 </body>

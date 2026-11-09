@@ -25,7 +25,14 @@
       {{if .Info.Err}}<button type="button" class="btn btn-sm btn-ghost-secondary" data-copy-target="run-error" aria-label="Copy the error">{{icon "copy"}}<span data-role="copy-label">Copy</span></button>{{end}}
     </div>
     {{if .Live}}<noscript> Reload the page to see progress.</noscript>{{end}}
+    {{if and .Live .PacksTotal}}
+    <div class="mt-2">
+      <progress class="progress progress-sm w-100" id="job-progress" value="{{.PacksDone}}" max="{{.PacksTotal}}" aria-label="Packs done">{{.PacksDone}} of {{.PacksTotal}}</progress>
+      <div class="small" id="job-progress-count">{{.PacksDone}} of {{.PacksTotal}} packs done</div>
+    </div>
+    {{end}}
   </div>
+  {{if .Finished}}<div hidden data-toast="{{if eq (print .Info.Status) "succeeded"}}success{{else if eq (print .Info.Status) "needs-review"}}warning{{else if eq (print .Info.Status) "cancelled"}}info{{else}}danger{{end}}" data-toast-title="Run {{runText .Info.Status}}" data-toast-body="{{.Info.Label}}{{if .Info.Err}}: {{.Info.Err}}{{end}}"></div>{{end}}
 
   {{range .Reviews}}
   <div class="card mb-3" data-role="review">
@@ -70,7 +77,7 @@
       <div class="card mb-3">
         <div class="card-header"><h2 class="card-title">Stages</h2></div>
         <ol class="list-group list-group-flush list-group-numbered" id="job-stages">
-          {{range .Stages}}<li class="list-group-item" data-stage="{{.Pipeline}}|{{.Stage}}"><span class="badge {{stageClass .State}} me-2" data-role="state">{{.State}}</span><code>{{.Stage}}</code> <span class="text-secondary small">{{.Pipeline}}</span>{{if .Err}}<div class="text-danger small text-break" data-role="error">{{breakable .Err}}</div>{{end}}</li>{{end}}
+          {{range .Stages}}<li class="list-group-item" data-stage="{{.Pipeline}}|{{.Stage}}"><span class="badge {{stageClass .State}} me-2" data-role="state">{{.State}}</span><code>{{.Stage}}</code> <span class="text-secondary small">{{.Pipeline}}</span>{{if .Err}}<div class="text-danger small text-break" data-role="error">{{breakable .Err}}</div>{{end}}{{if and $.Data.Live (eq .State "started")}}<div class="progress progress-sm mt-1" data-role="stage-progress" role="progressbar" aria-label="{{.Stage}} in progress"><div class="progress-bar progress-bar-indeterminate"></div></div>{{end}}</li>{{end}}
         </ol>
       </div>
     </div>

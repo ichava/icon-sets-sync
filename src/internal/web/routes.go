@@ -11,6 +11,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /assets/{hash}/{path...}", s.serveAsset)
 	mux.HandleFunc("GET /{$}", s.handleDashboard)
 	mux.HandleFunc("POST /check", s.handleRefresh)
+	mux.HandleFunc("GET /status.json", s.handleStatus)
 	mux.HandleFunc("GET /settings", s.handleSettings)
 	mux.HandleFunc("GET /about/licenses", s.handleLicenses)
 	mux.HandleFunc("GET /about", s.handleAbout)

@@ -370,6 +370,9 @@ type view struct {
 	// Running counts the ones still running.
 	Recent  []jobs.Info
 	Running int
+	// RunningIDs are the running runs, watched by app.js so a toast says
+	// when each one finishes, whatever page is open.
+	RunningIDs []string
 	// Reload asks app.js to reload the page after a few seconds, while
 	// background work the page is waiting on is running.
 	Reload bool
@@ -385,6 +388,7 @@ func (s *Server) newView(r *http.Request, nav, title string, data any) view {
 		for _, info := range s.jobs.List() {
 			if info.Status == jobs.StatusRunning {
 				v.Running++
+				v.RunningIDs = append(v.RunningIDs, info.ID)
 			}
 			if len(v.Recent) < 5 {
 				v.Recent = append(v.Recent, info)

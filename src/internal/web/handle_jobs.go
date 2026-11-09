@@ -41,7 +41,11 @@ type reviewView struct {
 }
 
 type jobData struct {
-	Reviews []reviewView
+	// PacksDone and PacksTotal drive the overall progress bar.
+	PacksDone, PacksTotal int
+	// Finished is set on the reload after the run ended, for a toast.
+	Finished bool
+	Reviews  []reviewView
 	// Force is the re-run with --force a run that needs review offers.
 	Force    *forceRerun
 	Info     jobs.Info
@@ -116,6 +120,13 @@ func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
 	if len(events) > 0 && events[0].ID > 1 {
 		d.Dropped = true
 	}
+	d.PacksTotal = len(info.Packs)
+	for _, p := range d.Packs {
+		if p.Status != "running" && p.Status != "" {
+			d.PacksDone++
+		}
+	}
+	d.Finished = r.URL.Query().Get("finished") == "1" && !d.Live
 	if len(d.Reviews) > 0 && !s.opts.ReadOnly {
 		d.Force = newForceRerun(info, d.Reviews)
 	}

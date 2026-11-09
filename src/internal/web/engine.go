@@ -85,6 +85,13 @@ type Engine interface {
 	AuditManifestPack(ctx context.Context, req AuditRequest, hooks AuditHooks) ([]manifestpack.Resolution, error)
 }
 
+// ProgressChecker is an Engine that reports a check's progress: done is
+// called with the number of packs finished after each one. The dashboard
+// uses it for "n of N"; an engine without it is checked in one call.
+type ProgressChecker interface {
+	CheckProgress(ctx context.Context, packs []*config.PackConfig, done func(int)) []checker.Result
+}
+
 // AuditRequest is the audit form: one set, optionally verified against one
 // named package; empty means every set.
 type AuditRequest struct{ Set, Package string }
@@ -191,6 +198,16 @@ func (e *AppEngine) Packs() ([]*config.PackConfig, error) {
 // Check implements Engine.
 func (e *AppEngine) Check(ctx context.Context, packs []*config.PackConfig) []checker.Result {
 	return app.CheckAll(ctx, packs)
+}
+
+// CheckProgress implements ProgressChecker: one pack at a time.
+func (e *AppEngine) CheckProgress(ctx context.Context, packs []*config.PackConfig, done func(int)) []checker.Result {
+	out := make([]checker.Result, 0, len(packs))
+	for i, p := range packs {
+		out = append(out, app.CheckAll(ctx, []*config.PackConfig{p})...)
+		done(i + 1)
+	}
+	return out
 }
 
 // PackStats implements Engine.

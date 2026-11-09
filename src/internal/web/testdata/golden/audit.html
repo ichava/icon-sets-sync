@@ -344,6 +344,17 @@
     </div>
   </div>
 </div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
+<template id="toast-template">
+  <div class="toast" role="status" aria-live="polite" aria-atomic="true">
+    <div class="toast-header">
+      <span class="badge me-2" data-role="toast-badge"></span>
+      <strong class="me-auto" data-role="toast-title"></strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body"><span data-role="toast-body"></span> <a data-role="toast-link" hidden>Open the run</a></div>
+  </div>
+</template>
 <script src="/assets/HASH/vendor/tabler/tabler.min.js" defer></script>
 <script src="/assets/HASH/app.js" defer></script>
 </body>

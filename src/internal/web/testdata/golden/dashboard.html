@@ -156,14 +156,25 @@
       <div class="container-xl">
         
 
+
+<div class="alert alert-warning alert-dismissible" id="check-status" role="status" aria-live="polite" data-status-url="/status.json" data-running="">
+  <div class="d-flex align-items-center gap-2">
+    <i class="icon ti ti-alert-triangle" aria-hidden="true"></i>
+    <div class="flex-fill text-break" data-role="check-text">
+      Upstream checked <time datetime="2026-10-23T12:00:00Z" data-role="checked-at">just now</time> <span class="text-secondary">(2026-10-23T12:00:00Z)</span>: 1 pack(s) behind upstream, 1 could not be checked.
+      
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss"></button>
+  </div>
+  
+</div>
+
+
 <div class="page-header d-print-none mb-3">
   <div class="row g-2 align-items-center">
     <div class="col">
       <div class="page-pretitle">Overview</div>
       <h1 class="page-title">Packs</h1>
-      <div class="text-secondary mt-1" role="status" aria-live="polite">
-        Upstream checked <time datetime="2026-10-23T12:00:00Z">2026-10-23 12:00:00 UTC</time>.
-      </div>
     </div>
     <div class="col-auto ms-auto">
       <div class="btn-list">
@@ -425,6 +436,17 @@
     </div>
   </div>
 </div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
+<template id="toast-template">
+  <div class="toast" role="status" aria-live="polite" aria-atomic="true">
+    <div class="toast-header">
+      <span class="badge me-2" data-role="toast-badge"></span>
+      <strong class="me-auto" data-role="toast-title"></strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body"><span data-role="toast-body"></span> <a data-role="toast-link" hidden>Open the run</a></div>
+  </div>
+</template>
 <script src="/assets/HASH/vendor/tabler/tabler.min.js" defer></script>
 <script src="/assets/HASH/app.js" defer></script>
 </body>
