@@ -154,3 +154,11 @@ func TestAuditPageSaysWhenTheManifestPackConfigIsMissing(t *testing.T) {
 		t.Error("Start audit is not disabled")
 	}
 }
+
+// A long path wraps between its segments, and the text is still escaped.
+func TestBreakableWrapsPathsAndEscapes(t *testing.T) {
+	got := string(breakable(`/a/<b>/c`))
+	if got != `/<wbr>a/<wbr>&lt;b&gt;/<wbr>c` {
+		t.Errorf("breakable = %s", got)
+	}
+}

@@ -20,7 +20,10 @@
 
 <div id="job" data-events-url="/events/jobs/{{.Info.ID}}" data-last-id="{{.LastID}}" data-live="{{if .Live}}1{{end}}">
   <div class="alert {{runAlert .Info.Status}}" role="status" aria-live="polite" id="job-status">
-    <strong>{{runText .Info.Status}}</strong>{{if .Info.Err}}: {{.Info.Err}}{{end}}
+    <div class="d-flex align-items-start gap-2">
+      <div class="text-break flex-fill"><strong>{{runText .Info.Status}}</strong>{{if .Info.Err}}: <span id="run-error">{{breakable .Info.Err}}</span>{{end}}</div>
+      {{if .Info.Err}}<button type="button" class="btn btn-sm btn-ghost-secondary" data-copy-target="run-error" aria-label="Copy the error">{{icon "copy"}}<span data-role="copy-label">Copy</span></button>{{end}}
+    </div>
     {{if .Live}}<noscript> Reload the page to see progress.</noscript>{{end}}
   </div>
 
@@ -61,13 +64,13 @@
       <div class="card mb-3">
         <div class="card-header"><h2 class="card-title">Packs</h2></div>
         <ul class="list-group list-group-flush" id="job-packs">
-          {{range .Packs}}<li class="list-group-item" data-pack="{{.Pack}}"><div class="d-flex justify-content-between"><code>{{.Pack}}</code><span class="badge {{runClass .Status}}" data-role="status">{{.Status}}</span></div>{{if .Detail}}<div class="text-secondary small" data-role="detail">{{.Detail}}</div>{{end}}{{if .Err}}<div class="text-danger small text-break" data-role="error">{{.Err}}</div>{{end}}</li>{{else}}<li class="list-group-item text-secondary" data-role="empty">No pack has started yet.</li>{{end}}
+          {{range $i, $p := .Packs}}<li class="list-group-item" data-pack="{{.Pack}}"><div class="d-flex justify-content-between"><code>{{.Pack}}</code><span class="badge {{runClass .Status}}" data-role="status">{{.Status}}</span></div>{{if .Detail}}<div class="text-secondary small" data-role="detail">{{.Detail}}</div>{{end}}{{if .Err}}<div class="d-flex align-items-start gap-2"><div class="text-danger small text-break flex-fill" data-role="error" id="pack-error-{{$i}}">{{breakable .Err}}</div><button type="button" class="btn btn-sm btn-ghost-secondary" data-copy-target="pack-error-{{$i}}" aria-label="Copy the error for {{.Pack}}">{{icon "copy"}}<span data-role="copy-label" class="visually-hidden">Copy</span></button></div>{{end}}</li>{{else}}<li class="list-group-item text-secondary" data-role="empty">No pack has started yet.</li>{{end}}
         </ul>
       </div>
       <div class="card mb-3">
         <div class="card-header"><h2 class="card-title">Stages</h2></div>
         <ol class="list-group list-group-flush list-group-numbered" id="job-stages">
-          {{range .Stages}}<li class="list-group-item" data-stage="{{.Pipeline}}|{{.Stage}}"><span class="badge {{stageClass .State}} me-2" data-role="state">{{.State}}</span><code>{{.Stage}}</code> <span class="text-secondary small">{{.Pipeline}}</span>{{if .Err}}<div class="text-danger small text-break" data-role="error">{{.Err}}</div>{{end}}</li>{{end}}
+          {{range .Stages}}<li class="list-group-item" data-stage="{{.Pipeline}}|{{.Stage}}"><span class="badge {{stageClass .State}} me-2" data-role="state">{{.State}}</span><code>{{.Stage}}</code> <span class="text-secondary small">{{.Pipeline}}</span>{{if .Err}}<div class="text-danger small text-break" data-role="error">{{breakable .Err}}</div>{{end}}</li>{{end}}
         </ol>
       </div>
     </div>
@@ -89,7 +92,7 @@
         </div>
         {{if .Dropped}}<div class="card-body py-2 text-secondary small">Earlier lines are not shown here; the download has everything this run kept.</div>{{end}}
         <ol class="log-pane list-unstyled mb-0" id="job-log" data-level="info" tabindex="0" aria-label="Run log">
-          {{range .Log}}<li class="log-line log-{{.Level}}"><time datetime="{{iso .Time}}">{{clock .Time}}</time> <span class="log-level">{{.Level}}</span> {{.Msg}}{{range $k, $v := .Attrs}} <span class="log-attr">{{$k}}={{$v}}</span>{{end}}</li>{{end}}
+          {{range .Log}}<li class="log-line log-{{.Level}}"><time datetime="{{iso .Time}}">{{clock .Time}}</time> <span class="log-level">{{.Level}}</span> {{breakable .Msg}}{{range $k, $v := .Attrs}} <span class="log-attr">{{$k}}={{breakable $v}}</span>{{end}}</li>{{end}}
         </ol>
       </div>
     </div>

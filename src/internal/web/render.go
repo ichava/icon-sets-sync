@@ -211,6 +211,7 @@ func funcs(a *assetSet) template.FuncMap {
 		"version":      shortVersion,
 		"appName":      func() string { return AppName },
 		"versionLabel": versionLabel,
+		"breakable":    breakable,
 		"aboutTabs":    func() any { return aboutTabs },
 		"paletteItem": func(href, icon, label, keys string) paletteItem {
 			return paletteItem{Href: href, Icon: icon, Label: label, Keys: keys}
@@ -232,6 +233,15 @@ type paletteItem struct{ Href, Icon, Label, Keys string }
 
 // cliSnippet is one copyable command in a CLI panel.
 type cliSnippet struct{ ID, Label, Text string }
+
+// breakable escapes s and offers a line break after every path separator,
+// so a long path in a log line or an error wraps between its segments instead
+// of mid-word. The copy buttons copy textContent, which <wbr> does not change.
+func breakable(s string) template.HTML {
+	esc := template.HTMLEscapeString(s)
+	r := strings.NewReplacer("/", "/<wbr>", `\`, `\<wbr>`)
+	return template.HTML(r.Replace(esc)) //nolint:gosec // escaped above; only <wbr> is added
+}
 
 // shortVersion shows a version that is a full commit SHA (a pack whose
 // upstream has no tags) as its first 12 characters and nothing else: no
