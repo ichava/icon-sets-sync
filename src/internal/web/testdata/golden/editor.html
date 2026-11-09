@@ -188,9 +188,15 @@
   </div>
   <div class="btn-list mb-3">
     <button type="submit" class="btn btn-outline-primary" formaction="/config/icon-sets-demo.json/validate" data-confirm-skip><i class="icon ti ti-shield-check" aria-hidden="true"></i>Validate</button>
-    <button type="submit" class="btn btn-primary" id="editor-save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+    <button type="submit" class="btn" formaction="/config/icon-sets-demo.json/fix" data-confirm-skip><i class="icon ti ti-wand" aria-hidden="true"></i>Fix</button>
+    <a class="btn" href="/config/icon-sets-demo.json/history"><i class="icon ti ti-history" aria-hidden="true"></i>History</a>
+    <button type="submit" class="btn btn-primary ms-auto" id="editor-save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
   </div>
 </form>
+
+
+
+
 
 <section id="editor-findings" aria-live="polite" aria-labelledby="findings-title">
   <h2 class="h3" id="findings-title">Not validated yet</h2>

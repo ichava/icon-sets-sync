@@ -15,6 +15,7 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/confighistory"
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
 	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
@@ -65,8 +66,15 @@ type Engine interface {
 	ReadConfig(name string) (ConfigDoc, error)
 	// ValidateConfig checks bytes as the loader would, without writing.
 	ValidateConfig(name string, data []byte) []app.Finding
-	// WriteConfig validates and saves, refusing a stale base revision.
+	// WriteConfig validates and saves, refusing a stale base revision. The
+	// file's previous contents go to the history first.
 	WriteConfig(name string, data []byte, base string) error
+	// FixConfig proposes the safe repairs to a document; it writes nothing.
+	FixConfig(name string, data []byte) (app.Fixed, error)
+	// ConfigHistory lists a document's saved copies, newest first, and
+	// ConfigHistoryRead returns one.
+	ConfigHistory(name string) ([]confighistory.Entry, error)
+	ConfigHistoryRead(name, id string) ([]byte, error)
 
 	// AuditManifestPack surveys where each of the manifest pack's sets came
 	// from, as `manifest-pack audit` does.
@@ -155,7 +163,9 @@ type AppEngine struct {
 	// chose it, the default, and whether it sits at a legacy location.
 	GlobalLocation settings.GlobalLocation
 	Stack          settings.Stack
-	Git            *gitx.Git
+	// History keeps a copy of a config file before every save.
+	History confighistory.Store
+	Git     *gitx.Git
 
 	// mu guards Stack and GlobalPath, which a global-config save replaces;
 	// writeMu serialises saves.

@@ -135,6 +135,8 @@ var Keys = []Key{
 		Help: "the npm executable, for the npm pack fallback when the registry fetch fails (default: PATH, then Homebrew, Volta, fnm, asdf and nvm's directories; npm's own on Windows)"},
 	{Name: "packages_dirs", Kind: List, Default: []string{}, Env: "ICHAVA_PACKAGES_DIRS", Aliases: []string{"packages_dir"}, Paths: true,
 		Help: "directories holding the ichava pack checkouts, searched in order for <pack>/ (a string or a list; ~ and paths relative to the config file are resolved; ICHAVA_PACKAGES_DIRS uses the OS list separator; --packages-dir repeats). Searched before workspace"},
+	{Name: "history_keep", Kind: Int, Default: 50, Env: "ICHAVA_HISTORY_KEEP", Min: 0,
+		Help: "copies of each config file kept in ~/.local/state/icon-sets-sync/history/ before a save from the web UI or config edit, fix or restore; 0 keeps none"},
 	{Name: "dry_run", Kind: Bool, Default: false, Env: "ICHAVA_DRY_RUN", PackScoped: true,
 		Help: "fetch and diff, but write nothing into the pack and skip the version stamp, commit, push and pull request"},
 	{Name: "force", Kind: Bool, Default: false, Env: "ICHAVA_FORCE", PackScoped: true,
@@ -342,7 +344,7 @@ func FromTree(tree map[string]any, layer Layer) (Values, error) {
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			if prefix == "" && strings.HasPrefix(name, "_") {
+			if prefix == "" && (strings.HasPrefix(name, "_") || name == "$schema") {
 				continue
 			}
 			full := name

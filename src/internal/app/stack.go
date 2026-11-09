@@ -76,6 +76,12 @@ func BuildStackLocated(in StackInput) (settings.Stack, settings.GlobalLocation, 
 	path := loc.Path
 	global, err := settings.LoadGlobal(path)
 	if err != nil {
+		// Every command fails here on a bad global config, so say where.
+		if data, rerr := os.ReadFile(path); rerr == nil {
+			if line, col := Locate(data, err); line > 0 {
+				err = fmt.Errorf("%w (at %s:%d:%d; `config fix global` or the web UI's editor can help)", err, path, line, col)
+			}
+		}
 		return settings.Stack{}, loc, err
 	}
 

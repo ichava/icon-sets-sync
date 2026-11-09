@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
+	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 	"github.com/ichava/icon-sets-sync/src/internal/webvendor"
 )
 
@@ -117,4 +118,17 @@ func (s *Server) handleSchema(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/schema+json")
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(config.PackSchema())
+}
+
+// handleGlobalSchema serves the global config's schema, generated from the
+// settings registry.
+func (s *Server) handleGlobalSchema(w http.ResponseWriter, _ *http.Request) {
+	data, err := settings.GlobalSchema()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/schema+json")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(data)
 }

@@ -422,6 +422,7 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `concurrency` | `1` | `ICHAVA_CONCURRENCY` | no | packs synced at once by `sync-all` |
 | `packages_dirs` (alias `packages_dir`) | none | `ICHAVA_PACKAGES_DIRS` (OS list separator) | no | directories holding the pack checkouts, searched in order; see [Where the packs live](#where-the-packs-live) |
 | `workspace` | none | `ICHAVA_WORKSPACE` | no | directory a relative `pack_root` resolves against |
+| `history_keep` | `50` | `ICHAVA_HISTORY_KEEP` | no | copies of each config file kept before a save; `0` keeps none. See [Managing the config files](#managing-the-config-files) |
 | `allowed_hosts` | none | `ICHAVA_ALLOWED_HOSTS` | no | extra upstream hosts the client may fetch from, comma separated; see [Upstream hosts and https](#upstream-hosts-and-https) |
 | `npm_path` | none | `ICHAVA_NPM_PATH` (and `ICHAVA_NPM`) | no | the npm for the `npm pack` fallback; see [npm packages need no npm](#npm-packages-need-no-npm) |
 | `dry_run` | `false` | `ICHAVA_DRY_RUN` | yes | fetch and diff, write nothing into the pack, skip stamp, commit and pull request |
@@ -442,6 +443,36 @@ The run-wide settings (the four marked "no") cannot appear in a pack config's `s
 `--config-dir`, `-v` (`log_level=debug`), `-q` (`log_level=error`), `--dry-run`, `--commit`
 (`dry_run=false`), `--force`, `--concurrency`. A flag counts only when it is given: an unset
 `--dry-run` does not override `ICHAVA_DRY_RUN=1`.
+
+### Managing the config files
+
+The web UI's Config page and the `config` commands manage the same files the same way: the registry,
+each pack config, the manifest-pack's set manifest and the global config. `config show` lists them by
+name. `global` is the global config.
+
+| Command | Web UI | Does |
+|---|---|---|
+| `config show [name]` | Config page | lists the files and where the global config was found, or prints one |
+| `config edit <name>` | the editor | edits in `$VISUAL`/`$EDITOR` (needs a terminal), then validates and saves |
+| `config validate [name…]` | Validate | checks with the loader the sync uses; each problem gives `name:line:col` |
+| `config fix <name>` | Fix | formats, renames deprecated keys (`packages_dir` to `packages_dirs`) and adds `$schema`; shows the diff and asks first |
+| `config history <name>` | History | the copies kept before each save, newest first |
+| `config diff <name> [id]` | Diff | how the file differs from a copy (the newest by default) |
+| `config restore <name> <id>` | Restore | writes a copy back; shows the diff and asks first |
+| `config migrate` | (Settings says when) | copies a global config from an old location to `~/.config` |
+
+Every save is validated first, refused if the file changed on disk since it was opened, and written
+atomically (a temporary file and a rename). A copy of the previous text is kept in
+`$XDG_STATE_HOME/icon-sets-sync/history/` (else `~/.local/state/icon-sets-sync/history/`). A restore
+keeps a copy too, so it can be undone. `history_keep` sets how many copies of each file are kept (50 by
+default, `0` for none).
+
+The global config validates against `config/schema/global.schema.json`, which is generated from the
+settings registry. A new one opens on its `$schema` line, so an editor that reads JSON Schema completes
+and checks every key, and the web editor lists the known settings with an Insert button. Fix leaves
+YAML alone, because re-encoding it would drop its comments, and it reports broken JSON rather than
+guessing what was meant. `--yes` answers the questions. Without a terminal and without `--yes` they are
+a usage error (exit 2), never a hang.
 
 ### Where the packs live
 

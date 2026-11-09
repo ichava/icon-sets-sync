@@ -26,6 +26,11 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /config/{name}", s.handleConfigEdit)
 	// Validation writes nothing, so a read-only server keeps it.
 	mux.HandleFunc("POST /config/{name}/validate", s.handleConfigValidate)
+	// Fix proposes and writes nothing; history only reads.
+	mux.HandleFunc("POST /config/{name}/fix", s.handleConfigFix)
+	mux.HandleFunc("GET /config/{name}/history", s.handleConfigHistory)
+	mux.HandleFunc("GET /config/{name}/history/{id}", s.handleConfigHistory)
+	mux.HandleFunc("GET /schema/global.schema.json", s.handleGlobalSchema)
 	mux.HandleFunc("GET "+HealthPath, s.handleHealth)
 	// Stopping the server changes no file, so a read-only server keeps it.
 	mux.HandleFunc("POST "+StopPath, s.handleStop)
@@ -53,6 +58,7 @@ func (s *Server) writeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /sync-all", s.handleSyncAll)
 	mux.HandleFunc("POST /jobs/{id}/cancel", s.handleCancel)
 	mux.HandleFunc("POST /config/{name}", s.handleConfigSave)
+	mux.HandleFunc("POST /config/{name}/restore", s.handleConfigRestore)
 	mux.HandleFunc("POST /settings/packages-dirs", s.handlePackagesDirsSave)
 	mux.HandleFunc("POST "+auditPath, s.handleAuditStart)
 }

@@ -212,6 +212,7 @@ func funcs(a *assetSet) template.FuncMap {
 		"appName":      func() string { return AppName },
 		"versionLabel": versionLabel,
 		"breakable":    breakable,
+		"inc":          func(i int) int { return i + 1 },
 		"aboutTabs":    func() any { return aboutTabs },
 		"paletteItem": func(href, icon, label, keys string) paletteItem {
 			return paletteItem{Href: href, Icon: icon, Label: label, Keys: keys}

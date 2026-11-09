@@ -197,6 +197,44 @@
     if (ev.key === "t") { ev.preventDefault(); toggleTheme(); }
   });
 
+  // Editor helpers: a finding's "line N" link selects that line; a known
+  // setting's Insert button types it at the cursor; the filter narrows them.
+  document.addEventListener("click", function (ev) {
+    var text = document.getElementById("editor-text");
+    if (!text) { return; }
+    var jump = ev.target.closest && ev.target.closest("[data-editor-line]");
+    if (jump) {
+      ev.preventDefault();
+      var line = parseInt(jump.getAttribute("data-editor-line"), 10) || 1;
+      var col = parseInt(jump.getAttribute("data-editor-col"), 10) || 1;
+      var lines = text.value.split("\n");
+      var at = 0;
+      for (var i = 0; i < line - 1 && i < lines.length; i++) { at += lines[i].length + 1; }
+      var end = at + (lines[line - 1] || "").length;
+      text.focus();
+      text.setSelectionRange(Math.min(at + col - 1, end), end);
+      return;
+    }
+    var ins = ev.target.closest && ev.target.closest("[data-insert]");
+    if (ins && !text.readOnly) {
+      var snippet = ins.getAttribute("data-insert");
+      var start = text.selectionStart, stop = text.selectionEnd;
+      text.value = text.value.slice(0, start) + snippet + text.value.slice(stop);
+      text.focus();
+      text.setSelectionRange(start + snippet.length, start + snippet.length);
+      text.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  var keyFilter = document.querySelector("[data-key-filter]");
+  if (keyFilter) {
+    keyFilter.addEventListener("input", function () {
+      var q = keyFilter.value.toLowerCase();
+      document.querySelectorAll("[data-key-name]").forEach(function (row) {
+        row.hidden = q !== "" && row.textContent.toLowerCase().indexOf(q) < 0;
+      });
+    });
+  }
+
   // List editors: data-list-add appends the form's <template data-list-template>
   // row to its [data-list]; data-list-remove removes its row.
   document.addEventListener("click", function (ev) {

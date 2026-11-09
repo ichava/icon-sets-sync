@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 	"go.yaml.in/yaml/v3"
@@ -18,9 +19,11 @@ import (
 func newConfigCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Validate the configs, or print the effective settings",
+		Short: "Show, edit, validate, fix and restore the config files, or print the effective settings",
 	}
-	cmd.AddCommand(newConfigValidateCommand(), newConfigPrintCommand(), newConfigMigrateCommand())
+	cmd.AddCommand(newConfigValidateCommand(), newConfigPrintCommand(), newConfigMigrateCommand(),
+		newConfigShowCommand(), newConfigEditCommand(), newConfigFixCommand(),
+		newConfigHistoryCommand(), newConfigDiffCommand(), newConfigRestoreCommand())
 	return cmd
 }
 
@@ -28,13 +31,15 @@ func newConfigCommand() *cobra.Command {
 
 func newConfigValidateCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "validate [pack-config-file...]",
+		Use:   "validate [pack-config-file | name...]",
 		Short: "Validate pack configs against config/schema/pack.schema.json",
 		Long: `Validate pack configs against config/schema/pack.schema.json.
 
 With no arguments, validates the registry, every pack it lists (schema, pack
 settings, whether a recipe can run it, a manifest-pack's set manifest), and the
-global config. With file arguments, validates just those pack configs.
+global config. With file arguments, validates just those pack configs. An
+argument that is not a file is a name from ` + "`config show`" + ` ("global",
+"icon-sets-tabler.json"), validated with the line and column of each problem.
 
 Exits 1 if anything is invalid.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -46,6 +51,18 @@ Exits 1 if anything is invalid.`,
 			}
 
 			if len(args) > 0 {
+				var names []string
+				for _, a := range args {
+					if _, err := os.Stat(a); err != nil {
+						names = append(names, a)
+					}
+				}
+				if len(names) == len(args) {
+					return validateNamed(names)
+				}
+				if len(names) > 0 {
+					return usageErr("pass either config file paths or `config show` names, not both")
+				}
 				for _, path := range args {
 					if _, err := config.LoadPackFile(path); err != nil {
 						bad("%s", err)

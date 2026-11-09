@@ -17,6 +17,7 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/confighistory"
 	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
@@ -49,6 +50,13 @@ func (f *fakeEngine) ValidateConfig(n string, d []byte) []app.Finding {
 }
 func (f *fakeEngine) WriteConfig(n string, d []byte, base string) error {
 	return f.cfg.WriteConfig(n, d, base)
+}
+func (f *fakeEngine) FixConfig(n string, d []byte) (app.Fixed, error) { return f.cfg.FixConfig(n, d) }
+func (f *fakeEngine) ConfigHistory(n string) ([]confighistory.Entry, error) {
+	return f.cfg.ConfigHistory(n)
+}
+func (f *fakeEngine) ConfigHistoryRead(n, id string) ([]byte, error) {
+	return f.cfg.ConfigHistoryRead(n, id)
 }
 
 // demoPackJSON is a valid pack config with an authoring note.
@@ -251,7 +259,7 @@ func newTestServer(t *testing.T, mutate ...func(*Options)) (*Server, *fakeEngine
 	t.Helper()
 	eng := newFakeEngine()
 	dir, home := configFixture(t)
-	eng.cfg = &AppEngine{ConfigDir: dir, GlobalHome: home}
+	eng.cfg = &AppEngine{ConfigDir: dir, GlobalHome: home, History: confighistory.Store{Dir: filepath.Join(t.TempDir(), "history"), Keep: 5}}
 	opts := Options{
 		Engine:       eng,
 		Token:        testToken,

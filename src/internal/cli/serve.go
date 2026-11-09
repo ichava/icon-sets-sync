@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/confighistory"
 	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
 	"github.com/ichava/icon-sets-sync/src/internal/version"
 	"github.com/ichava/icon-sets-sync/src/internal/web"
@@ -115,11 +116,10 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 
 	token := web.NewToken()
 	cfgDir, cfgSource := configSource()
+	eng := configEngine()
+	eng.ConfigDir, eng.ConfigSource, eng.Git = cfgDir, cfgSource, gitx.New()
 	srv, err := web.New(web.Options{
-		Engine: &web.AppEngine{
-			ConfigDir: cfgDir, ConfigSource: cfgSource, Workspace: workspace(),
-			GlobalPath: state.globalPath, GlobalHome: configHome(), GlobalLocation: state.global, Stack: state.stack, Git: gitx.New(),
-		},
+		Engine:       eng,
 		Token:        token,
 		AllowedHosts: web.AllowedHosts(host, bound, o.allowHosts),
 		AllowRemote:  o.allowRemote,
@@ -183,6 +183,16 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 		return failure(err)
 	}
 	return nil
+}
+
+// configEngine is the engine the web UI and the config commands share, so a
+// save from either keeps a copy in the same history and validates the same way.
+func configEngine() *web.AppEngine {
+	return &web.AppEngine{
+		ConfigDir: configDir(), Workspace: workspace(),
+		GlobalPath: state.globalPath, GlobalHome: configHome(), GlobalLocation: state.global, Stack: state.stack,
+		History: confighistory.Store{Dir: confighistory.DefaultDir(os.LookupEnv), Keep: state.run.Int("history_keep")},
+	}
 }
 
 // configHome is where a new global config is created: $XDG_CONFIG_HOME, else
