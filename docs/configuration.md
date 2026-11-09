@@ -276,8 +276,27 @@ ICHAVA_ALLOWED_HOSTS=mirror.example icon-sets-sync sync --pack=<slug>
 
 (that last one in the global config). Names only: no scheme, port, path or wildcard, and a host does not
 cover its subdomains. A blocked fetch fails with the URL, the host and this setting's name. The setting
-is read when the program starts, so `serve` needs a restart to pick up a change. `npm pack` talks to the
-registry through npm and its own configuration, not through this client.
+is read when the program starts, so `serve` needs a restart to pick up a change.
+
+### npm packages need no npm
+
+A set whose source is an npm package (`@tabler/icons`, `@twemoji/svg`, the aggregator's sets) is
+fetched straight from `registry.npmjs.org` through the client above. The tarball is checked against the
+`sha512` integrity the registry publishes, and a mismatch, or a version that publishes no integrity, is
+refused. Node.js is not needed.
+
+`npm pack` is the fallback when the registry fetch fails. npm is looked for in this order, and a failure
+names every place searched:
+
+1. the `npm_path` setting (`ICHAVA_NPM_PATH`, `--set npm_path=…`)
+2. `ICHAVA_NPM`
+3. `PATH`
+4. the usual install directories: `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`, Volta, fnm,
+   asdf, `~/.local/bin` and nvm's newest node; on Windows `Program Files\nodejs`, `%APPDATA%\npm`,
+   Volta and `NVM_SYMLINK`.
+
+That order matters for `serve`. A server started from Finder, launchd or a desktop shortcut gets a PATH
+with none of Homebrew, nvm, Volta or fnm on it. `doctor` reports what was found.
 
 **`npm pack` runs with `--ignore-scripts`**, so a git or local spec in a config cannot run a package's
 `prepare` script on the runner.
@@ -403,6 +422,7 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `concurrency` | `1` | `ICHAVA_CONCURRENCY` | no | packs synced at once by `sync-all` |
 | `workspace` | none | `ICHAVA_WORKSPACE` | no | directory a relative `pack_root` resolves against |
 | `allowed_hosts` | none | `ICHAVA_ALLOWED_HOSTS` | no | extra upstream hosts the client may fetch from, comma separated; see [Upstream hosts and https](#upstream-hosts-and-https) |
+| `npm_path` | none | `ICHAVA_NPM_PATH` (and `ICHAVA_NPM`) | no | the npm for the `npm pack` fallback; see [npm packages need no npm](#npm-packages-need-no-npm) |
 | `dry_run` | `false` | `ICHAVA_DRY_RUN` | yes | fetch and diff, write nothing into the pack, skip stamp, commit and pull request |
 | `force` | `false` | `ICHAVA_FORCE` | yes | refresh even when current |
 | `git.author` | `ichava-sync-bot <41898282+github-actions[bot]@users.noreply.github.com>` | `ICHAVA_GIT_AUTHOR` | yes | author and committer, `Name <email>` |

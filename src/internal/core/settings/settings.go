@@ -115,6 +115,8 @@ var Keys = []Key{
 		Help:    "extra upstream hosts, comma separated, on top of the built-in github.com, api.github.com, codeload.github.com, registry.npmjs.org and unicode.org (https only)"},
 	{Name: "workspace", Kind: String, Default: "", Env: "ICHAVA_WORKSPACE",
 		Help: "directory holding the pack checkouts: a relative pack_root is resolved against it, and it replaces the /work/<pack> a shipped config names (default: /work if present, else the checkouts beside this repository)"},
+	{Name: "npm_path", Kind: String, Default: "", Env: "ICHAVA_NPM_PATH",
+		Help: "the npm executable, for the npm pack fallback when the registry fetch fails (default: PATH, then Homebrew, Volta, fnm, asdf and nvm's directories; npm's own on Windows)"},
 	{Name: "dry_run", Kind: Bool, Default: false, Env: "ICHAVA_DRY_RUN", PackScoped: true,
 		Help: "fetch and diff, but write nothing into the pack and skip the version stamp, commit, push and pull request"},
 	{Name: "force", Kind: Bool, Default: false, Env: "ICHAVA_FORCE", PackScoped: true,

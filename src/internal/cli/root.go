@@ -18,6 +18,7 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
 	"github.com/ichava/icon-sets-sync/src/internal/ui"
 	"github.com/ichava/icon-sets-sync/src/internal/version"
 )
@@ -292,6 +293,7 @@ func resolveState(cmd *cobra.Command) error {
 	// The upstream allowlist is run-wide for the same reason, and is set the
 	// same way: on every run, empty included.
 	httpx.SetExtraAllowedHosts(httpx.ParseHostList(state.run.String("allowed_hosts")))
+	sources.SetNpmPath(state.run.String("npm_path"))
 	if err := config.CheckPrivateConfigDir(); err != nil {
 		return usageErr("%s", err)
 	}

@@ -325,7 +325,7 @@ func TestNpmTarballPassesIgnoreScripts(t *testing.T) {
 	argsFile := fakeNpm(t)
 
 	_, _ = pipeline.Named("demo").
-		Source(NpmTarball{Package: "@tabler/icons", Version: "3.46.0"}).
+		Source(NpmTarball{Package: "@tabler/icons", Version: "3.46.0", Via: "npm"}).
 		Sink(nopSink{}).
 		RunContext(context.Background())
 
