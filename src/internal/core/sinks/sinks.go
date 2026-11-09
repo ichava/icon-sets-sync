@@ -259,32 +259,6 @@ func (s Filesystem) guardRemovals(source, target string, before map[string][32]b
 	return review
 }
 
-// relSVGs lists a tree's SVGs by relative path.
-//
-// Unused since guardRemovals compares content (hashSVGs) to tell a rename
-// from a removal. Kept rather than deleted, per the preserve-by-default
-// rule; recorded in the deprecation audit as a removal candidate.
-//
-//nolint:unused // superseded by hashSVGs in guardRemovals; removal awaits the owner's word
-func relSVGs(dir string) (map[string]bool, error) {
-	out := map[string]bool{}
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() || !strings.HasSuffix(strings.ToLower(path), ".svg") {
-			return nil
-		}
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return err
-		}
-		out[filepath.ToSlash(rel)] = true
-		return nil
-	})
-	return out, err
-}
-
 func countSVGs(dir string) (int, error) {
 	n := 0
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
