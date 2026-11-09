@@ -28,11 +28,14 @@ func (r CLDRRecord) Key() string {
 
 var (
 	cldrGroupRe = regexp.MustCompile(`^# group:\s*(.+)$`)
-	// Only fully-qualified rows. The minimally-qualified and unqualified
-	// variants are the same emoji written with fewer selectors, and taking
-	// them too would map several codepoint sequences onto one output name.
+	// Fully-qualified rows and component rows. The minimally-qualified and
+	// unqualified variants are the same emoji written with fewer selectors,
+	// and taking them too would map several codepoint sequences onto one
+	// output name. Components -- the five skin tones and four hair styles --
+	// have no qualified form; without them the nine stayed uncategorised in
+	// OpenMoji and were dropped from Twemoji (2026-11-09).
 	cldrLineRe = regexp.MustCompile(
-		`^([0-9A-Fa-f][0-9A-Fa-f ]+);\s*fully-qualified\s*#\s*\S+\s+E\d+\.\d+\s+(.+)$`)
+		`^([0-9A-Fa-f][0-9A-Fa-f ]+);\s*(?:fully-qualified|component)\s*#\s*\S+\s+E\d+\.\d+\s+(.+)$`)
 )
 
 // ParseCLDR reads emoji-test.txt into records, carrying the group heading
