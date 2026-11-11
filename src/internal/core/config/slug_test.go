@@ -20,25 +20,6 @@ func TestIsSlug(t *testing.T) {
 	}
 }
 
-func TestCanonicalSlug(t *testing.T) {
-	for in, want := range map[string]string{
-		"icon-sets-extras.ant-design": "icon-sets-extras-ant-design",
-		"Icon-Sets-Extras.Feather":    "icon-sets-extras-feather",
-		"icon_sets.x":                 "icon-sets-x",
-	} {
-		got, deprecated := CanonicalSlug(in)
-		if got != want || !deprecated {
-			t.Errorf("CanonicalSlug(%q) = %q, %v; want %q, true", in, got, deprecated, want)
-		}
-	}
-	if got, deprecated := CanonicalSlug("icon-sets-flag"); got != "icon-sets-flag" || deprecated {
-		t.Errorf("a slug is its own canonical form: %q %v", got, deprecated)
-	}
-	if _, deprecated := CanonicalSlug("../etc"); deprecated {
-		t.Error("a path is not a deprecated spelling of a slug")
-	}
-}
-
 // Every name shipped in config/ -- each pack config's file name, its "name"
 // and each registry entry -- is a lowercase slug. Counted, so an empty glob
 // fails rather than passes.
@@ -92,50 +73,62 @@ func mustRead(t *testing.T, p string) []byte {
 	return b
 }
 
-// The dotted names are deprecated, not removed: a registry entry, a pack's
-// "name" and a --pack argument in the old spelling still resolve, to the
-// canonical slug, with a warning.
-func TestDeprecatedDottedNamesStillResolve(t *testing.T) {
-	var warned []string
-	old := Deprecated
-	Deprecated = func(msg string) { warned = append(warned, msg) }
-	t.Cleanup(func() { Deprecated = old })
-
+// Old spellings are refused, not translated: the error states the rule and
+// names the slug to use, wherever the name comes from.
+func TestNonSlugNamesAreRefusedWithTheSlugToUse(t *testing.T) {
 	dir := t.TempDir()
 	write := func(name, body string) {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	write("packs.json", `{"packs":["icon-sets-extras.feather"]}`)
-	// A user's own config still in the old spelling, file name and all.
-	write("icon-sets-extras.feather.json", `{"name":"icon-sets-extras.feather","pack":"ichava/icon-sets-extras",
+	write("icon-sets-extras-feather.json", `{"name":"icon-sets-extras.feather","pack":"ichava/icon-sets-extras",
 		"pack_root":"/tmp/x","version_check_url":"https://registry.npmjs.org/feather-icons/latest",
 		"source":{"type":"npm","package":"feather-icons"}}`)
+	write("icon-sets-extras.feather.json", `{}`)
 
-	reg, err := ParseRegistryBytes(filepath.Join(dir, "packs.json"), mustRead(t, filepath.Join(dir, "packs.json")))
-	if err != nil || reg.Packs[0] != "icon-sets-extras-feather" {
-		t.Fatalf("registry: %+v %v", reg, err)
+	check := func(what string, err error) {
+		t.Helper()
+		if err == nil {
+			t.Fatalf("%s: an old spelling was accepted", what)
+		}
+		for _, want := range []string{"lowercase slug", `"icon-sets-extras-feather"`} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("%s: %q lacks %q", what, err, want)
+			}
+		}
 	}
-	p, err := LoadPack("icon-sets-extras.feather", dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if p.Name != "icon-sets-extras-feather" {
-		t.Errorf("name %q, want the canonical slug", p.Name)
-	}
-	if p2, err := LoadPack("icon-sets-extras-feather", dir); err != nil || p2.Name != p.Name {
-		t.Errorf("the canonical slug does not find the old-spelled file: %v", err)
-	}
-	if len(warned) == 0 || !strings.Contains(strings.Join(warned, "\n"), "icon-sets-extras-feather") {
-		t.Errorf("no deprecation warning naming the new slug: %q", warned)
+	_, err := ParseRegistryBytes("packs.json", []byte(`{"packs":["icon-sets-extras.feather"]}`))
+	check("registry", err)
+	_, err = LoadPack("icon-sets-extras.feather", dir)
+	check("--pack", err)
+	_, err = LoadPack("Icon_Sets_Extras_Feather", dir)
+	check("--pack, capitals", err)
+	_, err = LoadPack("icon-sets-extras-feather", dir)
+	check("name inside the file", err)
+}
+
+// A name with no slug spelling is refused with the rule and no suggestion.
+func TestANameThatIsNoSlugIsRefused(t *testing.T) {
+	_, err := ParseRegistryBytes("packs.json", []byte(`{"packs":["icon sets/../x"]}`))
+	if err == nil || !strings.Contains(err.Error(), "lowercase slug") || strings.Contains(err.Error(), "use ") {
+		t.Fatalf("err = %v", err)
 	}
 }
 
-// A name that is not a slug and has no slug spelling is refused, naming the rule.
-func TestANameThatIsNoSlugIsRefused(t *testing.T) {
-	_, err := ParseRegistryBytes("packs.json", []byte(`{"packs":["icon sets/../x"]}`))
-	if err == nil || !strings.Contains(err.Error(), "lowercase") {
-		t.Fatalf("err = %v", err)
+// The schema editors validate against and the loader use one pattern.
+func TestSchemaSlugPatternMatchesIsSlug(t *testing.T) {
+	var schema struct {
+		Properties struct {
+			Name struct {
+				Pattern string `json:"pattern"`
+			} `json:"name"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(mustRead(t, filepath.Join("..", "..", "..", "..", "config", "schema", "pack.schema.json")), &schema); err != nil {
+		t.Fatal(err)
+	}
+	if schema.Properties.Name.Pattern != SlugPattern {
+		t.Errorf("schema name pattern %q, IsSlug uses %q", schema.Properties.Name.Pattern, SlugPattern)
 	}
 }

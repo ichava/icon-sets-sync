@@ -16,8 +16,9 @@
     },
     "name": {
       "type": "string",
-      "minLength": 1,
-      "description": "The pack slug: lowercase letters a-z and digits in words joined by single hyphens, e.g. icon-sets-tabler or icon-sets-extras-feather. A dotted or capitalised name (icon-sets-extras.feather) is deprecated: it loads with a warning until 1.0.0."
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 100,
+      "description": "The pack slug, and the config's file name without .json: lowercase letters a-z and digits in words joined by single hyphens, e.g. icon-sets-tabler or icon-sets-extras-feather. No dots, underscores, capitals or spaces."
     },
     "pack": {
       "type": "string",

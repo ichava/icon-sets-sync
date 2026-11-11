@@ -42,6 +42,10 @@ there is how this tool spent weeks re-opening a pull request it had already open
 - No em-dashes in shipped docs or code comments.
 - Table-driven tests for anything new, and no test that needs the network or a listening socket:
   use the `Runner`, `Fetcher` and `Transport` seams.
+- **Pack names are lowercase slugs**: `a-z` and digits in words joined by single hyphens, the same
+  string as the config file name and the `packs.json` entry (`icon-sets-extras-feather`, never
+  `icon-sets-extras.feather`). The loader refuses anything else and a test fails on a shipped one;
+  see [Naming packs](docs/configuration.md#naming-packs).
 - The pack config schema is `config/schema/pack.schema.json`; the binary embeds a copy at
   `src/internal/core/config/schema/`, and a test fails until the two are identical. A new setting
   goes in `src/internal/core/settings` and in the settings table in `docs/configuration.md`, which a

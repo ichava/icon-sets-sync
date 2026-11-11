@@ -315,8 +315,8 @@ func TestPackPage(t *testing.T) {
 func TestValidSlug(t *testing.T) {
 	for slug, want := range map[string]bool{
 		"icon-sets-flag": true, "a1": true,
-		// The deprecated "<pack>.<set>" spelling still passes, to be redirected.
-		"icon-sets-extras.game-icons": true, "a.b": true,
+		// A pack name has no dot: the old "<pack>.<set>" spelling is refused.
+		"icon-sets-extras-game-icons": true, "icon-sets-extras.game-icons": false, "a.b": false,
 		"": false, "../etc": false, "Icon": false, "a/b": false, strings.Repeat("a", 101): false,
 		".": false, "..": false, ".a": false, "a.": false, "a..b": false,
 	} {
@@ -351,12 +351,11 @@ func TestEveryShippedPackNameIsAValidSlug(t *testing.T) {
 	}
 }
 
-// An old link to a set config's page, in the deprecated dotted spelling, is
-// sent to the slug's page rather than answering 404.
-func TestDeprecatedDottedPackURLRedirectsToTheSlug(t *testing.T) {
+// An old link to a set config's page, in the removed dotted spelling, is
+// not a pack: it answers 404 rather than redirecting.
+func TestDottedPackURLIsNoPack(t *testing.T) {
 	s, _ := newTestServer(t)
-	rec := signIn(t, s).get("/packs/icon-sets-tabler.x?y=1")
-	if rec.Code != http.StatusMovedPermanently || rec.Header().Get("Location") != "/packs/icon-sets-tabler-x?y=1" {
+	if rec := signIn(t, s).get("/packs/icon-sets-tabler.x"); rec.Code != http.StatusNotFound {
 		t.Fatalf("got %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 }

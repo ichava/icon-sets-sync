@@ -337,15 +337,11 @@ func PackFile(slug, configDir string) (string, error) {
 	if configDir == "" {
 		configDir = DefaultConfigDir()
 	}
-	slug, err := canonicalName("pack", slug)
-	if err != nil {
+	if err := checkName("pack", slug); err != nil {
 		return "", err
 	}
 	path, err := findDoc(configDir, slug)
 	if errors.Is(err, os.ErrNotExist) {
-		if old := findOldSpelling(configDir, slug); old != "" {
-			return old, nil
-		}
 		if private := PrivateConfigDir(); private != "" {
 			return "", fmt.Errorf("missing pack config: %s (nor in the private config dir %s)",
 				filepath.Join(configDir, slug+".json"), private)
@@ -395,6 +391,16 @@ func ParsePackBytes(path string, data []byte) (*PackConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The name is checked before the schema, so a dotted or capitalised name
+	// gets the rule in words and the slug to use, not a bare pattern mismatch.
+	var named struct {
+		Name *string `json:"name"`
+	}
+	if json.Unmarshal(canonical, &named) == nil && named.Name != nil {
+		if err := checkName(path, *named.Name); err != nil {
+			return nil, err
+		}
+	}
 	if err := ValidatePackDocument(canonical); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
@@ -431,9 +437,6 @@ func ParsePackBytes(path string, data []byte) (*PackConfig, error) {
 	}
 	if len(pack.VersionKeys) == 0 {
 		pack.VersionKeys = DefaultVersionKeys()
-	}
-	if pack.Name, err = canonicalName(path, pack.Name); err != nil {
-		return nil, err
 	}
 	pack.PackRoot = expandUser(pack.PackRoot)
 	pack.File = path
@@ -502,11 +505,9 @@ func ParseRegistryBytes(registryFile string, data []byte) (*PacksRegistry, error
 		if slug == "" {
 			return nil, fmt.Errorf("%s: packs[%d] is empty", registryFile, i)
 		}
-		slug, err := canonicalName(fmt.Sprintf("%s: packs[%d]", registryFile, i), slug)
-		if err != nil {
+		if err := checkName(fmt.Sprintf("%s: packs[%d]", registryFile, i), slug); err != nil {
 			return nil, err
 		}
-		registry.Packs[i] = slug
 		if seen[slug] {
 			return nil, fmt.Errorf("%s: %q is listed twice", registryFile, slug)
 		}
