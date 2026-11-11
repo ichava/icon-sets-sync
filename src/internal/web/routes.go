@@ -61,6 +61,7 @@ func (s *Server) writeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /jobs/{id}/cancel", s.handleCancel)
 	mux.HandleFunc("POST /config/{name}", s.handleConfigSave)
 	mux.HandleFunc("POST /config/{name}/restore", s.handleConfigRestore)
+	mux.HandleFunc("POST /config/"+GlobalName+"/reinit", s.handleGlobalReinit)
 	mux.HandleFunc("POST /settings/packages-dirs", s.handlePackagesDirsSave)
 	mux.HandleFunc("POST /settings/private-config-dir", s.handlePrivateConfigDir)
 	mux.HandleFunc("POST "+auditPath, s.handleAuditStart)

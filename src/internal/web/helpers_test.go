@@ -56,6 +56,19 @@ func (f *fakeEngine) ValidateConfig(n string, d []byte) []app.Finding {
 func (f *fakeEngine) WriteConfig(n string, d []byte, base string) error {
 	return f.cfg.WriteConfig(n, d, base)
 }
+func (f *fakeEngine) GlobalInitInfo() GlobalInitInfo { return f.cfg.GlobalInitInfo() }
+func (f *fakeEngine) InitGlobal(force bool) (GlobalInitResult, error) {
+	return f.cfg.InitGlobal(force)
+}
+
+// testGlobalInit is the generated global config in tests: fixed, so a page
+// never depends on what the machine running the tests has.
+func testGlobalInit() app.GlobalInit {
+	return app.GlobalInit{
+		Data:  []byte("{\n  \"$schema\": \"" + settings.GlobalSchemaURL + "\",\n  \"packages_dirs\": [\"/work/packages\"]\n}\n"),
+		Notes: []string{"packages_dirs: /work/packages holds 3 ichava pack(s)"},
+	}
+}
 func (f *fakeEngine) AuditSets() ([]string, error) {
 	if f.auditSetsErr != nil {
 		return nil, f.auditSetsErr
@@ -283,7 +296,8 @@ func newTestServer(t *testing.T, mutate ...func(*Options)) (*Server, *fakeEngine
 	t.Helper()
 	eng := newFakeEngine()
 	dir, home := configFixture(t)
-	eng.cfg = &AppEngine{ConfigDir: dir, GlobalHome: home, History: confighistory.Store{Dir: filepath.Join(t.TempDir(), "history"), Keep: 5}}
+	eng.cfg = &AppEngine{ConfigDir: dir, GlobalHome: home, History: confighistory.Store{Dir: filepath.Join(t.TempDir(), "history"), Keep: 5},
+		InitGlobalFrom: testGlobalInit}
 	opts := Options{
 		Tools:        func() []app.Tool { return []app.Tool{{Name: "git", Found: true}, {Name: "gh", Found: true}} },
 		Engine:       eng,
@@ -355,6 +369,20 @@ func (c *client) post(path string, form url.Values) *httptest.ResponseRecorder {
 	form.Set(csrfField, c.csrf)
 	r := httptest.NewRequest(http.MethodPost, "http://"+testHost+path, strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.Header.Set("Origin", "http://"+testHost)
+	r.AddCookie(c.cookie)
+	return do(c.s, r)
+}
+
+// postJSON is post with Accept: application/json, as the page's script sends.
+func (c *client) postJSON(path string, form url.Values) *httptest.ResponseRecorder {
+	if form == nil {
+		form = url.Values{}
+	}
+	form.Set(csrfField, c.csrf)
+	r := httptest.NewRequest(http.MethodPost, "http://"+testHost+path, strings.NewReader(form.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.Header.Set("Accept", "application/json")
 	r.Header.Set("Origin", "http://"+testHost)
 	r.AddCookie(c.cookie)
 	return do(c.s, r)

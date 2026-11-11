@@ -14,6 +14,7 @@
 </head>
 <body>
 <a class="visually-hidden-focusable skip-link" href="#main">Skip to content</a>
+<div class="progress page-progress" id="page-progress" role="progressbar" aria-label="Working" hidden><div class="progress-bar progress-bar-indeterminate"></div></div>
 <div class="page">
   <header class="navbar navbar-expand-md d-print-none">
     <div class="container-xl">
@@ -162,8 +163,12 @@
       <h1 class="page-title"><code>icon-sets-demo.json</code></h1>
       <div class="text-secondary mt-1"><code class="text-break">/TMP/config/icon-sets-demo.json</code> · pack</div>
     </div>
+    
   </div>
 </div>
+
+
+
 
 
 
@@ -189,24 +194,33 @@
 </textarea>
     </div>
   </div>
-  <div class="btn-list mb-3">
-    <button type="submit" class="btn btn-outline-primary" formaction="/config/icon-sets-demo.json/validate" data-confirm-skip><i class="icon ti ti-shield-check" aria-hidden="true"></i>Validate</button>
-    <button type="submit" class="btn" formaction="/config/icon-sets-demo.json/fix" data-confirm-skip><i class="icon ti ti-wand" aria-hidden="true"></i>Fix</button>
+  <div class="btn-list mb-2 align-items-center">
+    <button type="submit" class="btn btn-outline-primary" formaction="/config/icon-sets-demo.json/validate" data-confirm-skip data-editor-action="validate"><i class="icon ti ti-shield-check" aria-hidden="true"></i>Validate</button>
+    <button type="submit" class="btn" formaction="/config/icon-sets-demo.json/fix" data-confirm-skip data-editor-action="fix" data-fix-url="/config/icon-sets-demo.json/fix"><i class="icon ti ti-wand" aria-hidden="true"></i>Fix</button>
     <a class="btn" href="/config/icon-sets-demo.json/history"><i class="icon ti ti-history" aria-hidden="true"></i>History</a>
-    <button type="submit" class="btn btn-primary ms-auto" id="editor-save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+    <span class="ms-auto d-inline-flex align-items-center gap-2" id="editor-status" role="status" aria-live="polite"><span class="badge badge-ok"><i class="icon ti ti-circle-check" aria-hidden="true"></i>Valid</span></span>
+    <button type="submit" class="btn btn-primary" id="editor-save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
   </div>
 </form>
 
-
-
-
-
-<section id="editor-findings" aria-live="polite" aria-labelledby="findings-title">
-  <h2 class="h3" id="findings-title">Not validated yet</h2>
-  <ul class="list-unstyled" id="editor-findings-list">
-    
+<section class="mb-3" id="editor-findings" aria-labelledby="findings-title">
+  <h2 class="visually-hidden" id="findings-title">Valid</h2>
+  <ul class="list-unstyled mb-0" id="editor-findings-list">
+    <li class="finding finding-ok"><i class="icon ti ti-circle-check" aria-hidden="true"></i> <span class="finding-text">/TMP/config/icon-sets-demo.json (recipe generic)</span></li>
   </ul>
 </section>
+
+<div class="card mb-3" data-role="fix" id="editor-fix" hidden>
+  <div class="card-header"><h2 class="card-title"><i class="icon ti ti-wand" aria-hidden="true"></i>Fix changed the text</h2><div class="card-subtitle ms-2">review it in the editor; nothing is saved until you press Save</div></div>
+  <div class="card-body">
+    <ul class="mb-0" id="editor-fix-list"></ul>
+  </div>
+  <pre class="mb-0 border-top px-3 py-2" id="editor-fix-diff" hidden><code></code></pre>
+</div>
+
+
+
+
 
       </div>
     </main>
@@ -302,7 +316,7 @@
       <div class="modal-body text-center py-4">
         <i class="icon ti ti-alert-triangle icon-lg text-danger mb-2" aria-hidden="true"></i>
         <h3 id="confirm-modal-title">Are you sure?</h3>
-        <div class="text-secondary" id="confirm-modal-body"></div>
+        <div class="text-secondary text-break" id="confirm-modal-body"></div>
       </div>
       <div class="modal-footer">
         <div class="w-100">

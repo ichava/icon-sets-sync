@@ -38,6 +38,8 @@ type editorData struct {
 	// the change as a unified diff.
 	Fixed   []string
 	FixDiff string
+	// FixNone is set when Fix ran and found nothing to change.
+	FixNone bool
 	// Keys is the setting registry, for the global config's key picker.
 	Keys     []keyHint
 	Doc      ConfigDoc
@@ -50,6 +52,11 @@ type editorData struct {
 	Saved    bool
 	Conflict bool
 	Editable bool
+	// Init is the global config's generation state, for its banner and the
+	// Reinitialise action; Reinit is "1" after one changed the file and
+	// "same" after one found nothing to change.
+	Init   *GlobalInitInfo
+	Reinit string
 }
 
 func (s *Server) editorView(r *http.Request, doc ConfigDoc, text, base string) editorData {
@@ -67,6 +74,11 @@ func (s *Server) editorView(r *http.Request, doc ConfigDoc, text, base string) e
 	}
 	if doc.Kind == KindGlobal {
 		d.Keys = keyHints()
+		if gi, ok := s.opts.Engine.(GlobalInitializer); ok {
+			info := gi.GlobalInitInfo()
+			d.Init = &info
+			d.Reinit = r.URL.Query().Get("reinit")
+		}
 	}
 	return d
 }
@@ -125,7 +137,10 @@ func (s *Server) handleConfigEdit(w http.ResponseWriter, r *http.Request) {
 	if !doc.Exists && doc.Kind == KindGlobal {
 		text = GlobalSeed()
 	}
-	s.render(w, http.StatusOK, "editor", s.newView(r, "config", doc.Name, s.editorView(r, doc, text, doc.Rev)))
+	d := s.editorView(r, doc, text, doc.Rev)
+	// Checked on open, so the page says at once whether the file is valid.
+	d.withFindings(s.opts.Engine.ValidateConfig(doc.Name, []byte(text)))
+	s.render(w, http.StatusOK, "editor", s.newView(r, "config", doc.Name, d))
 }
 
 // submitted reads the editor's text, normalising the CRLF a browser's
@@ -187,13 +202,29 @@ func (s *Server) handleConfigFix(w http.ResponseWriter, r *http.Request) {
 		s.render(w, http.StatusUnprocessableEntity, "editor", s.newView(r, "config", doc.Name, d))
 		return
 	}
+	findings := s.opts.Engine.ValidateConfig(doc.Name, fixed.Data)
+	diff := ""
+	if len(fixed.Changes) > 0 {
+		diff = confighistory.Unified("as you had it", "fixed", string(data), string(fixed.Data))
+	}
+	if strings.Contains(r.Header.Get("Accept"), "application/json") {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		changes := fixed.Changes
+		if changes == nil {
+			changes = []string{}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"text": string(fixed.Data), "changes": changes, "diff": diff,
+			"ok": app.Problems(findings) == 0, "problems": app.Problems(findings), "findings": findings,
+		})
+		return
+	}
 	d := s.editorView(r, doc, string(fixed.Data), base)
 	d.Fixed = fixed.Changes
-	if len(d.Fixed) == 0 {
-		d.Fixed = []string{"nothing to fix"}
-	}
-	d.FixDiff = confighistory.Unified("as you had it", "fixed", string(data), string(fixed.Data))
-	d.withFindings(s.opts.Engine.ValidateConfig(doc.Name, fixed.Data))
+	d.FixNone = len(fixed.Changes) == 0
+	d.FixDiff = diff
+	d.withFindings(findings)
 	s.render(w, http.StatusOK, "editor", s.newView(r, "config", doc.Name, d))
 }
 

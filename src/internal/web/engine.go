@@ -182,7 +182,13 @@ type AppEngine struct {
 	Stack          settings.Stack
 	// History keeps a copy of a config file before every save.
 	History confighistory.Store
-	Git     *gitx.Git
+	// InitRecord is where the global config generator records what it last
+	// wrote; empty is beside the history (app.InitRecordPath).
+	InitRecord string
+	// InitGlobalFrom generates the global config; nil is app.InitialGlobal.
+	// A seam for tests.
+	InitGlobalFrom func() app.GlobalInit
+	Git            *gitx.Git
 
 	// mu guards Stack and GlobalPath, which a global-config save replaces;
 	// writeMu serialises saves.

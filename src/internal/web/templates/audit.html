@@ -86,7 +86,7 @@
 
 {{if .Job}}
 <div class="d-flex flex-wrap gap-2 align-items-center mb-3" role="status" aria-live="polite">
-  <span class="badge {{runClass .Job.Status}}">{{.Job.Status}}</span>
+  {{if and .Errors (eq (print .Job.Status) "succeeded")}}<span class="badge badge-warn">incomplete</span>{{else}}<span class="badge {{runClass .Job.Status}}">{{.Job.Status}}</span>{{end}}
   <span>Latest audit: {{.Job.Label}}, started <time datetime="{{iso .Job.Started}}">{{when .Job.Started}}</time>.{{if and .Errors (eq (print .Job.Status) "succeeded")}} <strong>{{.Errors}} set(s) could not be read</strong>, so it surveyed less than it says.{{end}}{{if .Unavailable}} <span class="text-secondary">From before this server's config; run it again once the config is loaded.</span>{{end}}</span>
   <a href="/jobs/{{.Job.ID}}">Watch the run</a>
   {{if .Results}}<a class="ms-auto btn btn-outline-secondary btn-sm" href="/manifest-pack/audit/{{.Job.ID}}/manifest.json">{{icon "download"}}Download as a set manifest</a>{{end}}

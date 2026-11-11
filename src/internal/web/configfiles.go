@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
@@ -170,7 +171,13 @@ func (e *AppEngine) ValidateConfig(name string, data []byte) []app.Finding {
 	if err != nil {
 		return []app.Finding{{Level: app.LevelError, Text: err.Error()}}
 	}
-	return locate(validateDoc(f, data, e.configDir(), e.stack()), data)
+	fs := locate(validateDoc(f, data, e.configDir(), e.stack()), data)
+	// The editor names the file in its header, so a finding drops the
+	// "<path>: " the loaders prefix it with.
+	for i := range fs {
+		fs[i].Text = strings.TrimPrefix(fs[i].Text, f.Path+": ")
+	}
+	return fs
 }
 
 // locate gives each problem a line and column where one can be found, so the
