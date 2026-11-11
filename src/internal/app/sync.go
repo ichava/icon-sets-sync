@@ -209,6 +209,10 @@ func (o Outcome) Reviews() []sinks.Review {
 	if errors.As(o.Result.Err, &re) {
 		return []sinks.Review{{Target: re.Target, Reason: re.Reason, Message: re.Error(), Removals: re.Removals}}
 	}
+	var kc *sinks.KeptCommitError
+	if errors.As(o.Result.Err, &kc) {
+		return []sinks.Review{{Target: kc.Branch, Reason: kc.Error(), Message: kc.Error()}}
+	}
 	return nil
 }
 

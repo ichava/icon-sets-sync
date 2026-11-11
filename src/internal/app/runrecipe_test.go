@@ -3,11 +3,14 @@ package app
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
 )
 
 // A cancelled context stops RunRecipe before the first stage, so nothing is
@@ -40,5 +43,19 @@ func TestCollectReviewsKeepsEveryPipelinesReview(t *testing.T) {
 	got := collectReviews([]pipeline.Result{a, b, c})
 	if len(got) != 2 || got[0].Message != "a" || got[1].Message != "b" {
 		t.Fatalf("reviews = %+v", got)
+	}
+}
+
+// A person's commit that no longer applies on the sync's branch is a review,
+// not a failure, and the review names it.
+func TestAKeptCommitThatNoLongerAppliesIsAReview(t *testing.T) {
+	err := &sinks.KeptCommitError{Branch: "chore/sync", Commit: gitx.Commit{SHA: "abcdef1234", Author: "P <p@x>", Subject: "test: fix"}}
+	if !errors.Is(err, sinks.ErrNeedsReview) {
+		t.Fatal("not a review")
+	}
+	o := Outcome{Result: pipeline.Result{Err: err}}
+	rs := o.Reviews()
+	if len(rs) != 1 || rs[0].Target != "chore/sync" || !strings.Contains(rs[0].Message, "abcdef1") {
+		t.Fatalf("%+v", rs)
 	}
 }

@@ -8,6 +8,7 @@
 package sinks
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -430,6 +431,17 @@ func (s GitBranch) Execute(ctx *pipeline.Context) error {
 		log.Debug("git-branch: no existing remote branch to fetch", "branch", branch, "error", err)
 	}
 
+	// The branch is stable across runs, so it may already carry commits a
+	// person added to the pull request (a test fix, a note). Resetting it to
+	// HEAD would drop them, and the push would carry the loss to the pull
+	// request. Every commit on it that the sync did not make is replayed on
+	// top of the new sync commit instead.
+	remoteTip := g.RevParse(runCtx, repo, "refs/remotes/origin/"+branch)
+	keep, err := foreignCommits(runCtx, g, repo, remoteTip, g.RevParse(runCtx, repo, "refs/heads/"+branch))
+	if err != nil {
+		return err
+	}
+
 	if err := g.CreateBranch(runCtx, repo, branch); err != nil {
 		return err
 	}
@@ -437,7 +449,22 @@ func (s GitBranch) Execute(ctx *pipeline.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := g.PushBranch(runCtx, repo, branch, true); err != nil {
+	kept := make([]string, 0, len(keep))
+	for _, c := range keep {
+		if err := g.CherryPick(runCtx, repo, c.SHA); err != nil {
+			return &KeptCommitError{Branch: branch, Commit: c, Err: err}
+		}
+		kept = append(kept, c.Short()+" "+c.Subject)
+		log.Info("git-branch: kept a commit the sync did not make", "sha", c.Short(), "author", c.Author, "subject", c.Subject)
+	}
+	if len(keep) > 0 {
+		if head := g.RevParse(runCtx, repo, "HEAD"); head != "" {
+			sha = head
+		}
+	}
+	// The lease names the tip inspected above, so a commit pushed since is
+	// never overwritten: the push fails instead.
+	if err := g.PushBranchLease(runCtx, repo, branch, remoteTip); err != nil {
 		return err
 	}
 
@@ -450,7 +477,7 @@ func (s GitBranch) Execute(ctx *pipeline.Context) error {
 	}
 
 	ctx.Metric("git_branch", map[string]any{
-		"status": "committed", "branch": branch, "sha": sha, "pr_url": prURL,
+		"status": "committed", "branch": branch, "sha": sha, "pr_url": prURL, "kept_commits": kept,
 	})
 	ctx.SetString(pipeline.KeyGitBranch, branch)
 	ctx.SetString(pipeline.KeyGitSHA, sha)
@@ -465,6 +492,50 @@ func (s GitBranch) Execute(ctx *pipeline.Context) error {
 	log.Info("git-branch: committed", "sha", short, "branch", branch, "pr", prURL)
 	return nil
 }
+
+// foreignCommits lists, oldest first, the commits on the existing branch
+// (its remote tip, then any local-only ones) that are not on HEAD and were
+// not authored by the sync.
+func foreignCommits(ctx context.Context, g *gitx.Git, repo string, tips ...string) ([]gitx.Commit, error) {
+	seen := map[string]bool{}
+	var out []gitx.Commit
+	for _, tip := range tips {
+		if tip == "" {
+			continue
+		}
+		cs, err := g.CommitsNotIn(ctx, repo, "HEAD", tip)
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range cs {
+			if seen[c.SHA] || c.Author == g.AuthorIdent() {
+				continue
+			}
+			seen[c.SHA] = true
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+// KeptCommitError is a commit a person added to the sync's branch that no
+// longer applies on top of the new sync. Nothing is pushed, so the pull
+// request still has it; the run stops for a person (errors.Is
+// ErrNeedsReview).
+type KeptCommitError struct {
+	Branch string
+	Commit gitx.Commit
+	Err    error
+}
+
+func (e *KeptCommitError) Error() string {
+	return fmt.Sprintf("commit %s %q by %s on %s does not apply on top of the new sync, so nothing was pushed "+
+		"and the pull request still has it. Rebase it onto the new sync by hand, or merge or close the pull request, "+
+		"then run again (%v)", e.Commit.Short(), e.Commit.Subject, e.Commit.Author, e.Branch, e.Err)
+}
+
+func (e *KeptCommitError) Is(target error) bool { return target == ErrNeedsReview }
+func (e *KeptCommitError) Unwrap() error        { return e.Err }
 
 // Discard counts the SVGs a pipeline would have written, and writes nothing.
 //
