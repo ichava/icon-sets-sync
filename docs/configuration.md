@@ -393,7 +393,7 @@ unreadable pack; `check` keeps its exit 1 for a stale pack only.
 | `git-branch` | `repo_root`, `branch`, `commit_subject`, `commit_body`, `base`, `open_pr` | commit everything uncommitted in the pack repo, push the branch, open a pull request |
 
 `{pack_root}` and `{version}` are interpolated in paths and the branch; `{pack}`, `{old}` and `{new}`
-in the commit subject and body. A version stamp is inserted before every `git-branch` sink.
+in the commit subject and body. A stated-facts step and a version stamp are inserted, in that order, before every `git-branch` sink (see [architecture](architecture.md#what-a-pack-states-about-itself-moves-with-its-assets)).
 
 **A pack with no sinks is refused** by `sync` and `recipe` unless it is a dry run, because it would
 fetch, transform and then write nothing.

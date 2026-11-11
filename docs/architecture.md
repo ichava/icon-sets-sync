@@ -11,7 +11,8 @@ Every refresh is the same shape: fetch, narrow, clean, write, commit.
 Source        ->  Transforms         ->  Sinks
 NpmTarball        FindLicences           Filesystem
 GithubArchive     SubsetTo               LicenceTexts
-UnicodeCldr       Sanitise               VersionStamp
+UnicodeCldr       Sanitise               StatedFacts
+                                         VersionStamp
 Compound          Categorise / Indexer   GitBranch
 Static            Slugify                Discard (dry run only)
                   FlattenVariants
@@ -29,10 +30,23 @@ p := pipeline.Named("icon-sets-tabler@3.49.0").
 	Transform(transforms.Sanitise{}).
 	Sink(sinks.Filesystem{Root: "/work/icon-sets-tabler/resources/assets/svg/files"}).
 	Sink(sinks.LicenceTexts{Root: "/work/icon-sets-tabler/resources/assets/svg/licenses/tabler-icons", Set: "tabler-icons"}).
+	Sink(sinks.StatedFacts{Pack: pack}).
 	Sink(sinks.VersionStamp{Pack: pack}).
 	Sink(sinks.GitBranch{RepoRoot: "/work/icon-sets-tabler", OpenPR: true})
 result, err := p.Run()
 ```
+
+### What a pack states about itself moves with its assets
+
+A pack's own tests pin its icon count and vendored version, and its README and `composer.json` state
+them, so a set that silently shrinks or grows fails. Before a commit, `StatedFacts` compares the SVGs
+the sync wrote with the ones at the pack's `HEAD`, total and per set folder, and the fetched version
+with the one the pack's version file names. It rewrites each figure that moved, wherever `README.md`,
+`composer.json` and `tests/**/*.php` state it, so an update PR opens green. Only whole figures move
+(2,773 inside 12,773 is another number), and counts under ten are left alone. A previous figure that
+no file states is logged and recorded under `stated_facts.unstated`, never guessed at. The licence
+check's version is `VersionStamp`'s: it advances `license.checked_version` only while the licence text
+still hashes to `license.sha256`.
 
 ## Layout
 
@@ -60,7 +74,7 @@ src/
         ├── transforms/   FindLicences, SubsetTo, Sanitise, Slugify, Categorise, Indexer, FlattenVariants
         ├── svg/          the shared SVG policy and the parser that applies it
         ├── kinds/        a pack's icon/illustration kind keys, the glob, and the suggestion heuristic
-        ├── sinks/        Filesystem, LicenceTexts, VersionStamp, GitBranch, Discard
+        ├── sinks/        Filesystem, LicenceTexts, StatedFacts, VersionStamp, GitBranch, Discard
         ├── recipes/      config -> pipelines: generic, twemoji-sets, manifest-pack
         └── manifestpack/ the aggregator pack's set manifest and audit
 ```
