@@ -95,3 +95,12 @@ main:focus { outline: none; }
   .spinner-border, .progress-bar-indeterminate::before, .progress-bar-indeterminate::after { animation: none; }
   .progress-bar-indeterminate { width: 100%; opacity: .5; }
 }
+
+/* Work in flight: pinned to the top edge of the window, above the header,
+   so it is seen whatever is scrolled into view. */
+.page-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 2000; border-radius: 0; background: transparent; }
+.page-progress[hidden] { display: none; }
+
+/* An icon leading a heading keeps a gap from its text. */
+.card-title > .icon:first-child, .alert-heading > .icon:first-child, .page-title > .icon:first-child { margin-inline-end: .4rem; }
+#editor-status .badge .icon { margin-inline-end: .25rem; }

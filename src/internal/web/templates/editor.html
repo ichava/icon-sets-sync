@@ -6,8 +6,30 @@
       <h1 class="page-title"><code>{{.Doc.Name}}</code></h1>
       <div class="text-secondary mt-1"><code class="text-break">{{.Doc.Path}}</code> · {{.Doc.Kind}}{{if not .Doc.Exists}} · does not exist yet; saving creates it{{end}}</div>
     </div>
+    {{if and .Init .Editable}}
+    <div class="col-auto">
+      <form method="post" action="/config/{{.Doc.Name}}/reinit" data-progress="Reinitialising the global config" data-confirm="The file is replaced with one generated from this machine: {{range $i, $n := .Init.Notes}}{{if $i}}; {{end}}{{$n}}{{end}}. The current copy is kept in its history, so it can be restored." data-confirm-title="Reinitialise the global config?" data-confirm-button="Reinitialise">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <button type="submit" class="btn">{{icon "refresh"}}Reinitialise</button>
+      </form>
+    </div>
+    {{end}}
   </div>
 </div>
+
+{{with .Init}}
+<div class="card mb-3" data-role="init">
+  <div class="card-body py-2">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      {{if eq (print .State) "generated"}}<span class="badge badge-info">generated</span><span>Generated from this machine{{if not .Generated.IsZero}} on <time datetime="{{iso .Generated}}">{{when .Generated}}</time>{{end}}. Each start refreshes it until you edit it.</span>
+      {{else if eq (print .State) "edited"}}<span class="badge badge-muted">edited</span><span>You have edited this file, so a start leaves it alone. Reinitialise replaces it with what this machine has now.</span>
+      {{else}}<span class="badge badge-warn">{{.State}}</span><span>Nothing is set yet. The next start fills it in, or press Reinitialise now.</span>{{end}}
+    </div>
+    {{if .Notes}}<details class="mt-2"><summary class="text-secondary small">What a generated config holds on this machine</summary><ul class="small mb-0 mt-1">{{range .Notes}}<li>{{.}}</li>{{end}}</ul></details>{{end}}
+  </div>
+</div>
+{{end}}
+{{if eq .Reinit "1"}}<div hidden data-toast="success" data-toast-title="Global config reinitialised" data-toast-body="Generated from this machine. The previous copy is in the history."></div>{{else if eq .Reinit "same"}}<div hidden data-toast="info" data-toast-title="Already up to date" data-toast-body="A config generated from this machine is the same as the file, so nothing was written."></div>{{end}}
 
 {{if .Saved}}<div class="alert alert-success" role="status">{{icon "circle-check"}} Saved. The next run reads it.</div><div hidden data-toast="success" data-toast-title="Saved {{.Doc.Name}}" data-toast-body="The previous copy is in the history."></div>{{end}}
 {{if .Conflict}}<div class="alert alert-warning" role="alert">{{icon "alert-triangle"}} This file changed on disk after you opened it, so nothing was saved. Your text is below; <a href="/config/{{.Doc.Name}}">reload the file</a> to see the current version, then apply your change again.</div>{{end}}
@@ -23,23 +45,30 @@
       <textarea class="editor-text" id="editor-text" name="content" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-describedby="editor-findings"{{if not .Editable}} readonly{{end}}>{{.Text}}</textarea>
     </div>
   </div>
-  <div class="btn-list mb-3">
-    <button type="submit" class="btn btn-outline-primary" formaction="/config/{{.Doc.Name}}/validate" data-confirm-skip>{{icon "shield-check"}}Validate</button>
-    <button type="submit" class="btn" formaction="/config/{{.Doc.Name}}/fix" data-confirm-skip>{{icon "wand"}}Fix</button>
+  <div class="btn-list mb-2 align-items-center">
+    <button type="submit" class="btn btn-outline-primary" formaction="/config/{{.Doc.Name}}/validate" data-confirm-skip data-editor-action="validate">{{icon "shield-check"}}Validate</button>
+    <button type="submit" class="btn" formaction="/config/{{.Doc.Name}}/fix" data-confirm-skip data-editor-action="fix" data-fix-url="/config/{{.Doc.Name}}/fix">{{icon "wand"}}Fix</button>
     <a class="btn" href="/config/{{.Doc.Name}}/history">{{icon "history"}}History</a>
-    {{if .Editable}}<button type="submit" class="btn btn-primary ms-auto" id="editor-save">{{icon "device-floppy"}}Save</button>{{end}}
+    <span class="ms-auto d-inline-flex align-items-center gap-2" id="editor-status" role="status" aria-live="polite">{{if .Checked}}{{if .Problems}}<span class="badge badge-bad">{{icon "circle-x"}}{{.Problems}} problem(s)</span>{{else}}<span class="badge badge-ok">{{icon "circle-check"}}Valid</span>{{end}}{{else}}<span class="badge badge-muted">Not checked</span>{{end}}</span>
+    {{if .Editable}}<button type="submit" class="btn btn-primary" id="editor-save"{{if .Problems}} disabled{{end}}>{{icon "device-floppy"}}Save</button>{{end}}
   </div>
 </form>
 
-{{if .Fixed}}
-<div class="card mb-3" data-role="fix">
-  <div class="card-header"><h2 class="card-title">{{icon "wand"}}Fix proposes</h2><div class="card-subtitle ms-2">nothing is saved until you press Save</div></div>
+<section class="mb-3" id="editor-findings" aria-labelledby="findings-title">
+  <h2 class="visually-hidden" id="findings-title">{{if .Checked}}{{if .Problems}}{{.Problems}} problem(s){{else}}Valid{{end}}{{else}}Not validated yet{{end}}</h2>
+  <ul class="list-unstyled mb-0" id="editor-findings-list">
+    {{range .Findings}}<li class="finding finding-{{.Level}}">{{if eq .Level "error"}}{{icon "circle-x"}}{{else if eq .Level "warn"}}{{icon "alert-triangle"}}{{else}}{{icon "circle-check"}}{{end}} {{if .Line}}<a href="#editor-text" data-editor-line="{{.Line}}" data-editor-col="{{.Col}}">line {{.Line}}, column {{.Col}}</a>: {{end}}<span class="finding-text">{{.Text}}</span></li>{{end}}
+  </ul>
+</section>
+
+<div class="card mb-3" data-role="fix" id="editor-fix"{{if not .Fixed}} hidden{{end}}>
+  <div class="card-header"><h2 class="card-title">{{icon "wand"}}Fix changed the text</h2><div class="card-subtitle ms-2">review it in the editor; nothing is saved until you press Save</div></div>
   <div class="card-body">
-    <ul class="mb-0">{{range .Fixed}}<li>{{.}}</li>{{end}}</ul>
+    <ul class="mb-0" id="editor-fix-list">{{range .Fixed}}<li>{{.}}</li>{{end}}</ul>
   </div>
-  {{if .FixDiff}}<pre class="mb-0 border-top px-3 py-2"><code>{{.FixDiff}}</code></pre>{{end}}
+  <pre class="mb-0 border-top px-3 py-2" id="editor-fix-diff"{{if not .FixDiff}} hidden{{end}}><code>{{.FixDiff}}</code></pre>
 </div>
-{{end}}
+{{if .Fixed}}<div hidden data-toast="info" data-toast-title="Fix changed the text" data-toast-body="Review the change, then Save."></div>{{else if .FixNone}}<div hidden data-toast="info" data-toast-title="Nothing to fix" data-toast-body="Fix found nothing it can repair safely."></div>{{end}}
 
 {{if .Keys}}
 <details class="card mb-3" data-role="key-picker">
@@ -62,10 +91,4 @@
 </details>
 {{end}}
 
-<section id="editor-findings" aria-live="polite" aria-labelledby="findings-title">
-  <h2 class="h3" id="findings-title">{{if .Checked}}{{if .Problems}}{{.Problems}} problem(s){{else}}Valid{{end}}{{else}}Not validated yet{{end}}</h2>
-  <ul class="list-unstyled" id="editor-findings-list">
-    {{range .Findings}}<li class="finding finding-{{.Level}}">{{if eq .Level "error"}}{{icon "circle-x"}}{{else if eq .Level "warn"}}{{icon "alert-triangle"}}{{else}}{{icon "circle-check"}}{{end}} {{if .Line}}<a href="#editor-text" data-editor-line="{{.Line}}" data-editor-col="{{.Col}}">line {{.Line}}, column {{.Col}}</a>: {{end}}<span class="finding-text">{{.Text}}</span></li>{{end}}
-  </ul>
-</section>
 {{end}}{{end}}

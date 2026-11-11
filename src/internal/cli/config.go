@@ -23,7 +23,7 @@ func newConfigCommand() *cobra.Command {
 	}
 	cmd.AddCommand(newConfigValidateCommand(), newConfigPrintCommand(), newConfigMigrateCommand(),
 		newConfigShowCommand(), newConfigEditCommand(), newConfigFixCommand(),
-		newConfigHistoryCommand(), newConfigDiffCommand(), newConfigRestoreCommand())
+		newConfigHistoryCommand(), newConfigDiffCommand(), newConfigRestoreCommand(), newConfigInitCommand())
 	return cmd
 }
 

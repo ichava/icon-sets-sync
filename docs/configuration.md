@@ -567,6 +567,31 @@ emoji:
   unicode_version: "16.0"
 ```
 
+#### It starts initialised
+
+`serve` (and so a double-click) writes the global config from what this machine has before it
+listens, and `icon-sets-sync config init` does the same from a terminal:
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/ichava/icon-sets-sync/main/config/schema/global.schema.json",
+  "packages_dirs": ["/Users/me/projects/ichava/packages"],
+  "private_config_dir": "/Users/me/projects/ichava/packages/aggregate/.dev/icon-sets-sync"
+}
+```
+
+- `packages_dirs` is the directory this checkout sits in, when it holds ichava packs.
+- `private_config_dir` is set only when exactly one pack checkout carries a private config; with
+  several, none is chosen and the note says so.
+- Nothing else is written, so every other setting keeps following its default.
+
+**A file you edited is never overwritten by a start.** A missing file, one holding nothing but
+`$schema`, and one that is byte for byte what was last generated are (re)written; the generator
+records what it wrote in `$XDG_STATE_HOME/icon-sets-sync/global-init.json` to tell the two apart.
+To regenerate an edited file, press **Reinitialise** on the global config's page or run
+`config init --force`; the previous copy goes to the config history, where **History** restores it.
+`--read-only` servers and `CI` runs write nothing.
+
 ### A pack's settings
 
 ```json

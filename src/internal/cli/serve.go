@@ -120,6 +120,16 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 	cfgDir, cfgSource := configSource()
 	eng := configEngine()
 	eng.ConfigDir, eng.ConfigSource, eng.Git = cfgDir, cfgSource, gitx.New()
+	// The global config starts initialised: written from what this machine
+	// has unless a person edited it (config init says the same in the CLI).
+	var initLine string
+	if !o.readOnly && os.Getenv("CI") == "" {
+		if res, err := eng.InitGlobal(false); err != nil {
+			initLine = "warning: could not initialise the global config: " + err.Error()
+		} else if res.Changed {
+			initLine = fmt.Sprintf("global config: initialised %s from this machine (it was %s)", res.Path, res.State)
+		}
+	}
 	srv, err := web.New(web.Options{
 		Engine:       eng,
 		Token:        token,
@@ -141,6 +151,9 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 		_, _ = fmt.Fprintf(out, "port %d is in use; listening on %d instead\n", pinnedPort, bound)
 	}
 	_, _ = fmt.Fprintf(out, "config: %s (%s)\n", cfgDir, cfgSource)
+	if initLine != "" {
+		_, _ = fmt.Fprintln(out, initLine)
+	}
 	// A server started from a desktop shortcut sees a minimal PATH; say what
 	// it is, and which tools a run would miss, before a run fails on it.
 	slog.Info("PATH at startup", "path", os.Getenv("PATH"))

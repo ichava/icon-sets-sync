@@ -165,23 +165,40 @@
     window.setTimeout(poll, 1000);
   }
 
-  // A form with data-progress shows an indeterminate bar and disables its
-  // submit button while the request is out: a long save shows it is working.
+  // Work in flight: a thin indeterminate bar pinned to the top of the window
+  // (#page-progress in the layout), where it is seen whatever is scrolled
+  // into view, and a spinner in the button that started it. A form with
+  // data-progress shows both while its request is out; fetch-driven actions
+  // call busyStart and busyEnd.
+  var pageBar = document.getElementById("page-progress");
+  var busyCount = 0;
+  function busyStart(btn, label) {
+    busyCount++;
+    if (pageBar) {
+      pageBar.hidden = false;
+      pageBar.setAttribute("aria-label", label || "Working");
+    }
+    if (btn) { btn.classList.add("btn-loading"); btn.setAttribute("aria-busy", "true"); }
+  }
+  function busyEnd(btn) {
+    busyCount = Math.max(0, busyCount - 1);
+    if (pageBar && busyCount === 0) { pageBar.hidden = true; }
+    if (btn) { btn.classList.remove("btn-loading"); btn.removeAttribute("aria-busy"); }
+  }
   document.addEventListener("submit", function (ev) {
     var form = ev.target;
     if (!form.hasAttribute || !form.hasAttribute("data-progress") || ev.defaultPrevented) { return; }
     if (form.hasAttribute("data-confirm") && form.getAttribute("data-confirmed") !== "1" &&
         !(ev.submitter && ev.submitter.hasAttribute("data-confirm-skip"))) { return; }
-    var wrap = document.createElement("div");
-    wrap.className = "progress progress-sm mt-2";
-    wrap.setAttribute("role", "progressbar");
-    wrap.setAttribute("aria-label", form.getAttribute("data-progress") || "Working");
-    var bar = document.createElement("div");
-    bar.className = "progress-bar progress-bar-indeterminate";
-    wrap.appendChild(bar);
-    form.appendChild(wrap);
     var btn = ev.submitter;
+    busyStart(btn, form.getAttribute("data-progress"));
     if (btn) { window.setTimeout(function () { btn.disabled = true; }, 0); }
+  });
+  // A page restored from the back/forward cache must not keep a stuck bar.
+  window.addEventListener("pageshow", function () {
+    busyCount = 0;
+    if (pageBar) { pageBar.hidden = true; }
+    document.querySelectorAll(".btn-loading").forEach(function (b) { b.classList.remove("btn-loading"); b.disabled = false; });
   });
 
   // A form with data-confirm asks first, in Tabler's danger modal
@@ -449,8 +466,10 @@
   }
   scrollLog();
 
-  // Config editor: keep the line numbers in step, and validate as you type
-  // (debounced) through the same endpoint the Validate button posts to.
+  // Config editor: keep the line numbers in step, and check as you type
+  // (debounced) through the endpoint the Validate button posts to. Validate
+  // and Fix run in place, with a status badge beside the buttons and a toast;
+  // without this script they post the form and the page comes back.
   var editor = document.getElementById("editor-text");
   if (editor) {
     var gutter = document.getElementById("editor-gutter");
@@ -458,7 +477,11 @@
     var save = document.getElementById("editor-save");
     var findings = document.getElementById("editor-findings-list");
     var title = document.getElementById("findings-title");
+    var statusBox = document.getElementById("editor-status");
+    var fixCard = document.getElementById("editor-fix");
     var timer = null;
+    var seq = 0;
+    var saved = editor.value;
     var csrf = document.querySelector("meta[name=csrf-token]").getAttribute("content");
 
     var syncGutter = function () {
@@ -470,33 +493,89 @@
       editor.style.height = "auto";
       editor.style.height = editor.scrollHeight + "px";
     };
+    var setStatus = function (cls, text) {
+      while (statusBox.firstChild) { statusBox.removeChild(statusBox.firstChild); }
+      statusBox.appendChild(el("span", "badge " + cls, text));
+      if (editor.value !== saved) { statusBox.appendChild(el("span", "text-secondary small", "unsaved changes")); }
+    };
+    var lineOf = function (f) { return f.line ? "line " + f.line + ", column " + f.col + ": " : ""; };
     var show = function (res) {
       while (findings.firstChild) { findings.removeChild(findings.firstChild); }
       (res.findings || []).forEach(function (f) {
-        var li = document.createElement("li");
-        li.className = "finding finding-" + f.level;
-        li.textContent = (f.level === "error" ? "✗ " : f.level === "warn" ? "! " : "✓ ") + f.text;
+        var li = el("li", "finding finding-" + f.level);
+        li.textContent = (f.level === "error" ? "✗ " : f.level === "warn" ? "! " : "✓ ") + lineOf(f) + f.text;
         findings.appendChild(li);
       });
       title.textContent = res.ok ? "Valid" : res.problems + " problem(s)";
+      setStatus(res.ok ? "badge-ok" : "badge-bad", res.ok ? "Valid" : res.problems + " problem(s)");
       if (save) { save.disabled = !res.ok; }
     };
-    var validate = function () {
+    var post = function (url) {
       var body = new URLSearchParams();
       body.set("content", editor.value);
       body.set("csrf", csrf);
-      fetch(form.getAttribute("data-validate-url"), {
+      return fetch(url, {
         method: "POST",
         headers: { "Accept": "application/json", "X-CSRF-Token": csrf, "Content-Type": "application/x-www-form-urlencoded" },
         body: body.toString(),
         credentials: "same-origin"
-      }).then(function (r) { return r.json(); }).then(show).catch(function () {});
+      }).then(function (r) {
+        if (!r.ok && (r.headers.get("Content-Type") || "").indexOf("json") < 0) { throw new Error("the server answered " + r.status); }
+        return r.json();
+      });
     };
+    var validate = function (btn) {
+      var mine = ++seq;
+      if (btn) { busyStart(btn, "Validating"); }
+      setStatus("badge-info", "Checking…");
+      return post(form.getAttribute("data-validate-url")).then(function (res) {
+        if (mine === seq) { show(res); }
+        if (btn) {
+          var first = (res.findings || []).filter(function (f) { return f.level === "error"; })[0];
+          if (res.ok) { showToast("success", "Valid", "No problems found. Save when ready."); }
+          else { showToast("danger", res.problems + " problem(s)", first ? lineOf(first) + first.text : ""); }
+        }
+      }).catch(function (err) {
+        setStatus("badge-warn", "Not checked");
+        if (btn) { showToast("danger", "Could not validate", String(err.message || err)); }
+      }).then(function () { if (btn) { busyEnd(btn); } });
+    };
+    var fix = function (btn) {
+      busyStart(btn, "Fixing");
+      post(btn.getAttribute("data-fix-url")).then(function (res) {
+        if (res.text === undefined) { throw new Error((res.findings && res.findings[0] && res.findings[0].text) || "Fix failed"); }
+        var list = document.getElementById("editor-fix-list");
+        var diff = document.getElementById("editor-fix-diff");
+        if (!res.changes.length) {
+          fixCard.hidden = true;
+          showToast("info", "Nothing to fix", "Fix found nothing it can repair safely.");
+          show(res);
+          return;
+        }
+        editor.value = res.text;
+        syncGutter();
+        while (list.firstChild) { list.removeChild(list.firstChild); }
+        res.changes.forEach(function (c) { list.appendChild(el("li", "", c)); });
+        diff.firstElementChild.textContent = res.diff;
+        diff.hidden = !res.diff;
+        fixCard.hidden = false;
+        show(res);
+        showToast("info", "Fix made " + res.changes.length + " change(s)", "Review them in the editor, then Save.");
+      }).catch(function (err) {
+        showToast("danger", "Could not fix", String(err.message || err));
+      }).then(function () { busyEnd(btn); });
+    };
+    form.addEventListener("click", function (ev) {
+      var btn = ev.target.closest && ev.target.closest("[data-editor-action]");
+      if (!btn || !window.fetch) { return; }
+      ev.preventDefault();
+      if (btn.getAttribute("data-editor-action") === "fix") { fix(btn); } else { validate(btn); }
+    });
     editor.addEventListener("input", function () {
       syncGutter();
       if (save) { save.disabled = true; }
       window.clearTimeout(timer);
-      timer = window.setTimeout(validate, 400);
+      timer = window.setTimeout(function () { validate(null); }, 400);
     });
     syncGutter();
   }
