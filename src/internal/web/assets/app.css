@@ -104,3 +104,28 @@ main:focus { outline: none; }
 /* An icon leading a heading keeps a gap from its text. */
 .card-title > .icon:first-child, .alert-heading > .icon:first-child, .page-title > .icon:first-child { margin-inline-end: .4rem; }
 #editor-status .badge .icon { margin-inline-end: .25rem; }
+
+/* Config editor highlighting: a <pre> under a transparent textarea in one
+   grid cell, so both share every metric. app.js fills the <pre> and adds
+   .editor-hl-on; without it the textarea shows its own text as before. */
+.editor-body { flex: 1; display: grid; grid-template-columns: minmax(100%, max-content); min-width: 0; }
+.editor-body > .editor-hl, .editor-body > .editor-text { grid-area: 1 / 1; margin: 0; padding: .75rem; font: inherit; line-height: inherit; white-space: pre; tab-size: 2; letter-spacing: normal; }
+.editor-hl { pointer-events: none; background: transparent; border: 0; border-radius: 0; color: var(--tblr-body-color); overflow: hidden; }
+.editor-hl code { font: inherit; color: inherit; background: transparent; padding: 0; white-space: pre; }
+.editor-hl-on .editor-text { color: transparent; caret-color: var(--tblr-body-color); }
+.editor-hl-on .editor-text::selection { color: transparent; background: rgba(32, 107, 196, .28); }
+.tok-key  { color: #0a4f8f; }
+.tok-str  { color: #1a6b2b; }
+.tok-num  { color: #8a3b00; }
+.tok-lit  { color: #6f2da8; font-weight: 600; }
+.tok-com  { color: #5f6670; font-style: italic; }
+.tok-punc { color: #4a5160; }
+.tok-err  { color: #b42318; text-decoration: underline wavy; text-underline-offset: 3px; }
+:root[data-bs-theme=dark] .tok-key  { color: #8cc4ff; }
+:root[data-bs-theme=dark] .tok-str  { color: #8fd8a0; }
+:root[data-bs-theme=dark] .tok-num  { color: #f5b58a; }
+:root[data-bs-theme=dark] .tok-lit  { color: #d2a8ff; }
+:root[data-bs-theme=dark] .tok-com  { color: #a0a7b1; }
+:root[data-bs-theme=dark] .tok-punc { color: #b9c0cb; }
+:root[data-bs-theme=dark] .tok-err  { color: #ffa3a3; }
+:root[data-bs-theme=dark] .editor-hl-on .editor-text::selection { background: rgba(121, 170, 231, .35); }

@@ -486,6 +486,12 @@ name. `global` is the global config.
 | `config restore <name> <id>` | Restore | writes a copy back; shows the diff and asks first |
 | `config migrate` | (Settings says when) | copies a global config from an old location to `~/.config` |
 
+The web editor highlights JSON and YAML as you type (keys, strings, numbers, literals, comments).
+A JSON file is checked in the browser on every change: a syntax error is underlined where it is, its
+line is marked in the gutter and the problem is listed with a link to it, and Save stays off. Once the
+text parses, the server checks it against the schema and the loaders after a short pause, the same
+check Validate runs. Without JavaScript the editor is a plain text area and Validate posts the form.
+
 Every save is validated first, refused if the file changed on disk since it was opened, and written
 atomically (a temporary file and a rename). A copy of the previous text is kept in
 `$XDG_STATE_HOME/icon-sets-sync/history/` (else `~/.local/state/icon-sets-sync/history/`). A restore

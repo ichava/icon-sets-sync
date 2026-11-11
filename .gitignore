@@ -15,6 +15,7 @@ dist/
 coverage.out
 
 # Editor / OS
+.playwright-mcp/
 .idea/
 .vscode/
 .DS_Store

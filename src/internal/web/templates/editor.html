@@ -41,8 +41,11 @@
   <div class="card mb-3">
     <div class="editor">
       <ol class="editor-gutter" aria-hidden="true" id="editor-gutter">{{range $i, $_ := .Lines}}<li{{if index $.Data.ErrorLines (inc $i)}} class="badge-bad fw-bold"{{end}}></li>{{end}}</ol>
-      <label class="visually-hidden" for="editor-text">Contents of {{.Doc.Name}}</label>
-      <textarea class="editor-text" id="editor-text" name="content" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-describedby="editor-findings"{{if not .Editable}} readonly{{end}}>{{.Text}}</textarea>
+      <div class="editor-body">
+        <pre class="editor-hl" id="editor-hl" aria-hidden="true"><code></code></pre>
+        <label class="visually-hidden" for="editor-text">Contents of {{.Doc.Name}}</label>
+        <textarea class="editor-text" id="editor-text" name="content" data-lang="{{.Lang}}" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-describedby="editor-findings"{{if not .Editable}} readonly{{end}}>{{.Text}}</textarea>
+      </div>
     </div>
   </div>
   <div class="btn-list mb-2 align-items-center">
