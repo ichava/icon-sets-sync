@@ -337,6 +337,9 @@ func PackFile(slug, configDir string) (string, error) {
 	if configDir == "" {
 		configDir = DefaultConfigDir()
 	}
+	if err := checkName("pack", slug); err != nil {
+		return "", err
+	}
 	path, err := findDoc(configDir, slug)
 	if errors.Is(err, os.ErrNotExist) {
 		if private := PrivateConfigDir(); private != "" {
@@ -387,6 +390,16 @@ func ParsePackBytes(path string, data []byte) (*PackConfig, error) {
 	canonical, err := docfile.ToJSON(path, data)
 	if err != nil {
 		return nil, err
+	}
+	// The name is checked before the schema, so a dotted or capitalised name
+	// gets the rule in words and the slug to use, not a bare pattern mismatch.
+	var named struct {
+		Name *string `json:"name"`
+	}
+	if json.Unmarshal(canonical, &named) == nil && named.Name != nil {
+		if err := checkName(path, *named.Name); err != nil {
+			return nil, err
+		}
 	}
 	if err := ValidatePackDocument(canonical); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
@@ -491,6 +504,9 @@ func ParseRegistryBytes(registryFile string, data []byte) (*PacksRegistry, error
 	for i, slug := range registry.Packs {
 		if slug == "" {
 			return nil, fmt.Errorf("%s: packs[%d] is empty", registryFile, i)
+		}
+		if err := checkName(fmt.Sprintf("%s: packs[%d]", registryFile, i), slug); err != nil {
+			return nil, err
 		}
 		if seen[slug] {
 			return nil, fmt.Errorf("%s: %q is listed twice", registryFile, slug)

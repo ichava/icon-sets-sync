@@ -20,7 +20,7 @@ import (
 type Result struct {
 	Package string
 	// Name is the config's slug. It differs from the pack's own name when
-	// several configs feed one pack (icon-sets-extras.<set>), and is the only
+	// several configs feed one pack (icon-sets-extras-<set>), and is the only
 	// thing that tells those results apart.
 	Name       string
 	Current    string

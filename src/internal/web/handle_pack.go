@@ -94,28 +94,9 @@ func (s *Server) loadPack(w http.ResponseWriter, r *http.Request) (*config.PackC
 	return p, true
 }
 
-// validSlug keeps a path value to the shape pack slugs have, so it can never
-// name a file outside the config directory: lowercase letters, digits and
-// hyphens, in segments joined by single dots ("icon-sets-extras.game-icons",
-// a set config of a shared pack). No segment is empty, so ".", ".." and a
-// leading or trailing dot are refused. Until R4 the dot was refused outright,
-// and every set config's page and actions answered 404.
-func validSlug(s string) bool {
-	if s == "" || len(s) > 100 {
-		return false
-	}
-	for _, seg := range strings.Split(s, ".") {
-		if seg == "" {
-			return false
-		}
-		for _, r := range seg {
-			if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
-				return false
-			}
-		}
-	}
-	return true
-}
+// validSlug keeps a path value to a pack slug's shape (config.IsSlug), so it
+// can never name a file outside the config directory.
+func validSlug(s string) bool { return config.IsSlug(s) }
 
 // runForm is a run's choices as submitted.
 type runForm struct {

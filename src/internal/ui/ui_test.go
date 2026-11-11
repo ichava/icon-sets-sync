@@ -155,7 +155,7 @@ func TestGlyphSetsCoverTheSameKeys(t *testing.T) {
 // with one config keeps its bare name.
 func TestCheckRowsNameTheSetOfASharedPack(t *testing.T) {
 	rows := CheckRows([]checker.Result{
-		{Package: "ichava/icon-sets-extras", Name: "icon-sets-extras.ant-design", Latest: "1"},
+		{Package: "ichava/icon-sets-extras", Name: "icon-sets-extras-ant-design", Latest: "1"},
 		{Package: "ichava/icon-sets-tabler", Name: "icon-sets-tabler", Latest: "1"},
 		{Package: "ichava/icon-sets-x", Latest: "1"},
 	})

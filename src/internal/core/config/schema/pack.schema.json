@@ -16,8 +16,9 @@
     },
     "name": {
       "type": "string",
-      "minLength": 1,
-      "description": "The pack slug, e.g. icon-sets-tabler."
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 100,
+      "description": "The pack slug, and the config's file name without .json: lowercase letters a-z and digits in words joined by single hyphens, e.g. icon-sets-tabler or icon-sets-extras-feather. No dots, underscores, capitals or spaces."
     },
     "pack": {
       "type": "string",

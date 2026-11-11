@@ -38,6 +38,31 @@ config (`"recipe": "manifest-pack"` for one pipeline per set in its set manifest
 Nothing describing a private pack is committed to this repository; a test fails on any tracked file
 that names a private pack's paths or config files.
 
+## Naming packs
+
+A pack name is a **lowercase slug**: letters `a-z` and digits, in words joined by single hyphens
+(`^[a-z0-9]+(-[a-z0-9]+)*$`, at most 100 characters). The same string is the config's `name`, its
+file name (`config/<name>.json`), its entry in `packs.json` and the value of `--pack`, and it ends
+up in URLs (`/packs/<name>`), branch names and run history, so it has no dots, underscores,
+capitals or spaces.
+
+| Right | Wrong |
+|---|---|
+| `icon-sets-tabler` | `Icon-Sets-Tabler`, `icon_sets_tabler` |
+| `icon-sets-extras-feather` (one config per set of a shared pack: `<pack>-<set>`) | `icon-sets-extras.feather` |
+
+It is enforced, not advised:
+
+- the loader refuses any other name in `packs.json`, a config's `name` or `--pack`, states the
+  rule, and names the slug to use when there is one;
+- `config/schema/pack.schema.json` carries the pattern, so an editor that reads `$schema` marks a
+  bad name as you type;
+- `TestEveryShippedNameIsASlug` fails on any shipped config, file name or registry entry that is
+  not a slug.
+
+The dotted `icon-sets-extras.<set>` names were renamed `icon-sets-extras-<set>` (icon-sets-sync#104)
+and are no longer accepted.
+
 ## A pack config
 
 ```json
@@ -73,7 +98,7 @@ turning it into `"16"`.
 
 | Key | Meaning |
 |---|---|
-| `name` | pack slug; must match the filename and the registry entry |
+| `name` | pack slug; must match the filename and the registry entry. A lowercase slug: see [Naming packs](#naming-packs) |
 | `pack` | Composer package name, e.g. `ichava/icon-sets-tabler` |
 | `pack_root` | the pack repo: absolute, `~`-prefixed, or relative to the `workspace` setting |
 | `version_check_url` | the URL polled to discover the latest upstream version |
@@ -569,7 +594,9 @@ into the pack repo, before the `git-branch` sink commits.
 
 ## Adding a pack
 
-1. Write `config/<slug>.json` (or `.yaml`) describing the upstream and the sinks.
+1. Pick the slug: lowercase, words joined by hyphens, `<pack>-<set>` for one set of a shared pack
+   ([Naming packs](#naming-packs)). Write `config/<slug>.json` (or `.yaml`) with that slug as its
+   `name`, describing the upstream and the sinks.
 2. Add the slug to `config/packs.json`.
 3. `icon-sets-sync config validate`, then `icon-sets-sync check --pack=<slug>` to confirm the
    upstream poll resolves.

@@ -315,8 +315,8 @@ func TestPackPage(t *testing.T) {
 func TestValidSlug(t *testing.T) {
 	for slug, want := range map[string]bool{
 		"icon-sets-flag": true, "a1": true,
-		// A set config of a shared pack is "<pack>.<set>" (R4).
-		"icon-sets-extras.game-icons": true, "a.b": true,
+		// A pack name has no dot: the old "<pack>.<set>" spelling is refused.
+		"icon-sets-extras-game-icons": true, "icon-sets-extras.game-icons": false, "a.b": false,
 		"": false, "../etc": false, "Icon": false, "a/b": false, strings.Repeat("a", 101): false,
 		".": false, "..": false, ".a": false, "a.": false, "a..b": false,
 	} {
@@ -327,8 +327,8 @@ func TestValidSlug(t *testing.T) {
 }
 
 // R4: validSlug refused the dot, so the pages and actions of all twenty
-// icon-sets-extras.<set> configs answered 404 "No such pack" from links the
-// dashboard itself rendered. Every shipped config name must pass. Counted, so
+// set configs (then icon-sets-extras.<set>, now icon-sets-extras-<set>)
+// answered 404 "No such pack" from links the dashboard itself rendered. Every shipped config name must pass. Counted, so
 // an empty glob fails.
 func TestEveryShippedPackNameIsAValidSlug(t *testing.T) {
 	files, err := filepath.Glob(filepath.Join("..", "..", "..", "config", "*.json"))
@@ -348,5 +348,14 @@ func TestEveryShippedPackNameIsAValidSlug(t *testing.T) {
 	}
 	if n < 30 {
 		t.Fatalf("inspected %d shipped configs, want at least 30", n)
+	}
+}
+
+// An old link to a set config's page, in the removed dotted spelling, is
+// not a pack: it answers 404 rather than redirecting.
+func TestDottedPackURLIsNoPack(t *testing.T) {
+	s, _ := newTestServer(t)
+	if rec := signIn(t, s).get("/packs/icon-sets-tabler.x"); rec.Code != http.StatusNotFound {
+		t.Fatalf("got %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 }

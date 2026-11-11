@@ -83,7 +83,7 @@ func TestShippedArchiveConfigsNamePollableEndpoints(t *testing.T) {
 func TestCheckPackCarriesTheConfigName(t *testing.T) {
 	c := &Checker{Fetch: stubFetcher{body: `{"version":"1.0.0"}`}}
 	p := packWithVendored(t, "1.0.0")
-	p.Name = "icon-sets-extras.ant-design"
+	p.Name = "icon-sets-extras-ant-design"
 	if got := c.CheckPack(t.Context(), p); got.Name != p.Name {
 		t.Errorf("Name = %q, want %q", got.Name, p.Name)
 	}
