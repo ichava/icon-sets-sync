@@ -194,6 +194,17 @@ func gitBranch(pack *config.PackConfig, sink *config.SinkConfig, opts Options) s
 	}
 }
 
+// statedFacts moves the counts and version a pack states with the assets it just
+// wrote. It runs before VersionStamp, which still has to find the previous
+// version, and through the same git as the commit, so a stubbed runner covers it.
+func statedFacts(pack *config.PackConfig, opts Options) sinks.StatedFacts {
+	git := gitx.New()
+	if opts.Git != nil {
+		git.Run = opts.Git
+	}
+	return sinks.StatedFacts{Pack: pack, Git: git}
+}
+
 // firstSink returns the pack's first sink of a type, or nil.
 func firstSink(pack *config.PackConfig, typ string) *config.SinkConfig {
 	for i := range pack.Sinks {
@@ -251,6 +262,7 @@ func buildTwemojiSets(pack *config.PackConfig, twemojiVersion string, opts Optio
 				// silently does nothing -- which is what the Python did, and
 				// why this pack never converged.
 				Source(sources.Static{Version: twemojiVersion}).
+				Sink(statedFacts(pack, opts)).
 				Sink(sinks.VersionStamp{Pack: pack}).
 				Sink(gitBranch(pack, firstSink(pack, "git-branch"), opts)))
 	}
@@ -404,6 +416,7 @@ func buildOpenMojiSets(pack *config.PackConfig, version string, opts Options) ([
 			pipeline.Named("openmoji-sets:commit").
 				Config(cfg).
 				Source(sources.Static{Version: version}).
+				Sink(statedFacts(pack, opts)).
 				Sink(sinks.VersionStamp{Pack: pack}).
 				Sink(gitBranch(pack, firstSink(pack, "git-branch"), opts)))
 	}

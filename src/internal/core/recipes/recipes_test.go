@@ -43,9 +43,25 @@ func TestSimpleNPMComposesTheExpectedStages(t *testing.T) {
 	}
 
 	got := strings.Join(stageNames(built[0]), ",")
-	want := "NpmTarball,FindLicences,SubsetTo,Sanitise,Filesystem,LicenceTexts,VersionStamp,GitBranch"
+	want := "NpmTarball,FindLicences,SubsetTo,Sanitise,Filesystem,LicenceTexts,StatedFacts,VersionStamp,GitBranch"
 	if got != want {
 		t.Errorf("stages = %s\nwant    %s", got, want)
+	}
+}
+
+// TestStatedFactsPrecedeVersionStamp: StatedFacts reads the previous version from the
+// version file, so it has to run before VersionStamp overwrites it, and before the
+// commit, so the moved counts ship in the same commit as the assets.
+func TestStatedFactsPrecedeVersionStamp(t *testing.T) {
+	built, _ := buildFor(npmPack("icon-sets-flag"), "7.5.0", false)
+	names := stageNames(built[0])
+
+	facts, stamp, commit := indexOf(names, "StatedFacts"), indexOf(names, "VersionStamp"), indexOf(names, "GitBranch")
+	if facts < 0 || stamp < 0 || commit < 0 {
+		t.Fatalf("stages = %v", names)
+	}
+	if facts > stamp || facts > commit {
+		t.Errorf("StatedFacts must run before VersionStamp and GitBranch: %v", names)
 	}
 }
 

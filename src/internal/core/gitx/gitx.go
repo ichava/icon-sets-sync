@@ -290,3 +290,20 @@ func (g *Git) FetchBranch(ctx context.Context, repo, branch string) error {
 		fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", branch, branch))
 	return err
 }
+
+// ListTree returns every file path under prefix at ref, relative to the repo
+// root. An error means ref names nothing (a repo with no commits yet) or git
+// failed; an empty slice means the prefix holds no files at ref.
+func (g *Git) ListTree(ctx context.Context, repo, ref, prefix string) ([]string, error) {
+	out, err := g.runner().Run(ctx, repo, nil, "git", "ls-tree", "-r", "--name-only", ref, "--", prefix)
+	if err != nil {
+		return nil, err
+	}
+	var paths []string
+	for _, line := range strings.Split(out, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			paths = append(paths, line)
+		}
+	}
+	return paths, nil
+}

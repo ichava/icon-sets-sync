@@ -70,7 +70,7 @@ func TestGenericStagesFollowTheConfig(t *testing.T) {
 		{
 			name:   "no transforms is the simple npm recipe",
 			mutate: func(*config.PackConfig) {},
-			want:   "NpmTarball,FindLicences,SubsetTo,Sanitise,Filesystem,LicenceTexts,VersionStamp,GitBranch",
+			want:   "NpmTarball,FindLicences,SubsetTo,Sanitise,Filesystem,LicenceTexts,StatedFacts,VersionStamp,GitBranch",
 		},
 		{
 			name: "declared transforms replace the default sanitise, in order",
@@ -80,21 +80,21 @@ func TestGenericStagesFollowTheConfig(t *testing.T) {
 					{"type": "sanitise", "also_strip_class": true},
 				}
 			},
-			want: "NpmTarball,FindLicences,SubsetTo,Slugify,Sanitise,Filesystem,LicenceTexts,VersionStamp,GitBranch",
+			want: "NpmTarball,FindLicences,SubsetTo,Slugify,Sanitise,Filesystem,LicenceTexts,StatedFacts,VersionStamp,GitBranch",
 		},
 		{
 			name: "a cldr categoriser pulls in the taxonomy source",
 			mutate: func(p *config.PackConfig) {
 				p.Transforms = []map[string]any{{"type": "categorise", "by": "cldr"}, {"type": "indexer"}}
 			},
-			want: "Compound(UnicodeCldr,NpmTarball),FindLicences,SubsetTo,Categorise,Indexer,Filesystem,LicenceTexts,VersionStamp,GitBranch",
+			want: "Compound(UnicodeCldr,NpmTarball),FindLicences,SubsetTo,Categorise,Indexer,Filesystem,LicenceTexts,StatedFacts,VersionStamp,GitBranch",
 		},
 		{
 			name: "a github archive source",
 			mutate: func(p *config.PackConfig) {
 				p.Source = config.SourceConfig{Type: "github-release", Owner: "o", Repo: "r"}
 			},
-			want: "GithubArchive,FindLicences,Sanitise,Filesystem,LicenceTexts,VersionStamp,GitBranch",
+			want: "GithubArchive,FindLicences,Sanitise,Filesystem,LicenceTexts,StatedFacts,VersionStamp,GitBranch",
 		},
 		{
 			name:   "dry run keeps the filesystem sink only",
@@ -119,7 +119,7 @@ func TestGenericStagesFollowTheConfig(t *testing.T) {
 					"variants": []any{map[string]any{"path": "24/solid", "prefix": "s-"}},
 				}}
 			},
-			want: "NpmTarball,FindLicences,FlattenVariants,Filesystem,LicenceTexts,VersionStamp,GitBranch",
+			want: "NpmTarball,FindLicences,FlattenVariants,Filesystem,LicenceTexts,StatedFacts,VersionStamp,GitBranch",
 		},
 		{
 			name: "split-variants and exclude",
@@ -130,7 +130,7 @@ func TestGenericStagesFollowTheConfig(t *testing.T) {
 					{"type": "sanitise"},
 				}
 			},
-			want: "NpmTarball,FindLicences,SubsetTo,SplitVariants,Exclude,Sanitise,Filesystem,LicenceTexts,VersionStamp,GitBranch",
+			want: "NpmTarball,FindLicences,SubsetTo,SplitVariants,Exclude,Sanitise,Filesystem,LicenceTexts,StatedFacts,VersionStamp,GitBranch",
 		},
 	}
 	for _, tt := range tests {

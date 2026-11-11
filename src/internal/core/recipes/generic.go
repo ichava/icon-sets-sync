@@ -109,13 +109,15 @@ func buildGeneric(pack *config.PackConfig, version string, opts Options) (*pipel
 			if opts.DryRun {
 				continue
 			}
-			// Stamp before commit, always. The version has to be in the tree
+			// The stated counts move first (StatedFacts reads the previous version),
+			// then the stamp, then the commit. Stamp before commit, always. The version has to be in the tree
 			// the commit captures, or the pack ships assets whose recorded
 			// version is the previous one and every later run re-proposes the
 			// same refresh.
+			p.Sink(statedFacts(pack, opts))
 			p.Sink(sinks.VersionStamp{Pack: pack})
 			p.Sink(gitBranch(pack, sink, opts))
-			added += 2
+			added += 3
 		}
 	}
 
