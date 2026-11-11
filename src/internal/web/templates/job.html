@@ -1,0 +1,107 @@
+{{define "content"}}{{with .Data}}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col">
+      <div class="page-pretitle"><a href="/jobs">{{icon "arrow-left"}} Runs</a></div>
+      <h1 class="page-title">{{.Info.Kind}}{{range .Info.Packs}} <code class="ms-1">{{.}}</code>{{end}}</h1>
+      <div class="text-secondary mt-1">{{.Info.Label}} · started <time datetime="{{iso .Info.Started}}">{{when .Info.Started}}</time>{{if not .Info.Ended.IsZero}} · took {{.Duration}}{{end}}</div>
+    </div>
+    <div class="col-auto ms-auto btn-list">
+      <a class="btn btn-outline-secondary" href="/jobs/{{.Info.ID}}/log.jsonl">{{icon "download"}}Download log</a>
+      {{if and .Live (not $.ReadOnly)}}
+      <form method="post" action="/jobs/{{.Info.ID}}/cancel" data-confirm="The stage in flight is stopped and nothing after it runs." data-confirm-title="Cancel this run?" data-confirm-button="Cancel run">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <button type="submit" class="btn btn-outline-danger">{{icon "player-stop"}}Cancel</button>
+      </form>
+      {{end}}
+    </div>
+  </div>
+</div>
+
+<div id="job" data-events-url="/events/jobs/{{.Info.ID}}" data-last-id="{{.LastID}}" data-live="{{if .Live}}1{{end}}">
+  <div class="alert {{runAlert .Info.Status}}" role="status" aria-live="polite" id="job-status">
+    <div class="d-flex align-items-start gap-2">
+      <div class="text-break flex-fill"><strong>{{runText .Info.Status}}</strong>{{if .Info.Err}}: <span id="run-error">{{breakable .Info.Err}}</span>{{end}}</div>
+      {{if .Info.Err}}<button type="button" class="btn btn-sm btn-ghost-secondary" data-copy-target="run-error" aria-label="Copy the error">{{icon "copy"}}<span data-role="copy-label">Copy</span></button>{{end}}
+    </div>
+    {{if .Live}}<noscript> Reload the page to see progress.</noscript>{{end}}
+    {{if and .Live .PacksTotal}}
+    <div class="mt-2">
+      <progress class="progress progress-sm w-100" id="job-progress" value="{{.PacksDone}}" max="{{.PacksTotal}}" aria-label="Packs done">{{.PacksDone}} of {{.PacksTotal}}</progress>
+      <div class="small" id="job-progress-count">{{.PacksDone}} of {{.PacksTotal}} packs done</div>
+    </div>
+    {{end}}
+  </div>
+  {{if .Finished}}<div hidden data-toast="{{if eq (print .Info.Status) "succeeded"}}success{{else if eq (print .Info.Status) "needs-review"}}warning{{else if eq (print .Info.Status) "cancelled"}}info{{else}}danger{{end}}" data-toast-title="Run {{runText .Info.Status}}" data-toast-body="{{.Info.Label}}{{if .Info.Err}}: {{.Info.Err}}{{end}}"></div>{{end}}
+
+  {{range .Reviews}}
+  <div class="card mb-3" data-role="review">
+    <div class="card-header">
+      <h2 class="card-title">{{icon "alert-triangle"}}Needs review: <code>{{.Pack}}</code></h2>
+      <div class="card-subtitle ms-2">{{.Renamed}} renamed, {{if .Duplicates}}{{.Duplicates}} dropped duplicate(s), {{end}}{{.Removed}} removed</div>
+    </div>
+    <div class="card-body">
+      {{if .Reason}}<p class="text-break">{{.Reason}}</p>{{end}}
+      <p class="mb-0 text-secondary">A real run stops here. A renamed icon has a byte-identical file at exactly one new path; a dropped duplicate's bytes stay at a path shipped today too; a removed one has no copy. Consumers address icons by path, so either change breaks a stored id. Target: <code class="text-break">{{.Target}}</code></p>
+    </div>
+    {{if .Removals}}
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead><tr><th>Shipped today</th><th>Becomes</th></tr></thead>
+        <tbody>
+          {{range .Removals}}<tr><td><code class="text-break">{{.Path}}</code></td><td>{{if .RenamedTo}}<code class="text-break">{{.RenamedTo}}</code>{{else if .SameAs}}<span class="badge badge-warn">dropped duplicate</span> <span class="small">the same bytes stay at</span> <code class="text-break">{{.SameAs}}</code>{{else}}<span class="badge badge-bad">removed</span>{{end}}</td></tr>{{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+  {{with .Force}}
+  <form class="mb-3" method="post" action="{{.Action}}" {{if eq .Mode "real"}}data-real-phrase="{{.Phrase}}" data-real-packs="{{.Packs}}" data-real-note="{{.Confirm}}"{{else}}data-confirm="{{.Confirm}}" data-confirm-title="Re-run with --force?" data-confirm-button="Re-run with --force"{{end}}>
+    <input type="hidden" name="csrf" value="{{$.CSRF}}">
+    <input type="hidden" name="mode" value="{{.Mode}}">
+    <input type="hidden" name="force" value="1">
+    <button type="submit" class="btn btn-warning">{{icon "player-play"}}Re-run with --force</button>
+  </form>
+  {{end}}
+
+  <div class="row row-cards">
+    <div class="col-lg-5">
+      <div class="card mb-3">
+        <div class="card-header"><h2 class="card-title">Packs</h2></div>
+        <ul class="list-group list-group-flush" id="job-packs">
+          {{range $i, $p := .Packs}}<li class="list-group-item" data-pack="{{.Pack}}"><div class="d-flex justify-content-between"><code>{{.Pack}}</code><span class="badge {{runClass .Status}}" data-role="status">{{.Status}}</span></div>{{if .Detail}}<div class="text-secondary small" data-role="detail">{{.Detail}}</div>{{end}}{{if .Err}}<div class="d-flex align-items-start gap-2"><div class="text-danger small text-break flex-fill" data-role="error" id="pack-error-{{$i}}">{{breakable .Err}}</div><button type="button" class="btn btn-sm btn-ghost-secondary" data-copy-target="pack-error-{{$i}}" aria-label="Copy the error for {{.Pack}}">{{icon "copy"}}<span data-role="copy-label" class="visually-hidden">Copy</span></button></div>{{end}}</li>{{else}}<li class="list-group-item text-secondary" data-role="empty">No pack has started yet.</li>{{end}}
+        </ul>
+      </div>
+      <div class="card mb-3">
+        <div class="card-header"><h2 class="card-title">Stages</h2></div>
+        <ol class="list-group list-group-flush list-group-numbered" id="job-stages">
+          {{range .Stages}}<li class="list-group-item" data-stage="{{.Pipeline}}|{{.Stage}}"><span class="badge {{stageClass .State}} me-2" data-role="state">{{.State}}</span><code>{{.Stage}}</code> <span class="text-secondary small">{{.Pipeline}}</span>{{if .Err}}<div class="text-danger small text-break" data-role="error">{{breakable .Err}}</div>{{end}}{{if and $.Data.Live (eq .State "started")}}<div class="progress progress-sm mt-1" data-role="stage-progress" role="progressbar" aria-label="{{.Stage}} in progress"><div class="progress-bar progress-bar-indeterminate"></div></div>{{end}}</li>{{end}}
+        </ol>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Log</h2>
+          <div class="card-actions d-flex gap-3 align-items-center">
+            <label class="d-flex align-items-center gap-1 mb-0" for="log-level">Show
+              <select class="form-select form-select-sm" id="log-level" data-log-filter>
+                <option value="debug">everything</option>
+                <option value="info" selected>info and above</option>
+                <option value="warn">warnings and errors</option>
+                <option value="error">errors only</option>
+              </select>
+            </label>
+            <label class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="log-follow" checked><span class="form-check-label">Follow</span></label>
+          </div>
+        </div>
+        {{if .Dropped}}<div class="card-body py-2 text-secondary small">Earlier lines are not shown here; the download has everything this run kept.</div>{{end}}
+        <ol class="log-pane list-unstyled mb-0" id="job-log" data-level="info" tabindex="0" aria-label="Run log">
+          {{range .Log}}<li class="log-line log-{{.Level}}"><time datetime="{{iso .Time}}">{{clock .Time}}</time> <span class="log-level">{{.Level}}</span> {{breakable .Msg}}{{range $k, $v := .Attrs}} <span class="log-attr">{{$k}}={{breakable $v}}</span>{{end}}</li>{{end}}
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}{{end}}

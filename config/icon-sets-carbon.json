@@ -1,0 +1,49 @@
+{
+  "_note": "@carbon/icons' svg/ holds 16/, 20/, 24/ and 32/. The pack keeps 32/ as size-32/ and 16/ as size-16/; 32/'s watson-health/ and Q/ sub-folders become name prefixes (flatten_prefix), and slugify lowercases and collapses `--` (chevron--down -> chevron-down). licenses/carbon/ also holds a pack-written NOTICE upstream does not ship: move it or mark the directory hand-supplied before the first real sync. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 2,841 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-carbon",
+  "pack": "ichava/icon-sets-carbon",
+  "pack_root": "/work/icon-sets-carbon",
+  "current_version": "11.91.0",
+  "version_check_url": "https://registry.npmjs.org/@carbon/icons/latest",
+  "licence": "Apache-2.0",
+  "licence_sha256": "037b3e9eaff51477b270e9082f54b99175e4dd893548654f00995045b68294b8",
+  "licence_set": "carbon",
+  "source": {
+    "type": "npm",
+    "package": "@carbon/icons",
+    "source_path": "svg"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    },
+    {
+      "type": "split-variants",
+      "variants": [
+        {
+          "path": "size-32",
+          "from": "32",
+          "flatten_prefix": true
+        },
+        {
+          "path": "size-16",
+          "from": "16"
+        }
+      ]
+    },
+    {
+      "type": "slugify"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

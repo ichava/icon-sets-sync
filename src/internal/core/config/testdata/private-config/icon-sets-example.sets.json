@@ -1,0 +1,16 @@
+{
+  "pack": "ichava/icon-sets-example",
+  "sets": {
+    "alpha-icons": {
+      "package": "alpha-icons",
+      "path": "svg",
+      "confidence": "exact"
+    },
+    "beta-icons": {
+      "package": "@example/beta-icons",
+      "path": "icons",
+      "confidence": "package",
+      "licence_missing": "synthetic: the package ships no licence file at its root"
+    }
+  }
+}

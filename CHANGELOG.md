@@ -1,0 +1,999 @@
+# Changelog
+
+All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-toolkit`) follow [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+### Added
+
+- **The global config starts initialised, and can be reinitialised.** `serve` and the new `config init` write it from what the machine has: `$schema`, `packages_dirs` (the directory of pack checkouts this tool sits in) and `private_config_dir` (when exactly one pack carries one). A missing, `$schema`-only or still-generated file is (re)written; one a person edited is left alone, told apart by a record of what was last written (`global-init.json` in the state directory). The global config page says which it is and has **Reinitialise** (a confirmed action; `config init --force` in the CLI), which keeps the old copy in the history. Read-only servers and CI runs write nothing.
+- **Recipes for the 34 v0.1.0 packs and sets.** `config/` gains Lucide, Heroicons, Bootstrap Icons, Simple Icons, Material Design Icons, Phosphor, Font Awesome Free, Remix Icon (pinned to v4.8.0, the last Apache-2.0 release), Material Symbols, Fluent, Ionicons, Carbon, Octicons and Iconoir, and one config per set of `icon-sets-extras` (20, each recording its version at `upstream.sets.<set>.current_version` in the pack). All 38 registered configs validate, and a dry run of each new one at its pinned version against the local pack checkout reproduced the committed SVGs byte for byte (0 added, removed or changed, 2026-11-04). `TestEveryShippedRecipeValidates` loads and builds every registered config and fails below 38, or on a config file `packs.json` does not register.
+- **`split-variants` transform.** Sorts upstream files into one directory per variant by the directory they come from (`from`), the suffix they carry (`suffix`, stripped), or both; unclaimed files are dropped and counted, which is how a pack takes a subset, and `flatten_prefix` keeps sub-folders as a name prefix. It covers Heroicons, Phosphor, Material Symbols, Fluent, Ionicons, Carbon and Octicons. A variant that claims nothing, or two names reducing to one, fail the run.
+- **`exclude` transform.** Drops icons by stem (`names`, Octicons' GitHub marks), by directory (`directories`, Game Icons' unlicensed `badges/`) or from an upstream data file (`metadata`, Simple Icons' non-CC0 logos from `data/simple-icons.json`, so the list follows each release). An excluded item that cannot be named fails the run.
+- **More transform options.** `slugify` takes `dirs` (slug directory names too: Remix's `Game & Sports`) and `hyphenate_dots` (`lucene.net` -> `lucene-net`), and now fails when two names slug to one instead of renaming one over the other. `flatten-variants` takes `slug`, which slugs each stem before the affix (Health Icons' `!.svg` is committed as `-filled.svg`). `sanitise` takes `drop_unparsable`, which removes a file the policy cannot parse instead of leaving it unchecked (Noto Emoji's 170 SVGs with an Illustrator DTD).
+- **Licence guards for every licence the packs carry.** `licence` now admits `Apache-2.0`, `CC-BY-3.0`, `CC0-1.0`, `ISC` and `MIT` beside the two CC-BY ids, each checked against its opening lines (a Markdown `#` is ignored). The new `licence_sha256` pins the upstream licence text to the byte, the pack plan's licence-change guard and the only check for a licence with no standard text; every new config pins one where upstream ships a licence. `licence_set` names the pack's licence directory, `licence_from` reads the licence from an upstream sub-directory (Noto Emoji's `2D/svg/LICENSE`), and `licence_missing` brings the set manifest's exception to plain pack configs.
+- **`max_download_bytes` on a `github-*` source**, at most 4 GiB, for an archive over the 1 GiB default. Only Noto Emoji sets it (2 GiB): its tagged archive is 1.2 GB, almost all of it PNGs.
+
+- **Double-clicking opens the web UI with no console window left behind.** On Windows the binary detects an Explorer launch (its console holds only itself, `GetConsoleProcessList` = 1, and the parent is not a shell), restarts as a detached `serve` with no console and exits, so the window closes within a second. macOS cannot do this for a bare executable, because Finder runs it inside Terminal and the window is Terminal's, so `make app` builds `build/macos/icon-sets-sync.app` from the universal binary: `LSUIElement` (no Dock icon), the universal binary itself as `Contents/MacOS/icon-sets-sync`, and a generated icon. Inside a bundle the binary starts `serve` detached and quits, so a second double-click hands off to the running server through `serve.json`. Linux gets `build/linux/icon-sets-sync.desktop` with `Terminal=false` (written by `make cross` and `make desktop`), which sets the new `ICHAVA_DESKTOP_LAUNCH=1`: open the browser though there is no terminal. The detached server logs to `serve.log` beside `serve.json`, mode `0600`. With any argument, and in CI, the CLI is unchanged, including the binary inside the bundle. The app is unsigned; docs/installation.md gives the signing and notarisation commands. `checkbuild` accepts `build/macos/icon-sets-sync.app` when its binary is byte for byte the universal binary `checksums.txt` verifies, and `make cross` removes a bundle it would leave stale.
+
+### Changed
+
+- **The config editor highlights JSON and YAML, and checks JSON in the browser.** Keys, strings, numbers, literals, punctuation and YAML comments are coloured by a small scanner drawn under the text area, built from text nodes only, so the CSP and the no-`innerHTML` rule hold. JSON is checked on every keystroke before the server is asked: a syntax error is underlined at its place (found by the editor's own scanner, since only some browsers report a position), its line is marked in the gutter, the finding links to it, and Save stays off; the server's schema check follows once the text parses. Findings from the server link to their line too.
+- **The config editor answers in place.** It checks the file as it opens, so its status is known at once; Validate and Fix run without leaving the page, with a status badge beside the buttons, the findings right under them and a toast for the result ("Valid", "N problem(s)" with the first one, "Fix made N change(s)", "Nothing to fix"). Fix answers JSON to the page's script and fills the editor with its repair. Without JavaScript both still post the form.
+- **Work in flight shows at the top of the window.** A thin indeterminate bar is pinned to the top edge, and the button that started the work shows a spinner, instead of a bar appended below the form where a long page hid it. A page restored from the back/forward cache drops a stuck bar.
+- **The audit page no longer calls an incomplete run "succeeded".** A run that could not read a set carries an "incomplete" badge, and headings keep a gap between their icon and their text.
+- **Pack names are lowercase slugs, and the 20 `icon-sets-extras` set configs are renamed to match** (breaking). `icon-sets-extras.<set>` (for example `icon-sets-extras.ant-design`) is now `icon-sets-extras-<set>`, in the config file names, their `name`, `packs.json` and the embedded copy. A name is letters a-z and digits in words joined by single hyphens (`config.IsSlug`, and the same `pattern` on `name` in `pack.schema.json`). The old names are not kept: a dotted, capitalised, underscore- or space-joined name in `--pack`, a registry or a config's `name` is refused with the rule and the slug to use, and `/packs/<old name>` answers 404. `TestEveryShippedNameIsASlug` reads the raw files and fails on any shipped name that is not a slug; `TestSchemaSlugPatternMatchesIsSlug` keeps the schema and the loader on one pattern. The rule is in docs/configuration.md, "Naming packs", and CONTRIBUTING.md. The check table still labels a set config's row with its set.
+- **The emoji pack is `icon-sets-twemoji`, synced by the `twemoji-sets` recipe** (owner, 2026-11-05: forward only, no aliases). The pack was renamed on GitHub and ships Twemoji only, so its config is `config/icon-sets-twemoji.json` (and the embedded copy), registered in `packs.json` under that name, with `pack` `ichava/icon-sets-twemoji` and `pack_root` `/work/icon-sets-twemoji`. The recipe `emoji-sets` is now `twemoji-sets` (`RecipeTwemojiSets`, the schema enum), and its pipelines are `twemoji-sets:twemoji@<version>` and `twemoji-sets:commit`; the OpenMoji pipelines, which borrowed the old prefix, are named for their own recipe, `openmoji-sets:<set>@<version>`. `make build-emoji` is `make build-twemoji`. Nothing reads the old pack name, recipe name or target. The frozen lxml oracle's sample paths follow the files to where they now live (Twemoji under `icon-sets-twemoji/`, OpenMoji under `icon-sets-openmoji/`, same bytes), so the differential compares them again: 726 of 1,238 present. The `emoji.unicode_version` setting and `ICHAVA_EMOJI_UNICODE_VERSION` keep their names: both recipes read them, so they name emoji, not the pack.
+- **The Composer launcher downloads a release binary only on opt-in** (`ICHAVA_ICON_SETS_SYNC_DOWNLOAD=1`). Without it, and without `ICHAVA_ICON_SETS_SYNC_BIN`, it stops and says how to build from source, so cutting a release can never switch a download channel on by itself (G-06).
+- **The web-asset vendor fetches through `httpx`**, under the upstream allowlist, the https-only redirect guard and the size caps, and `internal/tabler` is `internal/webvendor` (G-03). `orDash`, `orDefault` and `itoa` are written once (G-04).
+- **The build-layout guard checks file names, not only folders** (G-01). An OS folder under `build/` holds `icon-sets-sync_{os}_{arch}[.exe]`, the host `icon-sets-sync[.exe]`, and three named launcher exceptions with their reasons (`icon-sets-sync.app` in `macos/`, `icon-sets-sync.desktop` and `icon-sets-sync.png` in `linux/`); any other file fails `checkbuild`.
+- **Running the binary with no arguments opens the web UI.** A double-click, or `icon-sets-sync` on its own in a terminal, starts `serve` and opens the default browser at the tokenised address. It never opens one with `CI` set, with `ICHAVA_NO_BROWSER=1`, when stdin or stdout is not a terminal, or on Linux and the BSDs without `DISPLAY` or `WAYLAND_DISPLAY`; there no arguments prints the help and exits 0, as it did without a terminal before. Every command, and any flag, stays headless. The terminal menu that no arguments used to open is `icon-sets-sync menu` and `make menu`, unchanged. `serve` follows the same rules, and `--no-open` or `ICHAVA_NO_BROWSER=1` turns the browser off.
+- **One server at a time, and a way to stop it.** A running server records its address in `serve.json` (mode `0600`) in the XDG state directory; a second no-argument launch that finds it answering opens the browser there and exits with one line instead of starting another. A stale record is removed. Every page has a **Stop server** action (a same-origin POST with the CSRF token), and it, Ctrl-C and closing the Terminal window (SIGHUP) shut down gracefully and remove the record. The window now says "running in your browser; close this window or press Ctrl-C to stop".
+- **A double-clicked binary finds its configs.** Finder starts it with the working directory at `$HOME`, so it showed "missing pack registry" and 0 packs. The config directory is now also found walking up from the executable (symlinks resolved), and a binary outside any checkout uses the pack configs embedded in it, read-only in the Config page. The startup line and the Settings page name the source (`flag`, `env`, `cwd`, `executable`, `embedded`). Pack checkouts are found beside the toolkit from the executable too, and a pack with none says a sync needs `ICHAVA_WORKSPACE`. `make embed-config` regenerates the embedded copy; a test fails while it differs from `config/`.
+- **`make cross` leaves only the binaries.** It used to leave 86 items (1.0 GB) in `build/dist`: bare binaries, archives, deb/rpm/apk packages and GoReleaser's per-target folders. It now leaves the bare `{binary}_{os}_{arch}` binaries and `checksums.txt`: 38 (568 MB) at the time, 19 since the `imt` alias was retired (see Removed). The archives and Linux packages moved to the new `make dist`, which writes them to `build/dist/archives/`. The release workflow and `src/.goreleaser.yaml` are unchanged.
+- **`build/` holds one folder per OS and nothing else.** `make build-local` writes `build/<os>/icon-sets-sync` (`build/macos/` on a Mac, `.exe` on Windows) instead of `build/icon-sets-sync`; `make cross` writes `build/{os}/icon-sets-sync_{os}_{arch}[.exe]` into `build/macos/`, `build/linux/`, `build/windows/` and `build/freebsd/`, with `build/checksums.txt` over them, instead of `build/dist/`; `make dist` adds `build/archives/`. GoReleaser now builds into the scratch directory `.cache/goreleaser/` (`src/.goreleaser.yaml` `dist:`), and only the bare binaries are copied out. The release workflow uploads from that directory, so release assets and their names are unchanged. A binary in `build/<os>/` still finds the checkout, and `TestBuildOSFoldersReachThisCheckout` holds the walk-up depth. The new `checkbuild` guard (`make check-build`, run by all three targets) replaces the `find build/dist -type d` check and fails on any other name in `build/` or any folder inside an OS folder or `archives/`. It passes over what a file browser writes into any folder it opens (`.DS_Store`, `Thumbs.db`, `desktop.ini`). `build/checksums.txt` names each binary by its path inside `build/` (`macos/icon-sets-sync_macos_arm64`), so `cd build && shasum -a 256 -c checksums.txt` (or `sha256sum -c`) verifies as-is, and the guard fails unless it lists exactly the cross binaries present and every hash matches. The release `checksums.txt` that CI uploads keeps bare names for install scripts and self-update. Behaviour change: the default `--kind-suggestions-dir` moved from `build/kind-suggestions` to `.cache/kind-suggestions`, so `build/` stays binaries only; pass the flag to keep the old location.
+
+### Removed
+
+- **`.scripts/wt`**, the per-session git worktree tool: the estate rule since 2026-11-01 is no worktrees, and nothing called it (G-02).
+- **`.scripts/migration/census.mjs` and `policy.json`**, referenced by nothing in the Makefile, CI or docs (G-07).
+Forward only: each of these was kept for an old caller or an old spelling, and is gone rather than deprecated. Callers were measured across every repository in the ichava packages tree before removal (a positive and a negative control each), and the one pack still using an old form was converted first.
+
+- **The uppercase `SOURCE.md` licence marker.** The licence-text sink recognises a hand-supplied licence directory by a lowercase `source.md` only, the estate's file-name rule, which the sim-standards pre-commit hook enforces on Markdown. It was briefly accepted alongside, with an info line asking for the rename; the one pack that carried it renamed its 13 markers first, so no folder loses its text. Behaviour change: a folder holding only `SOURCE.md` is now an ordinary licence directory, replaced or removed by a sync. Names are matched exactly against the directory's entries, so on a case-insensitive filesystem neither `SOURCE.md` nor `Source.md` counts where the Linux runners would not count it. `sinks.LegacyHandSuppliedMarker` goes with it; a test case shows the old code kept a `SOURCE.md` folder and this one replaces it.
+- **The `ICHAVA_DEV_CONFIG_DIR` and `ICHAVA_DEV_LOG_LEVEL` environment variables**, the Python toolkit's names for `ICHAVA_CONFIG_DIR` and `ICHAVA_LOG_LEVEL`. Nothing in the ichava packages sets either. The settings registry's `LegacyEnv` field goes with them. `log_level` still accepts `warning`, because ichava/core's `.env.example` sets `ICHAVA_LOG_LEVEL=warning` under the same name.
+- **Choosing `emoji-sets` and `openmoji-sets` by pack name.** A pack config names its recipe in `recipe`; `auto` picks `generic` for an npm or `github-*` source and nothing otherwise. `config/icon-sets-emoji.json` (and its embedded copy) now says `"recipe": "emoji-sets"`; `icon-sets-openmoji` already said so. Without the field, the emoji pack's `url` source fails with "no recipe wired" instead of running a recipe picked by its name.
+- **`config.ResolveConfigDir`**, the earlier subset of `ResolveConfigSource` kept for its callers. None was left outside its own tests, which now drive `ResolveConfigSource`.
+- **Reading `items`, `kinds` and `categories` from the top level of a pack's `config.json`.** The kind reader takes them from `metadata.data` only, and an empty `metadata.data` section no longer falls through to the top level. ichava/core's `PackConfigData::section()` dropped the same fallback, and this reader mirrors it so a suggestion resolves a pack exactly as core does. Measured over the 24 `resources/assets/svg/config.json` files in the ichava packages: none uses the top level, and 21 carry `metadata.data` sections.
+- **`(*pipeline.Pipeline).Run`**, `RunContext(context.Background())` kept for callers with no context. No production code called it; the 14 test call sites, found by removing it and letting the compiler list them, call `RunContext` instead.
+- **OpenMoji in the `emoji-sets` recipe, and the `emoji.openmoji_version` setting (`ICHAVA_EMOJI_OPENMOJI_VERSION`).** icon-sets-emoji ships Twemoji only since its OpenMoji copies were removed; OpenMoji is icon-sets-openmoji's, built by `openmoji-sets`, which is unchanged. `emoji-sets` now builds the Twemoji pipeline and its commit pipeline, so the weekly emoji sync can no longer write `openmoji-color` and `openmoji-black` back into that pack. The setting, its schema property (a pack config that still sets `settings.emoji.openmoji_version` fails to load), `settings.DefaultOpenMojiVersion` and `recipes.DefaultOpenMojiVersion` go with it; no config in the ichava packages set it. `TestEmojiSetsBuildsTwemojiOnly` was red against the old recipe.
+- **The inline 27-row presentation-value table** (`TestPresentationAttributeValueGuards`). Every row, compared by name, value and keep, is in the shared `testdata/presentation-vectors.json`, which `TestSharedVectorCases` runs.
+
+### Security
+
+- **Paths built from a request, a config or a manifest are confined to their root (CodeQL go/path-injection).** A set name from the audit form, a package name, a pack name from an edited document and a fingerprint key reached `os.Stat`, `os.ReadFile`, `os.MkdirAll` and archive extraction without a bound; `../` in the audit's set name surveyed and fetched against a directory outside the pack. The new `internal/core/pathguard.Join` is the one rule: it cleans the path, refuses an absolute element or any `..` (inside a name too: none of the 260,763 shipped SVGs has one), checks the result with `filepath.Rel`, and refuses a symlink anywhere under the root that resolves outside it, a dangling one included. `docfile.Find`, `config.ResolveFile` (now returning an error), the manifest-pack resolver and its npm fetch, the audit, and both archive extractors go through it; the extractors' own `safeJoin` is folded in. Behaviour change: an archive member with an absolute name is refused rather than clamped inside the destination, and `ResolveFile` refuses a name with a separator in the public directory too, not only in the private overlay.
+- **The config splice size cannot overflow (CodeQL go/allocation-size-overflow).** `setStringAtPath` sized its buffer as `len(data)-(end-start)+len(encoded)` unchecked. `spliceSize` bounds the document and the value at 256 MiB each before the arithmetic and refuses an out-of-range splice.
+- **The launch-token exchange cannot redirect off site (CodeQL go/unvalidated-url-redirection).** It redirected to the request's own path with the token stripped, so `//evil.example/x?token=…` sent a signed-in browser to another host. The target now has to pass `isLocalURL` (one leading slash, no `//` or `/\`, no scheme, host or control character); anything else lands on `/`.
+- **The SVG policy's CSS `url()` guard can no longer be bypassed (S1).** It matched the raw text with a regex, so CSS escapes (`\75rl(`, `\000075rl(`, `u\rl(`), comments (`u/**/rl(`), `image-set(`, `-webkit-image-set(`, `image(`, `src(`, `cross-fade(`, `element(`, `expression(`, `@import` and a quote mismatch such as `url("https://e/x'y")` all got a remote fetch past it. Values are now normalised (comments stripped, escapes decoded, lowercased) and checked against an allow-list: `url(` only with a same-document `#id`, only colour, `var`, math, transform and easing functions otherwise, and no at-rules. The same check now covers `fill`, `stroke`, `filter`, `clip-path`, `mask` and `marker-*`, which were trusted on their name. `url(#grad)` is unchanged.
+- **Documents are capped before and while they are parsed (S2).** `Policy.MaxBytes` (default 4,500,000 bytes, matching react-icon-browser and core) and `Policy.MaxNodes` (default 30,000 elements) refuse an oversized file as an error, like an unparseable one. The largest SVG in the packs is 1,053,328 bytes and 6,741 elements.
+- **Response bodies and archives are bounded (S6).** `GetJSON` reads at most 32 MiB and `Download` at most 1 GiB. Extraction refuses a file over 256 MiB, more than 2 GiB in total, or more than 200,000 entries, counted on the bytes written and not on a size the header declares, so a decompression bomb stops at the cap. An over-limit body is not retried.
+- **Redirects are policed (S13).** The client refuses a redirect from `https` to `http`, to a scheme other than `http(s)`, or to a literal loopback, private or link-local address, and stops after 10. A refused redirect is not retried.
+- **Fetches go only to an upstream allowlist (P2-G5).** `GetJSON` and `Download` refuse any host not on the list before sending a request, and every redirect hop is held to it. The default is exactly the hosts the shipped recipes reach: `registry.npmjs.org`, `api.github.com`, `github.com`, `codeload.github.com` and `unicode.org`. A test builds every shipped pack's pipelines and fails if any URL they reach is off the list, or if a default host is reached by none. Extend it with the new run-wide `allowed_hosts` setting (`ICHAVA_ALLOWED_HOSTS`, `--set`, or the global config); a pack config cannot set it. A blocked fetch names the host and the setting, and is not retried. `objects.githubusercontent.com` and `release-assets.githubusercontent.com` are not on the default list, because no shipped recipe downloads a release asset. Behaviour change: a private pack that fetches from another host now needs `allowed_hosts`.
+- **Upstream URLs must be `https` (P2-G6).** A pack config with a plain-`http` `version_check_url` or `source.archive_url` fails to load, naming the file, the field and the URL, and the client refuses the same URL at fetch time and on a redirect. `http://127.0.0.1`, `http://localhost` and `http://[::1]` are exempt on the first request so tests can use a local server. Every shipped config was already `https`.
+- **The SVG policy keeps `display`, `color` and `marker-start`/`-mid`/`-end`, each behind a value guard.** A dry run of OpenMoji 17 stripped `display="none"` from 13 subdivision flags, so their hidden construction shapes would render, plus `color` from 3 files and `marker-end` from 1. `display` survives only as bare keywords (`none`, `inline`, `block`, `inline flow-root`): no parens, no `url()`, no escape. `color` goes through the CSS value guard. `marker-*` survive only as `none` or `url(#fragment)`. So `display="url(x)"` and `marker-end="url(https://e)"` are still stripped, and so is Inkscape's `sodipodi:docname`. The vendored `svg-policy.json` gained the five names and is ahead of `ichava/core`'s canonical copy until core and react-icon-browser take the same change.
+- **`npm pack` runs with `--ignore-scripts` (S7)**, in both places it is called, so a git or local spec cannot run a `prepare` script on the runner.
+- S1, the CSS `url()` bypass, was already closed in this section's first entry; no further change was needed here.
+
+### Fixed
+
+- **Update pull requests open green when a count changes** (2026-11-11). A pack's tests pin its icon count and version, and its README and `composer.json` state them, but a sync moved only the assets, so tabler 3.51.0, carbon 11.92.0, simple-icons 16.37.0 and lucide 1.72.0 each opened red and were fixed by hand. The new `StatedFacts` step, run before the version stamp in every commit chain, compares the SVGs written with those at `HEAD` (total and per set folder) and rewrites each moved figure, and the version, where those files state them. Only whole figures move, counts under ten are left alone, and a figure no file states is reported. `gitx.ListTree` reads the committed tree.
+
+- **A re-run no longer drops commits a person added to the sync's pull request branch.** The git-branch sink reset the stable branch to the base and force-pushed with a lease taken from a fetch made a moment earlier, so the lease always held and a hand-made commit was overwritten (icon-sets-openmoji#18 lost its test fix this way on 2026-11-09). It now replays every commit on the old branch not authored by the sync, oldest first and with its author, on top of the new sync commit; pushes with a lease naming the exact tip it inspected; and stops as needs review, pushing nothing, when such a commit no longer applies. The run metric lists the commits kept (`kept_commits`). `gitx` gains `RevParse`, `CommitsNotIn`, `CherryPick` and `PushBranchLease`; `PushBranch` is deprecated in favour of `PushBranchLease` and still works.
+- **A namespace declaration nothing uses is dropped.** The policy strips `sodipodi:docname` but left the `xmlns:sodipodi` that declared it, so OpenMoji's Cornwall flag (`1F3F4-E0063-E0061-E0071-E0063-E007F`, both sets) shipped a declaration js-icon-components' generator refuses. After filtering, every `xmlns:<prefix>` whose namespace no remaining element or attribute uses is removed; the default `xmlns` stays, and so does any prefix in use (`xmlns:xlink` while an `xlink:href` survives). It is tidying, not a policy violation, so it is not counted as removed. Measured 2026-11-05 over all 22 pack checkouts (253,984 SVGs, old against new sanitiser on the shipped files): 8,002 files change on their next sync, all in four packs: icon-sets-extras 4,963 (unused `xmlns:xlink`), icon-sets-openmoji 2 (the Cornwall flag), and two private packs 3,037 between them (unused `xmlns:xlink`, and 151 files with Inkscape's `sodipodi`, `inkscape`, `cc`, `dc` and `rdf`). The other 18 packs: 0. `namespace_test.go` covers the drop and the survivors.
+- **The US and UM flags keep their stars.** Both draw the fifty stars as one `<marker>` repeated by `marker-mid="url(#us-a)"`, and the SVG policy stripped `<marker>`, so the reference pointed at nothing and the canton shipped empty (0 white pixels against 11,050 upstream). The policy now allows `<marker>` with its own geometry, `refX`, `refY`, `markerWidth`, `markerHeight`, `orient` and `markerUnits`, beside `id`, `viewBox`, `preserveAspectRatio` and the presentation attributes it already allowed. Everything else holds: a script or `on*` handler inside or on a marker is stripped, an external `href` is stripped, and `marker-start`/`-mid`/`-end` still take only `none` or `url(#fragment)`. The shared vector table, `testdata/presentation-vectors.json`, gains 8 attribute rows and a `documents` section of 6 whole-document rows, and is byte-identical in core, react-icon-browser and js-icon-components; `TestSharedVectorCases` and `TestSharedVectorDocuments` run it. The vendored `svg-policy.json` is ahead of core until core takes the same bytes.
+- **`keycap: *` is no longer lost to `keycap: #`.** Both names slug to `keycap`. Without `Preserve` (the deprecated `emoji-sets` path) the later file was renamed over the earlier, and with it the later took the name and the earlier went to `uncategorised/`, while the shipped packs carry `keycap: #` as `keycap.svg`. Slugs are now resolved once per taxonomy (`ResolveNameSlugs`), shared by `Categorise` and `Indexer`: on any collision the first record in `emoji-test.txt` order keeps the base slug, and a later one takes `DisambiguatedSlug` of its own name, punctuation spelled out from a small named-symbol map and anything else as `u` plus its hex code point, with the codepoint key as the last resort. So `keycap: #` stays `keycap` and `keycap: *` becomes `keycap-asterisk`, in both recipes, in `codepoints.json` and in `names.json`. In Unicode 16.0 and 17.0 this is the only collision (measured over `emoji-test.txt`). One emoji shipped twice still goes to `uncategorised/`, the exact match keeping the name; between two equal matches the first now keeps it. `TestCategoriseKeepsBothSidesOfASlugCollision` replaces the test that pinned the later one winning.
+- **A real emoji-sets sync keeps Twemoji's licence.** `FindLicences` recorded the licence files inside the fetched tree, and `Categorise` wipes that tree's root and refills it with SVGs only. For Twemoji the root is the whole npm package, so the `LICENSE` was deleted before `LicenceTexts` read it, and every non-dry `icon-sets-emoji` sync since the first release failed at `LicenceTexts twemoji: open …/package/license`. A dry run never read the file, so it never showed. `FindLicences` now copies the files it finds into the pipeline's working directory, byte for byte under their upstream names, and records the copies. A real run of `icon-sets-emoji` against a scratch copy of the pack now writes every set, with 0 Twemoji SVGs changed, and adds the three upstream licence texts the pack has never carried. `TestFindLicencesSurvivesARebuiltTree` fails when the stage records the originals.
+- **OpenMoji 15.1.0 keeps the taxonomy the pack shipped.** Deriving the taxonomy from the release categorised OpenMoji 15.1.0 against Unicode 15.1, which files crab, lobster, oyster, shrimp and squid under food-drink, where Unicode 16.0 had moved them to animals-nature. The removal guard refused the run over those five, in both sets. The derived version now never falls below the default (`16.0`), because a newer taxonomy still names every older emoji. OpenMoji 17.0.0 still uses 17.0, and an explicit `emoji.unicode_version` still wins. `TestTheDerivedTaxonomyNeverFallsBelowTheDefault` covers it.
+- **An exact taxonomy match keeps its name over one without the selector.** OpenMoji 15.1.0 ships white flag twice, as `1F3F3-FE0F.svg` (the artwork the pack has always shipped) and as `1F3F3.svg`, which matches only with FE0F left off. The later file kept the slug, so the shipped flag was replaced by the other drawing and moved to `uncategorised/`. With `Preserve`, an exact match now beats an FE0F-less one in either order. The deprecated `emoji-sets` path, which has no `Preserve`, is untouched.
+- **No arguments takes the next free port.** A double-click with 7878 busy failed with "omit --port to take the next free one", because the no-argument path behaved as if `--port` had been given. It now moves to the next free port and says so, as `serve` does; an explicit `--port` still fails.
+- **A dry run writes nothing into the pack checkout.** A `sync --dry-run` of `icon-sets-openmoji` wrote 17 new SVGs into the pack and modified tracked files, because the file and licence sinks ran in full on a dry run. They now run their guards and report the diff they would make (added, removed, changed, and `would_write`) without writing; the fetched tree stays in the run's temporary directory. This covers `sync`, `sync-all`, the menu's dry run and the web UI's "Sync stale packs (dry run)", which share one path. Behaviour change: a dry run used to leave the refreshed files in the pack's working tree, so `git diff` there no longer shows them; the run's own diff does.
+- **An OpenMoji refresh no longer drops icons that match no taxonomy entry.** A dry run of `icon-sets-openmoji` from 15.1.0 to 17.0.0 logged `categorise copied=3574 missing=921`: those 921 of 4,495 SVGs were deleted from the refreshed tree, not filed anywhere. They were 207 emoji OpenMoji names without the emoji-presentation selector (`2600.svg`, the sun, against `2600 FE0F` in `emoji-test.txt`), 542 OpenMoji extras, 163 Unicode 17 emoji the 16.0 taxonomy does not know, and 9 component glyphs. Only the first group was a pre-existing loss in the shipped pack (it holds neither the sun nor the wastebasket today). `openmoji-sets` now matches a name regardless of `FE0F`, keeps every other icon as `uncategorised/<upstream-name>.svg` with a warning and an `uncategorised` count, and keeps both icons when two emoji slug to one name (`keycap: #` and `keycap: *` overwrote each other). Measured on 17.0.0: 3,944 categorised, 551 uncategorised, 0 dropped. The deprecated `emoji-sets` recipe is unchanged and a test pins it.
+- **The taxonomy follows the OpenMoji release.** `openmoji-sets` derives `emoji.unicode_version` from the release (17.0.0 uses 17.0) unless it is set explicitly. Unicode 17.0 publishes `emoji-test.txt` under `Public/17.0.0/emoji/`, where the old `Public/emoji/17.0/` path answers 404, so the URL follows that layout from 17.0; 16.0 and earlier are unchanged.
+
+### Added
+
+- **The sanitiser drops stray text under `<svg>` and `<g>`.** OpenMoji 15.1.0's `1F684.svg` carries a stray `d` line directly under `<g>`, which renders; it was removed by hand in icon-sets-openmoji#4, and the next sync would have brought it back. Non-whitespace text and CDATA directly under `<svg>` or `<g>` is now dropped, its indentation kept, and each file is logged with its count (`sanitise: dropped stray text`); the `sanitise` metric gains `stray_text_files` and `stray_text_nodes`. Text in `<title>`, `<desc>`, `<text>` and `<tspan>` is untouched. More than 25 such files in one `sanitise` fails the run before anything is written, unless `--force`; `report_only` is never refused.
+- **Two guards on an `openmoji-sets` refresh, lifted by `--force`.** The run fails when more than 20% of the icons are uncategorised (a taxonomy of the wrong release looks like that), and the file sink refuses, before the wipe, to remove any icon the pack ships today. Both are opt-in options (`Categorise.Preserve`/`MaxUncategorised`, `Filesystem.RefuseRemovals`), off for every other recipe.
+
+### Documented
+
+- **The SVG sanitiser's `violations=1284 would_change=4495` is explained** in this entry, not changed: `would_change` counts every file because the serialiser drops the trailing newline; `violations` counts files with something removed, and all 1,284 lose the root `version="1.1"` attribute. 13 files also lose `display="none"` (hidden construction shapes in subdivision flags would render), 3 `color`, and 1 each `docname` and `marker-end`. The first three no longer do (see Security); `docname` is Inkscape metadata and stays stripped.
+
+### Changed
+
+- **Documentation links point at each repository's own `docs/`** (Sim, 2026-11-03: "all ichava repos have docs in their respective repos. thats by design"). Links to `opensource.simtabi.com/documentation/ichava/...` and the `opensource.simtabi.com/products/ichava/...` homepage, which answer 404 for every ichava page, now go to the matching `docs/*.md` on GitHub, or to the repository itself. Each target was checked to exist on that repository's `main`. The manifest's `homepage` and `support.docs` follow.
+- **The author and contact address is `ichava@simtabi.com`** (W-11, Sim 2026-11-03), replacing the community address `opensource@simtabi.com` wherever this repository named it. Vulnerability reports still go to `security@simtabi.com`. The test that guards the address expects `ichava@` now.
+- **The SVG policy's `_always_blocked_comment` describes the parked brand logos.** The five raster-wrapping brand logos it called "render blank" are now parked outside their pack's registered assets (OQ-018), so the comment says so. Only that underscore-prefixed comment changed; the policy is identical. The copies in icon-sets-sync and react-icon-browser are re-synced to the new digest (`950214c5828531987ecfa72f1055ab3491c3c664336eaca657cc04907400d390`).
+- Binary releases are off until the maintainers decide on one. A version tag is git only:
+  `release.yml` is manual and needs `-f confirm=release-go`. The README and docs install from source
+  (`make build-local`).
+- **Every Makefile target runs on the host, without Docker.** Each target keeps its name. The run
+  targets (`menu`, `check`, `check-pack`, `sync`, `sync-all`, `sync-all-force`, `build-emoji`,
+  `validate`, `config-print`) build `build/icon-sets-sync` and run it against `config/`; `build` is
+  `build-local`; `pull` downloads and verifies the Go modules; `shell` opens a host shell with
+  `build/` on `PATH`; `ui` serves on 127.0.0.1:7878; `nuke` is `clean` plus Go's test cache;
+  `test`, `test-go`, `lint` and `format` use the host's Go, and `lint` adds golangci-lint, for issues
+  new since `main`, when it is installed. The shipped configs still name each pack `/work/<pack>`;
+  see `docs/installation.md` for the `/work` link on Linux and macOS.
+
+### Added
+
+- **CI mode (Phase 2, D5).** `.github/workflows/sync-pack.yml` is a reusable workflow (`on: workflow_call`) the pack repositories can call instead of each carrying a copy of the sync logic. It builds the binary from source at a pinned toolkit tag or SHA, opens the update pull request with a Refresh Bot token limited to `contents` and `pull-requests` write, and turns an upstream licence change into an issue instead of a pull request. A Go test holds the file to its triggers, permissions, timeout, concurrency and pinning (P2-C3, P2-C8, P2-C9).
+- **`run` is an alias of `sync`, and `--non-interactive` of `--no-input`**, the names the CI mode uses (P2-C2).
+- **`sync --json` marks a licence change**: a pack the licence guard stopped carries `licence_changed: true` (P2-S3).
+- **The per-pack diff.** The filesystem sink's metrics gain `added`, `removed` and `changed` counts and up to 50 names of each, hashed before the wipe, so a dry run reports them too. The web UI's run page shows the counts, and names a licence change as one rather than as a generic failure (P2-S2, P2-S3).
+- **`make cross`** builds the whole release matrix locally into `build/dist/` from `src/.goreleaser.yaml`, with publishing, signing and SBOMs skipped (P2-B2).
+- A test proves a GitHub token in the environment reaches neither the run history on disk nor a page the web UI renders (P2-T5).
+
+- **A sync recipe for `ichava/icon-sets-openmoji` (Q15).** `config/icon-sets-openmoji.json` and the
+  `openmoji-sets` recipe pull the colour and black sets from `hfg-gmuend/openmoji`, pinned to the
+  release tag the checker finds, and the pack is listed in `config/packs.json`. It shares one
+  pipeline definition with the OpenMoji sets inside `emoji-sets`, which are deprecated and still
+  sync unchanged, and a test asserts the two produce identical stages.
+- **A pack can declare its `licence`, and the sync enforces it.** With `"licence": "CC-BY-SA-4.0"`
+  (or `CC-BY-4.0`) the licence-text sink fails before touching the pack if the upstream licence text
+  no longer opens with that licence's title, so a relicensing blocks the sync. openmoji declares it;
+  a pack that declares nothing behaves as before.
+- **Kind support for packs** (contract D6). `internal/core/kinds` reads a pack's `package.kind`, `categories.*.kind`, `items` and `kinds.rules` the way core does, with the same glob syntax and the same test vectors, and resolves an item through item, rule, category, pack, default. It is additive: a config with no kind keys reads as all `icon`.
+- **`check --suggest-kinds[=default|all]` and `sync --suggest-kinds[=default|all]`** (row 7). They scan each pack's checkout and write `.cache/kind-suggestions/<pack>.json` (`--kind-suggestions-dir` changes the directory). The heuristic suggests `illustration` for an item that fires 3 or more of aspect, palette, bytes, elements and canvas, including bytes or elements, and only for items that resolved `icon` by default (or by `package.kind` with `=all`). It never writes a kind: a person copies a record's `accept` block into `config.json`.
+- A golden test pins that a sync preserves `package.kind`, `categories.*.kind`, `items` and `kinds.rules` byte for byte.
+- `ICHAVA_ICON_SETS_SYNC_BIN`: the Composer launcher runs a binary you built from source instead of
+  downloading a release. Without it, and with no release published, the launcher says how to build one.
+
+### Removed
+
+- **The `imt` alias binary is retired; use `icon-sets-sync`, same commands.** `imt` was the same program (`cli.Execute`) under a short name, and building it doubled `build/dist`: `make cross` now leaves 19 binaries and `checksums.txt` instead of 38, and each release archive and Linux package ships `icon-sets-sync` alone. `src/cmd/imt` and its GoReleaser build, universal-binary and archive entries are gone, and `TestOnlyOneEntrypoint` and `TestGoReleaserBuildsOneBinary` fail if a second entrypoint or binary comes back. Anyone with `imt` on `PATH` can switch to `icon-sets-sync` or add `alias imt=icon-sets-sync`.
+- **The Docker surface.** No pack has run the image since `sync-pack.yml` began building the binary
+  from source, so it is gone:
+  - `Dockerfile`, `.dockerignore` and `docker-compose.yml`;
+  - `.github/workflows/docker.yml`, which published `ghcr.io/ichava/icon-sets-sync` on every push to
+    `main`. Images already in GHCR are untouched;
+  - the Tests workflow's `Docker image` job;
+  - the `docker` ecosystem in `.github/dependabot.yml`;
+  - the Makefile's `docker compose` and `golang` container invocations (the targets stay, see
+    *Changed*).
+- **The Python leftovers.** The `.gitignore` Python section (virtualenvs, pytest, mypy, ruff,
+  coverage, eggs), keeping a bytecode rule so an old checkout's stale caches stay out of a commit.
+  Comments and docs that described the Python, or the image, as part of the current product now
+  describe the source build. The `--commit` flag's help no longer cites the Python.
+- **The three Python scripts CI ran.** The Changelog order job and release-please's changelog close
+  are now `src/internal/tools/changelog check` and `close`, with the same messages, exit codes and
+  `GITHUB_OUTPUT` lines; on this CHANGELOG the closed file is byte-identical to the Python's. The web UI
+  accessibility job serves its fixture upstream with `src/internal/tools/staticserve` instead of
+  `python3 -m http.server`. `TestNoWorkflowOrScriptInvokesPython` fails if a workflow or script
+  under `.github/` calls Python again.
+- `TestNoDockerOrPythonSurface` and `TestNoWorkflowBuildsOrPublishesAnImage` fail if a Dockerfile,
+  a compose file, a `.dockerignore`, a `.py` file, a Docker workflow, a `docker/` action,
+  `docker build`/`run`/`push`, `ghcr.io`, a docker Dependabot ecosystem or a `docker` call in the
+  Makefile comes back. `TestReleaseRunsOnlyOnAConfirmedDispatch` holds `release.yml` to
+  `workflow_dispatch` with a required `confirm`.
+
+### Fixed
+
+- **`serve` and the other commands find the registry when run from `src/`.** The README's `go -C src run ./cmd/icon-sets-sync serve` runs in `src/`, so the web UI said "missing pack registry: config/packs.json" and listed no packs. One resolver (`config.ResolveConfigDir`) now serves every command and the UI: `--config-dir`, then `ICHAVA_CONFIG_DIR`, then `config/` beside the binary, then `./config` if it holds `packs.json`, then the `config/` of this repository found by climbing at most 5 parents from the working directory (stopping at `.git`, next to `src/go.mod`), logged at info level. A missing registry now names `ICHAVA_CONFIG_DIR` and `--config-dir`, which the UI banner shows. `make serve` runs the documented command.
+- **Every form POST in the web UI was refused with 403 "Cross-origin request refused".** `Referrer-Policy: no-referrer` makes browsers send `Origin: null` on a same-origin form POST, and the origin check rejected `null` outright. The policy is now `same-origin`, and `Origin: null` is accepted only with `Sec-Fetch-Site: same-origin`; a bare or cross-site `null` is still refused, and the CSRF token and Host checks are unchanged. The UI-accessibility job sends a browser-shaped POST.
+- **A pack's root resolves on a developer machine.** The shipped configs name `/work/<pack>`, the CI runner's layout, so locally every pack page showed a missing directory. For such a root: the `workspace` setting when `<workspace>/<pack>` exists, then `/work/<pack>`, then the sibling checkout beside this repository, else the configured value with a message naming `ICHAVA_WORKSPACE`. The pack page and `config print --pack ... ` (`pack_root_origin`) show where the root came from; `sync-pack.yml` is unchanged. The `config_dir` and `workspace` help text now matches.
+- **A licence declared by a pack on the `generic` recipe is enforced.** Only the `openmoji-sets` recipe passed the pack's `licence` to its licence-text sink, so a declaration in a tabler or flag config was silently unguarded (P2-G10). No shipped generic config declares one, so no sync changes behaviour today.
+
+## [0.1.0] - TBD
+
+First release of `ichava/icon-sets-sync` as a single published commit. The 0.1.x tags cut between 2026-10-23 and 2026-10-26 (v0.1.0 to v0.1.2, with their `src/` module aliases) are folded into this release, and their notes are kept below under *Archived history*.
+
+The Go module proxy and checksum database already hold `github.com/ichava/icon-sets-sync/src` at v0.1.0, v0.1.1 and v0.1.2, fetched from commits before the single-commit publication, and neither can be cleared. So `go install github.com/ichava/icon-sets-sync/src/...@v0.1.0` serves that older code, and `@latest` the older v0.1.2. The supported installs are the signed release binaries and the Composer package; `go install` is not offered.
+
+### Added
+
+- **Composer package `ichava/icon-sets-sync`.** A `composer.json` and a small PHP launcher at `bin/icon-sets-sync`, so a PHP project can `composer require --dev ichava/icon-sets-sync` and run `vendor/bin/icon-sets-sync`. The first run downloads the release binary for the host OS and architecture from the GitHub release matching the installed tag (the latest release for a branch install, or `ICHAVA_ICON_SETS_SYNC_VERSION`), checks it against the release's `checksums.txt`, caches it under the package's `.cache/bin/`, and runs it with the given arguments. When `cosign` is on `PATH` the Sigstore signature over `checksums.txt` is verified too; `ICHAVA_ICON_SETS_SYNC_REQUIRE_SIGNATURE=1` makes that mandatory. The Go binary and Docker image are unchanged. Tests now include a Composer job running `composer validate --strict` and the launcher's Pest suite on PHP 8.4 and 8.5. Not on Packagist yet.
+
+### Changed
+
+- **CI and the release fetch the org's own modules from git, never through the public Go proxy.** Every job in `tests.yml` and `release.yml` that runs Go sets `GOPRIVATE` and `GONOSUMDB` to `github.com/ichava/*`, so no build of ours feeds a tag to `proxy.golang.org` or `sum.golang.org`.
+- **The docs offer the signed release binaries and the Composer package, not `go install`.** The README, `docs/release.md` and the `go.mod` comment dropped the `go install` path, because the Go module proxy serves its cached pre-publication copies of `src/v0.1.0` to `src/v0.1.2`. Building from source is `git clone` plus `go -C src build`. `TestDocsOfferNoGoInstall` reads the README, `CONTRIBUTING.md` and `docs/`, fails on a `go install` of this module, and fails if it read fewer than 11 files.
+- **The sync bot commits as the github-actions bot, not a personal GitHub login.** `git.author` now defaults to `ichava-sync-bot <41898282+github-actions[bot]@users.noreply.github.com>` (gitx, settings, docs/configuration.md). That matches the address new packs get from the scaffolder. The no-personal-contact guard now also scans the Go sources and matches the login.
+- **Packages name Simtabi LLC as maintainer, not a person.** The `.deb`, `.rpm` and `.apk` packages GoReleaser builds carried a personal name and address as `maintainer`; it is now `Simtabi LLC <opensource@simtabi.com>`, the community role address (decided 2026-10-28, address set for the first release). A Go test (`TestNoPersonalContactShips`) reads `.goreleaser.yaml`, `README.md`, the `Dockerfile` and `docs/`, fails on a personal name or address, and fails if it read fewer than 11 files.
+- **The `ErrRecipePending` comments say who reads it now: nobody outside this module.** They described a cross-repository contract with icon-sets-bundled's `sync-upstream.yml`, which grepped the run output for "recipe pending". That wrapper was removed in icon-sets-bundled#95, and no recipe returns the error today. Comments only; the error and the CLI's warning for it are unchanged.
+
+### Removed
+
+These were deprecated in 0.1.2 with 0.2.0 as the earliest removal, and are removed now on the owner's decision. Each is a breaking change for anyone still using the old name.
+
+- **The `"recipe": "bundled"` value.** Write `"recipe": "manifest-pack"`. Both copies of the pack schema (`config/schema/pack.schema.json` and the embedded one) drop it from the `recipe` enum, so a config that still says `bundled` fails to load with `/recipe: value must be one of 'auto', 'generic', 'emoji-sets', 'manifest-pack'`. `TestTheRemovedBundledRecipeIsRejected` pins it, and fails with `bundled` put back in the enum.
+- **Choosing `manifest-pack` by pack name.** A config for `icon-sets-bundled` with no `recipe` (or `"auto"`) no longer reaches `manifest-pack`; it has to say `"recipe": "manifest-pack"`. `TestManifestPackIsNotReachedByItsFormerNameOrByPackName` fails if the name dispatch returns. The deprecation notice this path and the old recipe name logged on every run, and the warning `config validate` printed for them, go with them (`recipes.Deprecation`, `recipes.RemovalRelease`, `recipes.RecipeBundled`).
+- **The hidden `bundled audit` command.** Use `imt manifest-pack audit`; `bundled` is now an unknown command.
+- **The `/bundled/audit` web routes** (the page, the POST that starts an audit, and `/{id}/manifest.json`). Use `/manifest-pack/audit`; the old address answers 404, which `TestRemovedAuditRouteIsNotFound` pins.
+- **The `ichava-maintainer-toolkit` binary name.** The image no longer ships the symlink and the binary no longer prints a notice under that name; run `icon-sets-sync` or `imt`. CI now asserts the symlink is absent from the image. The docker compose service keeps its name, `ichava-maintainer-toolkit`, which is a service name and not a binary.
+- **Go aliases:** `app.BundledPack` (use `app.ManifestPack`), `app.AuditBundled` (use `app.AuditManifestPack`), `(*web.AppEngine).AuditBundled` (use `AuditManifestPack`), `version.LegacyName`, and the unused `cli.resolveAll` (use `app.ResolveSets`). All are in `internal` packages, so nothing outside this module could import them.
+
+## [Archived history]
+
+> The 0.1.x sections from 2026-10-23 to 2026-10-26 come first; their tags (v0.1.0 to v0.1.2 and `src/` aliases)
+> are folded into 0.1.0. Below them are the pre-reset sections: versioning was re-based to 0.1.0 on 2026-10-23, and
+> those tags and GitHub releases were removed. Every section is reproduced verbatim, one heading level down.
+
+### [0.1.2] - 2026-10-26
+
+#### Added
+
+- **Private packs load their recipes at run time.** `--private-config-dir` (setting `private_config_dir`, `ICHAVA_PRIVATE_CONFIG_DIR`) names a directory laid out like `config/` -- an optional `packs.json`, `<slug>.json` pack configs and any `<slug>.sets.json` set manifest -- and merges it over the public one: its packs follow the public registry, a file in both is read from the private directory, and a private directory that is set but missing is a usage error rather than an empty overlay. A private pack therefore runs through the same data-driven recipes, the per-set `bundled` one included, without its configuration being committed here. Tests cover the merged registry, the private copy winning, a missing directory failing, a pack and its set manifest loading through the flag and through the environment, and the recipe building one pipeline per set from a synthetic private fixture. Shown end to end with a dry-run sync of the aggregator pack from a private directory in a temporary folder.
+- **A test fails on any tracked file that names a private pack's paths.** `TestPublicTreeNamesNoPrivatePack` reads every file `git ls-files` lists (with a floor on the count) and fails on a path inside, or a config file of, a private pack; a bare pack name and ordinary uses of the word "bundled" stay allowed. One exemption, with a ceiling of 3 lines: the vendored copy of core's SVG policy, which can only change after the canonical copy does. A second test pins that `config/`, which the image ships, carries no private pack. Both were seen failing with the old config restored.
+
+- **A sync ships each upstream's own licence texts beside its icons.** No pack carried the text MIT, ISC, BSD, Apache-2.0 and OFL require to accompany every copy: the licence sits at the upstream root and every recipe narrowed the tree to the icon subdirectory before writing. Every asset pipeline now runs a `FindLicences` transform straight after its source, recording the root's `LICENSE*`, `LICENCE*`, `COPYING*`, `NOTICE*` and `OFL*` files, and a `LicenceTexts` sink straight after `Filesystem`, copying them verbatim to `resources/assets/svg/licenses/<set>` (`tabler-icons`, `flag-icons`, `twemoji`, `openmoji-color`, `openmoji-black`, and one per set of a multi-set pack). `resources/` ships in every pack's dist archive. An upstream with no licence file at its root fails its pipeline, naming the set, instead of syncing icons whose licence cannot be found. A bundled set may instead record the evidence in a new `licence_missing` manifest field; it then refreshes, with its licence directory removed and the gap logged. Tabler, flag-icons, Twemoji and OpenMoji all ship a root licence, measured 2026-10-26 against each package's `latest` tarball. Packs gain the files through their next sync pull request. Tests cover the filename rules, a verbatim byte-for-byte copy (CRLF and non-ASCII kept), a `NOTICE` copied when present and removed when upstream drops it, a missing licence failing, an end-to-end run over zip and tar.gz fixture archives, and every set in a set manifest being wired; that guard failed for every set when `FindLicences` was taken out of the bundled recipe.
+
+#### Changed
+
+- **The internal Go package `internal/core/bundled` is `internal/core/manifestpack`.** It holds the set manifest, the audit scorer and the npm resolver behind the `manifest-pack` recipe, and now carries that name. The source files `recipes/bundled.go` and `cli/bundled.go` are `manifest_pack.go`, and the tests that named the old package follow it. No exported identifier is renamed and nothing behaves differently: the move commit changes only the package name, its import path and its qualifiers, and the suite runs the same 346 tests before and after. The package is `internal`, so nothing outside this module could import it. The deprecated `bundled` recipe value, command and route are unchanged and still work until 0.2.0.
+- **The per-set recipe, its audit command and its page are named `manifest-pack`.** The recipe is `"recipe": "manifest-pack"`, the command is `imt manifest-pack audit`, the web page is `/manifest-pack/audit` (nav: *Manifest pack audit*), and the Go names are `recipes.RecipeManifestPack`, `app.ManifestPack` and `app.AuditManifestPack`. The recipe is chosen by the `recipe` field in a pack's config; the name-based choice is kept for configs without the field, and deprecated. The behaviour is the same under either name: `TestManifestPackDispatchIsTheSameWithOrWithoutTheField` builds the same pipelines with the field, without it and under the old name, `TestBundledAuditIsADeprecatedAliasOfManifestPackAudit` gets the same exit code and output from both commands, and `TestLegacyAuditRouteStillWorksAndIsDeprecated` gets the same page, run and manifest download from both routes. `config validate` reports the recipe by its new name. The pack schema accepts `manifest-pack`, so a config that uses it needs this release or later.
+- **The vendored SVG policy is re-synced from `ichava/core`, and its private-name exemption is gone.** Core reworded six comment strings in `svg-policy.json` that gave per-pack counts for packs that are now private. Only underscore-prefixed comment keys changed, so the sanitiser enforces the same policy. `src/internal/core/svg/svg-policy.json` is the new byte-identical copy, `TestVendoredPolicyHasNotDrifted` pins `56e8145b…c56e70d`, and `TestPublicTreeNamesNoPrivatePack` no longer exempts the file: the old copy fails it on 3 lines, the new one passes with no exemption.
+
+#### Deprecated
+
+- **`bundled` as a recipe, command and route, and choosing the recipe by pack name.** Each still works exactly as before and says it is deprecated: `"recipe": "bundled"` runs `manifest-pack` and logs a notice on every run and a warning in `config validate`; a config with no `recipe` that was picked by its pack name does the same; `imt bundled audit` runs `imt manifest-pack audit` after a notice on stderr, so stdout and `--json` are unchanged, and `bundled` no longer appears in `--help`; `/bundled/audit` and its manifest download serve the same handlers with a `Deprecation: true` header, a `Link` to the new address and a logged notice. The Go names `recipes.RecipeBundled`, `app.BundledPack`, `app.AuditBundled` and `web.AppEngine.AuditBundled` forward to their replacements. The earliest release that may remove any of them is 0.2.0.
+
+#### Removed
+
+- **The aggregator pack's config, its set manifest and the migration census files.** `config/` no longer registers or ships the aggregator pack, and `.scripts/migration/` no longer carries the three dated census measurements, which listed private packs' file paths. They moved to that pack's own repository, which passes them back in through `--private-config-dir`. The frozen lxml oracle drops its 36 records from a private pack (1,238 remain), and its test now fails on a record from any pack that is not public. Comments, docs and earlier changelog entries that described private packs' contents were generalised.
+
+#### Fixed
+
+- **`.scripts/sync-svg-policy.mjs` no longer checks a policy copy icon-browser removed.** It still listed `icon-browser/resources/js/core/svg-policy.json`, which went when icon-browser took the react-icon-browser UI, so the check reported it MISSING and exited 1 on every run, and `--write` recreated a file nothing reads. icon-browser's copy now ships inside the vendored react-icon-browser build and follows core through react-icon-browser; the script's header says so. Against core, react-icon-browser and this repository at `main`, the check now exits 0, and still exits 1 on a drifted copy.
+- **A sync no longer deletes hand-supplied licence texts.** Since the licence-text sink landed, a set flagged `licence_missing` had its `resources/assets/svg/licenses/<set>/` directory removed on every run, which destroyed the texts maintainers add by hand for exactly those sets. A licence directory holding a `SOURCE.md` is now hand-maintained: `LicenceTexts` never deletes or overwrites it, reports the set as `hand-supplied` instead of missing in its log line and its `licence_texts` metric (which now carries a `status` of `copied`, `missing` or `hand-supplied`), and stops the `licence_missing` warning the folder satisfies. Without `licence_missing` the run still fails, but leaves the folder in place. If upstream later ships its own licence for such a set, the folder is kept and the run warns, with `reconcile: true` in the metric, so a person compares the texts. An un-annotated directory is replaced or removed exactly as before. Tests cover a hand-supplied folder surviving byte for byte with no warning, the upstream-now-ships warning, the failure without `licence_missing`, an un-annotated stale folder still removed and still replaced, and a `SOURCE.md` directory not counting as the marker; with the marker check disabled, the three hand-supplied cases fail.
+- **Releases carry their CHANGELOG section again.** `src/.goreleaser.yaml` set `changelog.disable: true`, which also makes GoReleaser ignore `--release-notes`, so v0.1.0 and v0.1.1 were published with an empty body. The changelog pipe is enabled again (`--release-notes` is still the whole body, nothing is generated from commits), and `release.yml` now reads the published release back and fails if its body is shorter than the section it passed in. The two existing release bodies were restored by hand from their CHANGELOG sections.
+- **GoReleaser ignores the `src/vX.Y.Z` module alias tag.** Since v0.1.1 both tags sit on one commit, and GoReleaser took `src/v0.1.1` as the current tag, so the pull-request snapshot build failed writing `icon-sets-sync_src/v0.1.1-SNAPSHOT…_source.tar.gz`. `git.ignore_tags: ["src/*"]` in `src/.goreleaser.yaml`; a local snapshot now builds as `0.1.1-SNAPSHOT`.
+
+### [0.1.1] - 2026-10-23
+
+#### Added
+
+- **Releases are prepared by release-please.** A *Release Please* workflow reads the Conventional Commit log, keeps one release pull request open that bumps `.release-please-manifest.json`, and tags the release when that pull request merges; the tag starts `release.yml` as before. On 0.x a breaking change bumps the minor and everything else bumps the patch. Release notes stay hand-written: release-please is set to `skip-changelog`, and the workflow closes this `[Unreleased]` section under the new version on the release branch, failing if it is empty. It runs on `workflow_dispatch`, a weekly schedule, and the merge of a release pull request, so the only `push` trigger is still the tag. The pull request and the tag are made with a per-run Refresh Bot token, because ones made with `GITHUB_TOKEN` start no workflows. GoReleaser now runs with `release.mode: replace`, because release-please creates the GitHub release first and the default mode would keep its generated body instead of this changelog.
+- **`icon-sets-sync serve` (alias `ui`): a localhost web UI.** Server-rendered pages over the same
+  `internal/app` functions the CLI calls, styled with Tabler and embedded in the binary, so the
+  page makes no request beyond the server. This first cut shows the packs dashboard (vendored vs
+  upstream version, status, SVG count, the pack repo's branch and uncommitted changes; the upstream
+  check is cached for ten minutes and refreshed on request), the effective settings with the
+  layer each came from, the pack schema and the third-party licences. It listens on
+  `127.0.0.1:7878`; when that port is taken it takes the next free one and prints the address it
+  bound, and `--port` (or a port in `--addr`) pins one and fails if it is taken. A non-loopback
+  `--addr` needs `--allow-remote`. The printed address carries a one-time token exchanged for an
+  `HttpOnly`, `SameSite=Strict` cookie; every response carries a strict Content-Security-Policy;
+  requests with an unknown `Host` are refused (DNS rebinding), and every state change needs a
+  same-origin `Origin` and a per-session CSRF token. `--read-only` serves no route that runs or
+  edits anything; `--token-file` writes the address to a `0600` file for scripts.
+- **Runs from the web UI.** A pack's page shows its config (with the `_note` annotations loading
+  strips), its pipeline, its settings with origins and its recent runs, and starts a sync or a
+  recipe at a chosen version; the dashboard syncs every stale pack. Every run is a dry run unless
+  the form says otherwise, and a real run asks twice: a confirmation page where the pack name (or
+  `all packs`) has to be typed, then a browser prompt. The form's choices enter the settings as
+  the flag layer, so no pack config or environment variable can turn a dry run into a commit. One
+  run per pack at a time; a second gets 409 and a link to the first. The run page streams stage
+  progress and the log over Server-Sent Events, resumes exactly with `Last-Event-ID`, filters the
+  log by level, and has a Cancel button that stops the stage in flight. Finished runs are kept as
+  JSON Lines under `$XDG_STATE_HOME/icon-sets-sync/runs/` (newest 50), listed and filtered on the
+  Runs page and downloadable.
+- **A config editor in the web UI.** `/config` lists `packs.json`, every pack config, the bundled
+  set manifest and the global config; each opens as raw text, so `_note` annotations survive a
+  save. Validate runs the same loader and checks as `config validate` on the unsaved bytes (as you
+  type, with JavaScript), listing every problem with its JSON pointer. Save is refused for an
+  invalid document, writes atomically, and is refused with 409 if the file changed on disk after
+  it was opened, keeping your text. A directory that cannot be written (the Docker image's `:ro`
+  config mount) is detected by trying, and the editor opens read-only with the reason. Saving the
+  global config creates it under `$XDG_CONFIG_HOME/icon-sets-sync/` if needed and applies it to the
+  running server's next run.
+- **The bundled audit in the web UI.** `/bundled/audit` runs `bundled audit` as a background run,
+  for every set or one set verified against a named package, shows each set's confidence, package,
+  path and identical-icon count, and downloads the result as a set manifest. The results are kept
+  with the run, so they survive a restart. `app.AuditOptions` gained `SetDone` and `Logger`.
+- **`make ui`**: the web UI in Docker, through a new `ui` compose profile that publishes
+  `127.0.0.1:7878` only and keeps run history in a named volume.
+- **A weekly run of the Tests workflow on `main`**, which also warns (never fails, never opens a
+  pull request) when a newer Tabler or Tabler Icons release is out; `make tabler-check` asks the
+  same question locally.
+- **An accessibility gate for the web UI.** The Tests workflow's `Web UI accessibility` job serves
+  the UI against a fixture and runs axe (`@axe-core/cli`, pinned) over every page in the light and
+  the dark theme, failing on any serious or critical violation and on scanning fewer pages than
+  intended. Its first run found 17 serious violations across both themes, all fixed here: status
+  badges and alerts below 4.5:1 contrast (Tabler's tinted `-lt` colours), outline buttons below it
+  in the dark theme, links inside text told apart by colour alone, and scrollable licence texts
+  that a keyboard could not reach. A test now refuses Tabler's `-lt` badge classes.
+- **Docs:** [`serve`](docs/tools/serve.md) and the recipe
+  [Run a sync from the browser](docs/recipes/run-a-sync-from-the-browser.md); `docs/release.md`
+  records why the vendored web assets are listed in `TABLER_VERSION` and `THIRD_PARTY_NOTICES.md`
+  rather than in the SBOM.
+- `config.ParseRegistryBytes`, `bundled.ParseManifestBytes`, `docfile.ParseTree`,
+  `settings.ParseGlobal` and `app.ValidatePackBytes`: each file loader's body, on bytes in hand;
+  the loaders read the file and delegate.
+- **`app.Recipe`**, the body of the `recipe` command, which now delegates to it.
+- **`make tabler-update` and `make tabler-vendor`.** The Tabler version is pinned in one place,
+  `src/internal/web/assets/vendor/TABLER_VERSION`. `tabler-update` moves `@tabler/core` and
+  `@tabler/icons-sprite` to their newest releases; `tabler-vendor` re-vendors what is pinned. Both
+  verify every npm tarball against the registry's sha512 integrity, cut the icon subset the UI
+  uses, and rewrite the licence texts, `MANIFEST.sha256` and `THIRD_PARTY_NOTICES.md` together.
+  Vendored now: `@tabler/core` 1.7.1 (bundling Bootstrap 5.3.8 and Popper 2.11.8) and
+  `@tabler/icons-sprite` 3.49.0.
+- **`THIRD_PARTY_NOTICES.md` ships in every release archive and Linux package**, and the binary
+  serves the same notices at `/about/licenses`.
+- `gitx.CurrentBranch`.
+
+#### Changed
+
+- **The settings stack, config validation and the bundled audit are `internal/app` functions.**
+  `app.BuildStack`, `app.ValidateConfigs`/`app.ValidatePack` and `app.AuditBundled`/`app.ResolveSets`
+  hold what used to be the bodies of `resolveState`, `config validate` and `bundled audit`, so a
+  second front-end resolves precedence, validates and surveys through the same code. The commands
+  delegate to them; their output and exit codes are unchanged. `app.UsageError` carries the
+  usage-versus-failure distinction that maps onto exit code 2.
+- **A run carries a `context.Context` from the command to every stage.** `pipeline.RunContext`
+  checks it before each stage and stages hand it to `npm pack`, the HTTP downloads and every `git`
+  and `gh` call; `app.RunRecipe` uses it instead of discarding it. `Pipeline.Run()` is kept and is
+  `RunContext(context.Background())`. A cancelled run is a failed result whose error is
+  `context.Canceled`.
+- **A run can have its own logger and a stage observer.** `recipes.Options` and `app.SyncOptions`
+  take a `Logger` and a `pipeline.Observer`; every pipeline a recipe builds gets both, and a
+  stage with no logger of its own writes to its pipeline's through `pipeline.Context.Logger()`
+  instead of `slog.Default()`. The observer is told when each stage starts and finishes, with
+  its metrics and error. The CLI passes neither, so its output is unchanged.
+- **A pack config can be validated from bytes and written atomically.** `config.ParsePackBytes`
+  is the body of `LoadPackFile`, which now reads the file and calls it, so both validate and
+  decode identically. `config.WritePackFileAtomic` refuses a document that would not load and
+  otherwise replaces the file through `docfile.WriteAtomic` (temporary file in the same
+  directory, fsync, the old file's permissions, rename), keeping the submitted bytes and their
+  `_note` annotations exactly.
+
+#### Fixed
+
+- **The release pull request is found in the same run that opens it.** The step that hands the release branch to the changelog close asked `gh pr list --label 'autorelease: pending'`, which goes through GitHub's search index; on the first live run (js-motion#30) the index had not caught up with the pull request opened seconds earlier, so the close was skipped and a second dispatch was needed. It now takes the branch from release-please's own `pr` output, and only when the action reports nothing (the pull request was already current) falls back to the open pull requests, matched by the `release-please--branches--main` prefix rather than the label.
+- **Ctrl-C stops a sync cleanly.** The first SIGINT or SIGTERM cancels the run: the stage in flight
+  is stopped and no later stage -- the version stamp, the commit, the push -- runs. Before, nothing
+  listened for the signal, so it could only kill the process wherever it happened to be. A second
+  Ctrl-C still kills the process outright.
+
+#### Deprecated
+
+- **`cli.resolveAll`**, which now forwards to `app.ResolveSets`. Earliest removal: 0.3.0.
+
+### [0.1.0] - 2026-10-23
+
+Versioning re-based to 0.1.0. This is the first release of the Go implementation and the first with release binaries. It contains everything previously tagged v0.1.0 through v0.1.3 (2026-08-31 to 2026-09-22, the Python `ichava/maintainer-toolkit`) plus the changes below. Those tags and their GitHub releases were removed; every commit they pointed at is on `main`, and their sections are kept under *Archived pre-reset history*.
+
+#### Changed
+
+- **`docs/installation.md` shows the packs' current checkout path**, `.icon-sets-sync`, which they moved to with the rename.
+- **Breaking: the Docker image runs the Go binary, `icon-sets-sync`, and only that.** The
+  Dockerfile is now a two-stage build (a `golang:1.26-trixie` builder, a `debian:trixie-slim`
+  runtime with `git`, `gh`, `nodejs`/`npm` and `ca-certificates`), and its `ENTRYPOINT` is
+  `icon-sets-sync`. The invocation every pack's `sync-upstream.yml` uses,
+  `<image> sync --pack=$PACK_SLUG [--force]` with the parent directory at `/work` and the config at
+  `/app/config`, is unchanged. `imt` and `ichava-maintainer-toolkit` are symlinks to the same
+  binary; the second prints a deprecation notice.
+- **Breaking: `sync` fails loudly.** It exits 1 when a pack's latest upstream version cannot be
+  resolved, where the Python printed a warning, skipped the pack and exited 0, so a dead registry
+  read exactly like an up-to-date pack. A pack with no sinks is an error unless it is a dry run.
+  The other packs in the run still go first.
+- **The aggregator pack is now refreshed for real.** Its per-set recipe existed only in Go, which the
+  image did not run; from this release a sync of that pack refreshes every set in its set manifest
+  instead of failing with "recipe pending". The wrapper in
+  that pack's `sync-upstream.yml` that turned "recipe pending" into a green no-op can no longer
+  match, and should be removed there.
+- **The emoji and bundled configs declare their git-branch sink.** Both recipes used to commit with
+  a built-in sink while their configs said `"sinks": []`; the sink is now in the config, where its
+  branch and the `git.*` settings apply, and the empty-sinks check means what it says.
+- The primary binary is `icon-sets-sync` (`src/cmd/icon-sets-sync`); `imt` is kept as an alias.
+- **Breaking: the repository is now `ichava/icon-sets-sync`** (renamed from
+  `ichava/maintainer-toolkit` on 2026-10-21; GitHub redirects the old URL), and the Go module path
+  moved with it to `github.com/ichava/icon-sets-sync/src`. The published image follows the
+  repository name, `ghcr.io/ichava/icon-sets-sync`. The HTTP User-Agent, the temporary-directory
+  prefix and the default sync commit body now name `icon-sets-sync`.
+- `docker-compose.yml` mounts this checkout's `config/` over `/app/config` and works from `/work`, so
+  it no longer depends on the checkout's directory name.
+- The Makefile's `test`, `lint` and `format` run the Go checks in a `golang` container.
+  `sync-all` uses the new `sync-all` command and takes `CONCURRENCY=`.
+
+#### Removed
+
+- **The Python implementation**: `src/ichava_maintainer_toolkit/`, `pyproject.toml`, `tests/`, the
+  Python CI job, the `Setup Python` release step, the `pip` Dependabot entry, the Python Make
+  targets (`test-python`, `typecheck`, the ruff halves of `lint` and `format`) and the pip-cache
+  compose volume. The owner decided on 2026-10-21 to drop it entirely. The Go SVG filter's
+  agreement with lxml is still checked against `src/internal/core/svg/testdata/lxml-oracle.json`,
+  the frozen output of the last lxml run; the live cross-check that needed Python is gone with it.
+
+#### Deprecated
+
+- **The `ichava-maintainer-toolkit` command name**, in favour of `icon-sets-sync`. The image keeps
+  it as a symlink that prints a notice. Earliest removal: 0.3.0.
+
+#### Fixed
+
+- **`make build-emoji` and the `PACK=` examples named packs that no longer exist.** The Makefile
+  ran `recipe emoji-sets`, which loads `config/emoji-sets.json`; the file has been
+  `config/icon-sets-emoji.json` since the 2026-09-21 rebrand, so the target failed. The README,
+  `docs/`, and the `_note`/`_status` fields in `config/` used the pre-rebrand slugs too.
+- **The Docker examples ran in `/work/dev`.** That was this repository's old directory name;
+  `docker-compose.yml` and the Dockerfile's run example now use `/work/maintainer-toolkit`, and
+  the README's clone instructions `cd` into the right directory.
+
+#### Added
+
+- **Release binaries, signed.** A `vX.Y.Z` tag now runs GoReleaser (`src/.goreleaser.yaml`): bare binaries for `icon-sets-sync` and `imt` across Linux, macOS (plus a universal binary), Windows and FreeBSD, `.tar.gz`/`.zip` archives, `.deb`/`.rpm`/`.apk`, a source tarball, an SPDX SBOM per archive and `checksums.txt`. Every artifact gets a build-provenance attestation, and `checksums.txt` a keyless Sigstore signature (`checksums.txt.sigstore.json`). The workflow also pushes the `src/vX.Y.Z` tag Go needs to resolve the module. The Tests workflow builds the same set as a snapshot on every pull request.
+
+- **Pack configs are validated against a JSON Schema**, `config/schema/pack.schema.json` (2020-12),
+  on every load. Every violation is reported at once with its JSON pointer. The binary embeds a
+  copy, and a test fails if the two differ.
+- **Pack configs may be YAML** (`<slug>.yaml` or `.yml`), as may the registry. Both formats decode
+  to one value model; a JSON and a YAML file for the same slug is an error.
+- **Layered settings**: flags > `ICHAVA_*` environment > global config > a pack's `settings` block >
+  defaults, for `dry_run`, `force`, `log_level`, `concurrency`, `workspace`, `config_dir`, the
+  `git.*` identity, branch, base, commit text and `open_pr`, and the emoji recipe's Unicode and
+  OpenMoji versions. An optional global config lives at
+  `$XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml}`. An unknown key in any layer is an error.
+  `--set key=value` sets any of them from the command line. The old `ICHAVA_DEV_CONFIG_DIR` and
+  `ICHAVA_DEV_LOG_LEVEL` are still read.
+- **Sources, transforms and sinks are configurable per pack.** The `generic` recipe builds a pack's
+  pipeline from its config: an `npm` or `github-archive`/`github-release`/`github-tag` source, a
+  declared `transforms` list (`subset`, `sanitise`, `slugify`, `categorise`, `indexer`,
+  `flatten-variants`), and sink options (`incremental`, `min_retention`, `commit_subject`,
+  `commit_body`, `base`, `open_pr`). A pack may name its `recipe` explicitly. With no transforms
+  declared, a pack behaves exactly as before.
+- `sync-all`, with `--concurrency`; `sync --all` honours it too. `--commit` overrides a `dry_run`
+  set anywhere below the flags.
+- `config validate` and `config print [--pack] [--origins] [--format json|yaml]`.
+- The interactive menu can sync one pack (after a y/N confirmation) and sync every pack as a dry
+  run, as the Python menu could; the sync runs after the menu closes, through the same code as
+  `sync`.
+- A `Docker image` job in the Tests workflow builds the image on every pull request and runs it the
+  way the pack workflows do.
+- The lxml verdicts behind the SVG corpus differential are frozen in
+  `src/internal/core/svg/testdata/lxml-oracle.json` (1,274 icons), and a second test holds the Go
+  filter to them, so the gate keeps working once there is no Python to run.
+- Tests for `gitx`, the CLI, the TUI menu, the settings precedence at every layer, the schema, and
+  the sync orchestration, none of which needs the network.
+
+- **CI runs the Go port.** A `Go` job in `tests.yml` checks `gofmt`, `go vet` and `go test`
+  against the module in `src/`, and fails if fewer than 10 packages are found, because a
+  run pointed at the wrong directory compiles nothing and passes.
+
+- **Rename rules, so a flat set vendored from a multi-variant upstream can be refreshed.** Three
+  sets commit several upstream directories as one flat directory, distinguishing the variants by
+  an affix on the filename, and a manifest `path` cannot express that. The failure would not have
+  been a partial refresh but a destructive one: the sink wipes the destination first, so pointing
+  `path` at heroicons' `24/solid` refreshes 324 icons and **deletes the other 964**.
+
+  A set may now declare `variants` instead, each with its own `path` and an optional `prefix` or
+  `suffix`, plus an optional `separator` when the pack and its upstream spell word breaks
+  differently. The rules were recovered by measurement rather than guessed, and the shipped Go
+  transform was run over the real packages to confirm it:
+
+  | Set | Upstream | Produced | Committed | Byte-identical | New | Dropped |
+  |---|---|---:|---:|---:|---:|---:|
+  | `heroicons` | `24/outline` `24/solid` `20/solid` `16/solid` as `o- s- m- c-` | 1,288 | 1,288 | **1,288** | 0 | 0 |
+  | `teeny-icons` | `solid` bare + `outline` as `-o` | 1,200 | 1,200 | 0 | 0 | 0 |
+  | `google-material-design-icons` | five variants as bare `-o -r -s -tt` | 10,610 | 10,751 | 0 | 0 | 141 |
+
+  **heroicons reproduces every committed icon byte for byte**, which is as strong as evidence for
+  a recovered rule gets. `teeny-icons` matches every name but no bytes -- the pack reformatted
+  them onto `fill="currentColor"` -- and gmdi drops 141 icons upstream has retired, at 98%
+  retention. **None of the three produces an icon the pack does not already have**, which is what
+  rules out an affix rule that happens to cover the set while meaning something else.
+
+  `google-material-design-icons` also needs `"separator": "-"`: upstream ships `18_up_rating`
+  against the pack's `18-up-rating`, and without the rewrite only 607 of 2,168 names per variant
+  line up -- which is exactly why the audit had been reporting it as a partial match against the
+  right package.
+
+  Two ways this loses an icon quietly are refused rather than tolerated. **A collision** -- an
+  upstream icon whose own name ends in another variant's suffix, so `outline/foo.svg` and
+  `solid/foo-o.svg` both flatten onto `foo-o.svg` -- fails the run naming both sources, because
+  the second copy would replace the first at an unchanged file count and the retention guard
+  would see a clean swap. There are none in this pack today, which is a fact about today's
+  upstreams and not a property of the scheme. **A variant that resolves to a missing or empty
+  directory** likewise fails, rather than refreshing a fraction of the set over a wipe.
+
+  The manifest now requires exactly one of `path` and `variants`: both is ambiguous about which
+  the refresh honours, and neither leaves the entry pointed at the package root, which for most
+  upstreams is a README and a licence rather than icons.
+
+- **The audit reports a tie it cannot break instead of returning one.** A package that ships
+  sibling variant directories -- `cryptocurrency-icons` has `svg/{black,white,color,icon}`, each
+  with the same 483 filenames -- defeats name scoring completely: all four cover the set equally,
+  and when the pack vendored an older release none of them is byte-identical either. The scorer
+  was then returning whichever directory `WalkDir` reached last and grading it `package`.
+
+  It reached `svg/white`. The committed icons are `svg/black` with `fill="currentColor"` added to
+  the root, so a refresh would have replaced every themeable icon with a hard-coded `#FFF` one,
+  invisible on a light background -- **at an identical file count, so the retention guard would
+  have waved it straight through.** Re-auditing the 28 entries the manifest had accepted found
+  five such ties, and three of the five had resolved to the wrong directory.
+
+  Ties are now settled where they can be measured and reported where they cannot:
+
+  - A rival holding the *same bytes* under a second path is a packaging duplicate, not a choice,
+    and is excluded. `ionicons` ships its icons at `dist/ionicons/svg` and again under
+    `dist/collection/components/icon/svg` -- byte-identical to each other.
+  - A rival that genuinely differs is compared by resemblance to the committed icons, and the
+    tie is settled when one is clearly closest. That fixes `fontawesome` (`svgs`, not FA7's
+    640x640 `svgs-full` against a committed 448x512) and `pepicons` (`svg/pop`, not `svg/print`).
+  - Anything closer than that grades **`ambiguous`**: the right package, an undecidable variant.
+    It is a separate grade from `partial` because the remaining work differs in kind -- a partial
+    result needs a better candidate package, an ambiguous one needs a human to name the variant.
+
+  The resemblance metric has a stated limit rather than a tuned threshold. Trigrams over a whole
+  file are dominated by the path data, so two variants drawing the identical shape and differing
+  only in a colour attribute score nearly the same -- exactly `cryptocurrency-icons`. Those stay
+  ambiguous. Tuning the margin until it happened to pick `black` would fit the constant to two
+  cases and settle the next one wrongly and silently.
+
+- **The manifest's acceptance floor is the refresh's retention floor**, one constant rather than
+  two literals. A set was admitted at 95% name coverage while the refresh refuses to replace a
+  directory below 90% retention, so the audit rejected entries a refresh would have accepted and
+  admitted none it would refuse. Measured, 95% excluded `@mapbox/maki` for `maki-icons` at 198 of
+  211 -- unmistakably the right project, rejected over thirteen retired icons. `recipes` now reads
+  `bundled.PackageCoverageFloor` directly, and a test pins the two together: two independent
+  literals would drift, and the drift would surface as a Monday cron refusing sets the audit
+  approved on Friday, with an error about upstream reorganising that would be the wrong
+  explanation entirely.
+
+- **The aggregator pack's set manifest carries 35 sets** covering 49% of the pack's icons, against
+  the 21 sets and 38% the first audit established. Two are settled by inspection rather than by
+  the scorer and say so in their notes, with the evidence: `cryptocurrency-icons` to `svg/black`
+  and `ionicons` to `dist/svg`, whose sibling expresses the same drawings as
+  `class="ionicon-fill-none ionicon-stroke-width"` and renders as nothing without ionicons' own
+  stylesheet. `teeny-icons` was withdrawn -- its 1,200 committed icons merge upstream's `solid/`
+  and `outline/` with an `-o` suffix, which no single path can express; it now grades `partial`
+  at 600 of 1,200 and needs a rename rule, as `heroicons` and `google-material-design-icons` do.
+
+- **The per-set native refresh for `icon-sets-bundled`.** One pipeline per set, each from that
+  set's own upstream, so every set keeps the SVG dialect it actually ships in rather than being
+  rewritten into a uniform one. Driven by the pack's `<pack>.sets.json` set manifest, seeded from the
+  audit with the 21 sets it established.
+
+  The manifest is a separate file rather than a key in the pack config, deliberately and
+  temporarily: the Python is still the Docker entrypoint, its `PackConfig` rejects unknown keys,
+  and a new key would break every Python command for this pack during the overlap. Verified --
+  the Python still loads all four configs with the new file present. Fold it in once the Python
+  is gone.
+
+  Three properties, each of which exists because of something measured while building it:
+
+  - **A set with no manifest entry is not touched at all.** Not fetched, not wiped. The audit
+    resolves 21 of 72, and the remaining 51 must stay exactly as they are; a manifest is the
+    input to something that wipes a directory, so absent is safe and present-but-wrong replaces a
+    set's icons with another project's.
+  - **The refresh refuses to shrink a set by more than 10%.** Not hypothetical: iconoir's
+    upstream reorganised into per-weight directories, so the audited path now covers 1,383 of the
+    committed 1,671 icons. Without the guard a scheduled run would have deleted 288 and reported
+    success. It counts before it removes, so a refusal leaves the pack untouched -- confirmed
+    against the real set, which still had all 1,671 afterwards.
+  - **The policy is reported, not enforced.** This pack has never been sanitised: its icons keep
+    comments the policy strips, and every fontawesome file sampled changes under it -- including
+    the embedded Font Awesome licence notice. Enforcing during a refresh would rewrite tens of
+    thousands of files and drop that attribution, so violations are counted and surfaced and the
+    bytes are left as upstream shipped them. Enabling it is a decision for the pack's owner, not
+    a side effect of a Monday cron.
+
+  Verified end to end against the live registries: all 21 sets fetch, subset and copy, and
+  `bootstrap-icons` reproduces its 2,078 committed icons **byte for byte, zero differing**.
+  `feather-icons` differs by exactly one file, an icon upstream has added since.
+
+#### Fixed
+
+- **The audit recorded paths in a frame the recipe could not read.** It reported them relative to
+  the extraction root (`package/icons`) while `NpmTarball` hands the *inside* of the npm wrapper
+  downstream, so every `SubsetTo` failed with "subdir not found". The audit now resolves inside
+  `package/`, which is the frame the pipeline uses.
+
+- **A set tracking `latest` stamped the literal string "latest" as its version.** `NpmTarball`
+  now records what npm resolved -- read from the tarball filename -- so the version in the logs,
+  the metrics and any stamp is a version rather than a word that compares as one.
+
+- **The HTTP transport keeps its proxy, and `SSL_CERT_FILE` is loaded explicitly.**
+
+  The transport is *cloned* from `http.DefaultTransport` rather than built fresh, and that is the
+  load-bearing half. A hand-rolled `&http.Transport{TLSClientConfig: …}` silently drops
+  `Proxy: http.ProxyFromEnvironment`: every request then dials directly and fails as
+  `no such host`, which reads like DNS rather than like the configuration mistake it is. Pinned
+  by a test that asserts a bare `&http.Transport{}` has no Proxy and a clone does. Two sessions
+  confirmed this independently.
+
+  The certificate half is defensive rather than established, and the code says so. Go is
+  documented to honour `SSL_CERT_FILE`, and on Linux -- production, since the image is Linux --
+  it does. On the macOS machine this was developed on it demonstrably did not: with the variable
+  visible to the process, `x509.SystemCertPool()` returned zero subjects and every TLS dial
+  failed, while `gh` on the same toolchain in the same shell succeeded. A second session measured
+  the opposite and neither could reproduce the other, so the bundle is loaded explicitly, which
+  is correct under either reading -- a no-op where Go already honours the variable, and a fix
+  where it does not.
+
+  With it, `check` runs against the live registries for the first time: tabler 3.46.0 behind
+  3.47.0, flag 7.0.0 behind 7.5.0, bundled 2.2.0 behind 2.2.531, emoji current, exit 1. The
+  release URLs, the staleness comparison and the CI exit contract are now verified against real
+  registry responses rather than stubs.
+
+- **`imt bundled audit` -- identifies, by measurement, where each vendored set in the aggregator
+  pack came from.** It fetches candidate npm packages, scores every directory in them against the
+  committed icons, and believes nothing on the strength of a name: a candidate is accepted only
+  when the bytes it ships are the bytes already committed.
+
+  It was written instead of the `iconify` recipe the config asks for, because that recipe would
+  have been destructive. Measured across the pack, the 121,314 committed icons carry **26 distinct
+  `<svg>` attribute signatures** -- `bootstrap-icons` keeps `class="bi bi-alarm"`, `heroicons`
+  keeps `data-slot`, `fontawesome` keeps its licence comment, `akar-icons` is stroke-based -- where
+  anything rendered from `@iconify-json/*` would have exactly one. Each set is its own upstream's
+  native distribution, so `update_command.type: "iconify"` describes an approach this pack was
+  never built with, and implementing it would have rewritten every file into a uniform dialect,
+  discarding a licence attribution among much else.
+
+  Refreshing the pack therefore needs a per-set manifest that does not exist. This builds one.
+  Run against the real pack it resolves **21 of 72 sets**, two of them exactly:
+  `bootstrap-icons@1.13.1` reproduces all 2,078 of its committed icons byte for byte, and
+  `feather-icons@4.29.2` all of its.
+
+  Confidence is graded on two signals kept deliberately apart, because the audit showed why:
+  `ionicons` matched **1,356 of 1,356 names with zero identical bytes**. The committed files
+  expand what upstream now writes as CSS classes into explicit `fill`/`stroke` attributes and use
+  comma-separated path data -- an older release of the right project, not a wrong project. So byte
+  identity grades the *version* and name coverage grades the *source*, and `package` means
+  "upstream found, pin a version".
+
+  For a set the name patterns cannot reach, supply the package and let the tool answer:
+
+      imt bundled audit --set phosphor-icons --package @phosphor-icons/core
+
+  which reports `partial 1512/9072 package/assets/bold` -- the project is right, and the pack has
+  flattened several weight variants into one directory, so no single upstream directory covers it.
+
+#### Fixed
+
+- **The aggregator pack's config describes a pack that does not exist.** Its `_status` points
+  at a recipe path that was never written, and the pack's own `update_command._note` claims the
+  sets listed under `metadata.data.categories.*.sets` "define what's vendored". They do not: 42
+  sets are declared and 72 are vendored, 13 declared sets have no directory at all -- including
+  `lucide` and `material-design-icons` -- and 43 vendored sets are undeclared. Recorded here
+  rather than silently corrected, because which list is meant to be authoritative is a decision
+  for the pack's owner.
+
+- **The sources, transforms, sinks and recipes.** The engine is complete: `sync` and `recipe`
+  now run real pipelines rather than reporting that they cannot.
+
+  Verified end to end against a real upstream, not fixtures. A `recipe icon-sets-flag
+  --version 7.5.0 --dry-run` fetches from npm, narrows to `flags/`, applies the policy to all
+  542 icons and writes them into the pack -- and the result is **byte-for-byte identical to
+  what a previous Python run committed**, all 542 files.
+
+  That comparison found the one defect the corpus differential could not: lxml models the text
+  after an element as that element's `.tail`, so `el.remove(child)` takes both, while a tree
+  built from Go's decoder holds it as a separate sibling. Removing only the element left its
+  indentation behind, and 4 of the 542 icons differed by exactly one orphaned newline. The
+  corpus test compares surviving structure, and whitespace is not structure -- so it took a
+  byte diff against a committed artefact to see it.
+
+  Deliberate departures from the Python, each with a test:
+
+  - **`icon-sets-emoji` was never version-stamped.** Its recipe ends with a commit-only
+    pipeline whose source was a no-op, and every pipeline gets its own context -- so
+    `VersionStamp` found no `fetched_version`, logged "skipping" and did nothing. The pack's
+    vendored version never moved and its sync could not converge, which is exactly the V49
+    failure the vendored-version design exists to prevent, still live in the one recipe that
+    composes several pipelines. The commit pipeline now carries the version forward.
+  - **Archive extraction refuses a traversing entry.** Python got that free from `tarfile`'s
+    `filter="data"`; Go's `archive/tar` and `archive/zip` do nothing about it, and this fetches
+    archives from the internet inside a container with the pack tree mounted.
+  - **`gh pr list` is filtered to open pull requests.** Unfiltered, it matched the *merged* one
+    once the first sync landed, so every later run printed "already open", skipped creation and
+    exited 0 while the branch it had just pushed had nothing tracking it.
+  - **The sync fetches the remote tracking ref before pushing.** `actions/checkout` fetches only
+    the default branch, so `refs/remotes/origin/<branch>` does not exist on a runner and
+    `--force-with-lease` has nothing to compare -- git then rejects the push as "stale info",
+    which reads like a race and is not one.
+  - **`Categorise` refuses a taxonomy that parsed to zero records** rather than filing every
+    icon under "missing" and silently emptying the pack.
+
+- **`internal/core/svg` -- the SVG policy layer, the riskiest part of the port.** lxml is a real
+  DOM and Go's `encoding/xml` is a streaming decoder, so the two had to be made to agree rather
+  than assumed to. It is verified by running **both implementations over all 17,812 vendored
+  icons** in the four pack checkouts and requiring identical answers for what the policy removed
+  and what structure survived: **zero mismatches**, in ten seconds.
+
+  That gate earned itself immediately. A fixture suite would have passed while two real defects
+  sat in the port:
+
+  - **261 flag icons in one pack declare `encoding="iso-8859-1"`.** Go's decoder refuses any encoding it
+    has no table for; lxml has them all. There is now a charset reader for Latin-1 -- the only
+    non-UTF-8 encoding the corpus contains, measured -- and an explicit error for anything else,
+    because silently decoding an unknown encoding as Latin-1 mangles multi-byte characters into
+    pairs of accented ones and the damage is invisible until someone renders a title.
+  - **`styleAttribute` in the policy is an object, not a boolean.** Python reads it with a
+    truthiness test. Typing it as a Go `bool` made the whole policy fail to load -- and had that
+    failure been swallowed, `style` would have dropped off the merged allow-list, removing the
+    sole paint source from over half of one pack's icons. That is the exact trap the policy file's
+    own comments warn about.
+
+  One Go-specific hazard has no Python counterpart and is pinned by its own test: lxml keeps
+  namespace declarations out of `el.attrib` entirely, while Go's decoder hands them over as
+  ordinary attributes -- and `xmlns` is not on the allow-list, so filtering them would have
+  stripped the SVG namespace from every icon in the estate.
+
+  The vendored policy is registered in `.scripts/sync-svg-policy.mjs` as a fifth consumer and
+  pinned by digest here, so the Go copy is covered by the same cross-repo gate as the other four.
+
+  Worth a separate decision, not taken here: the policy allows all 22 `fe*` filter tags and none
+  of their attributes, so `<feGaussianBlur stdDeviation="2"/>` survives as `<feGaussianBlur/>`
+  and blurs by zero. Both implementations agree, so it is the policy's behaviour rather than a
+  port defect -- but the canonical file lives in core and four runtimes read it.
+
+- **The CLI and the TUI, over one engine.** `cmd/imt` builds a cobra tree with all six commands
+  the Python declared -- `list-packs`, `check`, `sync`, `recipe`, `menu`, `version` -- and the
+  exit codes they are consumed by: **1** when `check` finds anything stale, **1** when a `sync`
+  recipe fails, **2** for a usage error. `sync` and `recipe` are wired but report that the
+  recipes are not ported yet; Python is still the entrypoint and still does the real work.
+
+  `menu` is now a Bubble Tea TUI -- menu, pack list, pack detail and a live check view sharing
+  one spinner and one table. **In a non-TTY it prints help and exits 0.** The Python called
+  `questionary.select()` unconditionally, and `menu` is the Docker image's default `CMD`, so on a
+  runner it blocked on a stdin that never answered until the job hit its 30-minute timeout.
+
+  The parity rule is structural rather than aspirational: `internal/app` holds the orchestration
+  and `internal/ui` the rendering, and both front-ends call them. The first attempt kept those
+  helpers in `internal/cli`, which deadlocked into an import cycle the moment the CLI needed to
+  launch the TUI -- a useful accident, since it forced the shared layer to be named instead of
+  living wherever it happened to be written first.
+
+#### Fixed
+
+- **`check` reported success for a run that checked nothing.** The summary counted stale packs
+  only, so when every registry was unreachable it found zero stale and printed
+  `All packs up to date` -- observed here with all four upstreams failing. It now separates
+  unresolved packs from up-to-date ones and says `no pack could be checked: 4 of 4 upstreams were
+  unreachable`. Inherited from `core/reporters/tty.py`, which has the same defect.
+
+- **`list-packs` printed the wrong version.** It read `current_version` from this repository's
+  config, which is only the fallback, so a pack that had already been synced still displayed a
+  stale number here while `check` correctly reported it up to date. It now prints the resolved
+  version, the same one every other command compares against.
+
+- **`internal/core/pipeline`, `internal/core/checker` and `internal/core/httpx`.** The engine is
+  complete and has no third-party dependencies.
+
+  `pipeline` makes Python's Source/Transform/Sink real types rather than the empty marker
+  subclasses they were, so passing a sink where a source belongs no longer compiles. Sink order
+  stays load-bearing and is documented at the method: filesystem, then version stamp, then git
+  branch, so the version that gets committed is the version that shipped.
+
+  `checker` settles an ordering question the Python had wrong. `core/checker.py` opens by
+  declaring it "Mirrors PHP IconPackUpdateChecker exactly. The two implementations MUST agree" --
+  and they do not. PHP calls `version_compare`; Python builds a tuple of mixed ints and strings.
+  For `3.46.0` against `3.46.0-rc1` PHP reports not-stale and Python reports stale, so a
+  scheduled sync would have proposed replacing a stable release with a pre-release of itself;
+  Python's version also raises `TypeError` outright on a mixed int/string part. **This port
+  follows PHP**, which is the declared reference and the correct one, and pins it by running the
+  real `php -r 'version_compare(...)'` over 31 real and adversarial pairs -- they agree on every
+  one. `TrimVersion` keeps the character-set trim both implementations share rather than
+  correcting it here, because that would leave this port out of step with both.
+
+  `httpx` keeps tenacity's four attempts and exponential bounds, and narrows *which* failures
+  retry: Python retried every non-2xx, so a 404 cost four attempts and three backoffs to report
+  what the first response already said. Downloads stay idempotent by existence, and a failed one
+  now leaves no truncated file for the next run to mistake for a cache hit.
+
+- **A Go port begins, alongside the Python rather than replacing it.** The module lives in `src/`
+  per the Go layout in `/opensource/CLAUDE.md`, so its import path is
+  `github.com/ichava/maintainer-toolkit/src` and a release will need a second `src/vX.Y.Z` tag
+  beside `vX.Y.Z` -- Go resolves a subdirectory module through no other ref. Python is still the
+  Docker `ENTRYPOINT` and still what the five packs' `sync-upstream.yml` runs every Monday; that
+  does not change until the Go side has done a real sync on a real pack.
+
+  First package is `internal/core/config`, because the config directory is a bind-mounted volume
+  in production and therefore an external interface: it has to read the four shipped
+  `config/*.json` files unchanged, comment keys and all.
+
+  It is verified against Python rather than against fixtures. A differential run over the four
+  real configs and the real pack repos produces **identical** output for every field, including
+  the V49 convergence that matters most -- `icon-sets-tabler` resolves `3.47.0` from the pack
+  repo while this repository's config still says `3.46.0`, and both implementations agree that
+  the pack wins.
+
+  Three details are pinned by tests because each is a way the port could have gone quietly wrong:
+
+  - **The writer never creates a key.** `icon-sets-bundled` ships no `package.upstream_version`,
+    and `package.version` is the pack's own release number, not the upstream one. Only an
+    existing leaf that already differs is rewritten.
+  - **The writer preserves the rest of the document byte for byte.** Go map iteration has no
+    order, so the obvious unmarshal-modify-marshal would reorder every key and bury a one-line
+    version bump in a whole-file diff on the sync PR. The setter splices the value's byte range
+    instead, which is why this package has no JSON dependency.
+  - **Unknown keys survive inside `source`.** The checker reads `version_field` out of them, and
+    both url-typed packs depend on it. The pack schema itself stays closed, so a typo at the top
+    level still fails loudly.
+
+  The module has **no third-party dependencies**.
+
+#### Fixed
+
+- **The README's link label named the old central docs repo.** The URL was already correct —
+  `docs/upstream-tracking.md`, in this repository — while the text beside it still read
+  `ichava/documentation/icon-pack-upstream-tracking.md`. The label now names the page the link
+  opens.
+
+  **No link checker sees this class.** The label is a code span, not a target, so the link
+  resolves and the text next to it is wrong — `lychee` and every `](...)` sweep pass it. Found
+  by grepping for `` `…documentation/….md` `` rather than for links, after the estate-wide link
+  scan came back at zero.
+
+### [0.1.3] - 2026-09-22
+
+#### Added
+
+- **`.scripts/wt` — one git worktree per session, over one object store.** This estate is
+  thirteen repositories and more than one agent session works in them at once. A working tree has
+  a single HEAD and a single set of files, so `git checkout`, `rebase`, `reset` and `rm` in one
+  session act on another's work.
+
+  Four incidents in one afternoon came from that, and every mitigation reached for was
+  per-incident: a half-finished `stubs/` move read as residue, an `rm`/`checkout` race that made
+  a commit record eight reference edits and zero file moves, a `git rebase` that rewrote another
+  session's branch because `rebase` takes no branch argument, and a conflict resolution filed
+  under the wrong changelog heading.
+
+  ```bash
+  export WT_SESSION=<name-the-work>
+  .scripts/wt icon-sets-flag       # create or reuse, prints the path
+  .scripts/wt --list               # every worktree in the estate, by session
+  .scripts/wt --remove <repo>
+  ```
+
+  Commits, branches, tags and the object store stay shared. A worktree's `.git` is 4 KB against
+  the repository's 3.9 MB.
+
+  **Four hazards are encoded rather than left to memory:**
+
+  - **Detached at `origin/main` by default.** A named branch cannot be checked out in two
+    worktrees at once, and taking one hostage from the main checkout is the surprise this exists
+    to remove.
+  - **It creates siblings a test reads off disk.** `wt icon-sets-package-scaffolder` also creates
+    `icon-sets-flag`, because `StubEstateParityTest` resolves
+    `dirname(__DIR__, 3) . '/icon-sets-flag'` — a lone scaffolder worktree skips 8 parity cases
+    and stays green.
+  - **`vendor/` and `node_modules/` are gitignored, so they are per-worktree**, and it says so on
+    creation. Roughly 128 MB of vendor per PHP package and 300–360 MB of node_modules for
+    `browser` and `react-browser`, so make worktrees for what you are touching.
+  - **The estate root is found by walking up** for a directory holding `packages/` and `demos/`,
+    not by counting levels from the script. `.scripts/sample-svg-archetypes.mjs` in
+    `react-browser` hardcoded an absolute path into one machine's home directory and was broken
+    three separate ways by a restructure nobody connected to it.
+
+  > **In a worktree, `.git` is a file rather than a directory**, so a checkout test written as
+  > `is_dir('.git')` answers false there. `StubEstateParityTest` already uses `file_exists()` and
+  > is correct — I reimplemented that check with `is_dir()` in a throwaway probe and was one step
+  > from filing a defect against working code. Read the predicate the code uses.
+
+- **`actionlint` runs on every pull request.** Nothing validated the workflow files at all:
+  `release.yml` triggers only on `push: tags`, so a broken workflow was first observed as a
+  release that refused to start — after the decision to release had been made.
+
+  A YAML parse is not a substitute, and that is the sharp part. `yaml.safe_load` accepts a
+  duplicate key and silently keeps the last one, so a double-applied patch that left
+  `continue-on-error:` twice on a single step validated clean and would have failed only at tag
+  time. `actionlint` rejects what Actions rejects.
+
+  Checked against the defect rather than assumed: injecting that duplicate key, a typo'd step
+  key, and an `if:` referencing a property that does not exist are all caught, while
+  `yaml.safe_load` still parses the first of them without complaint.
+
+#### Changed
+
+- **Every pack slug moved to the `icon-sets-` names, and the config *filenames* had to move with
+  them.** `load_pack(slug)` reads `config/{slug}.json`, and each pack's `sync-upstream.yml` passes
+  `--pack="$PACK_SLUG"` with `PACK_SLUG: ${{ github.event.repository.name }}`. The repositories
+  were renamed, so that variable now reads `icon-sets-flag` where the file was `flag-icons.json`.
+
+  **Nothing would have reported this until a cron fired.** `sync-upstream.yml` runs on a
+  schedule, in a repository nobody is watching, and the failure would have been
+  `config not found` long after the rename that caused it. The four files, their `name`, `pack`
+  and `pack_root` fields, and `config/packs.json` all move together.
+
+  `pack_root` is `/work/<slug>` because the workflow mounts `-v "$PWD/..:/work"` and the runner
+  checks a repository out at a directory named after it, so that path is the repository name too.
+
+- **`cli.py` dispatches recipes on `cfg.name`**, so `emoji-sets` and `bundled-icons` moved there
+  as well. A config rename without this leaves the emoji recipe unreachable and the pack falling
+  through to the generic path.
+
+  | Was | Is |
+  |---|---|
+  | `config/tabler-icons.json` | `config/icon-sets-tabler.json` |
+  | `config/flag-icons.json` | `config/icon-sets-flag.json` |
+  | `config/emoji-sets.json` | `config/icon-sets-emoji.json` |
+
+  **The upstream fields are deliberately unchanged**, and this is the trap the rename exists
+  around: `source.package: "flag-icons"` and
+  `version_check_url: "https://registry.npmjs.org/flag-icons/latest"` name **lipis/flag-icons on
+  npm**, not our pack. Same for `@tabler/icons`, `@twemoji/svg` and `@iconify/json`. A blanket
+  slug replace points the update checker at a package that does not exist and reports
+  `unreachable` rather than failing. Each edited file is asserted to carry the same upstream
+  references afterwards as before.
+
+  `.scripts/migration/census*.json` keeps the old slugs: it is a dated measurement of the tree as
+  it was, not configuration.
+
+- **Dead links to the deleted `ichava/documentation` repository removed.** That repository no
+  longer exists, so every cross-reference to it resolved to a 404. The reporting channels in
+  `SECURITY.md` were already stated inline and are unchanged; the Code of Conduct now cites the
+  Contributor Covenant directly. Historical mentions in this changelog are left as written.
+
+#### Fixed
+
+- **The README's link label named the old central docs repo.** The URL was already correct —
+  `docs/upstream-tracking.md`, in this repository — while the text beside it still read
+  `ichava/documentation/icon-pack-upstream-tracking.md`. The label now names the page the link
+  opens.
+
+  **No link checker sees this class.** The label is a code span, not a target, so the link
+  resolves and the text next to it is wrong — `lychee` and every `](...)` sweep pass it. Found
+  by grepping for `` `…documentation/….md` `` rather than for links, after the estate-wide link
+  scan came back at zero.
+
+- **A failed SBOM download no longer takes the whole release down.** `release.yml` generates the
+  SBOM before it publishes, and the Syft installer fetches its checksums from GitHub's
+  release-asset CDN. On 2026-09-21 that answered `504` for about twenty minutes, failing the job
+  four times *before* the publish step — so the tag existed with no release behind it, which is
+  the drift the release table exists to catch, produced by the release machinery itself.
+
+  Two changes. The step now retries once after 45 seconds, which covers a single transient `504`
+  — the common case. And a second failure no longer fails the job: the release publishes without
+  the asset and emits a `::warning::` naming the re-run.
+
+  **The two failure states are not equally bad, and that asymmetry is the whole design.** A
+  release missing an attachment is repaired by re-running this workflow, which re-attaches it. A
+  tag with no release persists silently until a person notices. Preferring the recoverable one
+  is worth the loss of "every release always carries an SBOM" as an absolute.
+
+  `fail_on_unmatched_files: false` is now stated on the publish step. It is already the action's
+  default, but the point of this change is that a missing SBOM must not fail the publish, so it
+  should not rest on a default a future reader has to know.
+
+### [0.1.2] - 2026-09-21
+
+#### Changed
+
+- **`codecov/codecov-action` pinned to `303a32d` (v7.1.1).** Third-party actions are pinned to
+  the commit SHA of their latest release, with the version in a trailing comment; Dependabot
+  moves the SHA and the comment together. The pin exists to stop a mutable tag moving under us,
+  not to freeze a version, so it tracks latest rather than being held back.
+
+### [0.1.1] - 2026-09-16
+
+#### Added
+
+- `release.yml`, and third-party GitHub Actions pinned to the commit SHA of their latest
+  release. `codecov/codecov-action` moved 4 → 7 and `docker/login-action` 3 → 4; the workflow
+  already used the `files:` spelling v5 introduced, so no input changes were needed.
+
+#### Added
+
+- `svg_policy` and `svg_filter`: the reader for the shared `svg-policy.json` and the pure
+  policy enforcement it drives. Split so the rules can be tested without running a pipeline.
+- `.scripts/sync-svg-policy.mjs`, the cross-repository drift gate for the vendored policy
+  copies. A per-repo digest catches a local edit; only this sees that `core` has moved on.
+- `.scripts/migration/policy.json` and the `census-before.json` / `census-after.json`
+  baselines. `census.mjs` has always been able to compute what each sanitiser strips and
+  never had a policy file to do it with, so it silently fell back to DISCOVERY.
+- `lxml` as a dependency.
+
+#### Changed
+
+- **`Sanitise` moved from regex to lxml.** `_EVENT_ATTR` matched double-quoted attributes
+  only, so `<path onload='x()'/>` and every unquoted or entity-encoded spelling passed the
+  build-time gate untouched, as did `<foreignObject>` and `<style>`. A regex cannot see
+  where an attribute ends or that an entity expanded, so this was not fixable with a better
+  pattern. `resolve_entities=False` and `no_network=True` now close XXE and billion-laughs
+  structurally.
+- `Sanitise` gains a `strict` mode that raises rather than cleans, for asserting a vendored
+  tree is already clean in CI. Unparsable input is reported and left alone, never silently
+  passed through.
+
+#### Fixed
+
+- **The `emoji-sets` recipe pointed at upstream versions that do not exist**, which is why
+  `ichava/emoji-sets` shipped a tagged package with zero SVGs (`V4`). `unicode_version`
+  defaulted to `17.0` when Unicode has published nothing past `16.0`, so every run died on a
+  404 before reaching npm; underneath that, `current_version` read `17.0.0` for
+  `@twemoji/svg`, which has never been published. The three upstreams are independent and
+  are now labelled as such.
+- `UnicodeCldr` points a failed fetch at the Unicode directory listing instead of surfacing
+  a bare `HTTPError`.
+
+### [0.1.0] - 2026-08-31
+
+First open-source release: the pack ingest pipelines, the upstream version checker, the
+corpus census tool, and the CLI that drives them.
+
+> Recorded retroactively on 2026-09-03. This file was a three-line stub when `v0.1.0` was
+> tagged, so that release shipped with no notes -- which the org convention requires. The
+> summary above is derived from the tagged tree, not from a contemporaneous record.

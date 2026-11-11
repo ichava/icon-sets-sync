@@ -1,0 +1,424 @@
+// Package recipes composes a pack's pipelines.
+//
+// A recipe builds a pipeline; it does not run one. The caller runs it, which
+// is what lets the TUI show the stages before anything is fetched and lets a
+// dry run skip the sinks that commit.
+package recipes
+
+import (
+	"fmt"
+	"github.com/ichava/icon-sets-sync/src/internal/core/text"
+	"log/slog"
+	"strconv"
+	"strings"
+
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
+	"github.com/ichava/icon-sets-sync/src/internal/core/transforms"
+)
+
+// Recipe names a pack config's `recipe` field may carry.
+const (
+	RecipeAuto        = "auto"
+	RecipeGeneric     = "generic"
+	RecipeTwemojiSets = "twemoji-sets"
+
+	// RecipeOpenMojiSets syncs the two OpenMoji sets (colour, black) into
+	// ichava/icon-sets-openmoji, the only pack that ships OpenMoji. twemoji-sets
+	// is Twemoji only.
+	RecipeOpenMojiSets = "openmoji-sets"
+
+	// RecipeManifestPack refreshes a pack set by set, each set from the
+	// upstream its set manifest names, then commits once.
+	RecipeManifestPack = "manifest-pack"
+)
+
+// Options carries what a recipe needs beyond the pack config.
+type Options struct {
+	// DryRun drops the committing sinks (the version stamp and the git
+	// branch) and marks every pipeline with pipeline.ConfigDryRun, so the
+	// filesystem and licence sinks report the diff they would make without
+	// writing into the pack checkout. Everything a dry run writes stays in the
+	// pipeline's own temporary working directory.
+	DryRun bool
+
+	// ConfigDir is where a manifest-pack's set manifest lives.
+	ConfigDir string
+
+	// Settings is this pack's resolved settings. Nil means the defaults.
+	Settings *settings.Resolved
+
+	// Git overrides the git/gh runner, for tests. Nil means real subprocesses.
+	Git gitx.Runner
+
+	// Logger receives every pipeline's and every stage's log lines. Nil means
+	// slog.Default(), which is what the CLI wants; a server running several
+	// syncs at once passes one per run so their lines stay apart.
+	Logger *slog.Logger
+
+	// Observer is told when each stage starts and finishes. May be nil.
+	Observer pipeline.Observer
+}
+
+func (o Options) resolved() settings.Resolved {
+	if o.Settings == nil {
+		return settings.Resolve()
+	}
+	return *o.Settings
+}
+
+// Build returns the pipelines for a pack, in the order they must run.
+//
+// Dispatch is on the pack's `recipe` field when it names one, else on the pack
+// NAME first and the source type second -- reversing those breaks
+// icon-sets-twemoji, which declares source.type "url" because that is how its
+// *version* is discovered while its assets come from three separate upstreams
+// that only the named recipe knows about.
+func Build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.Pipeline, error) {
+	built, err := build(pack, version, opts)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range built {
+		p.Logger(opts.Logger).Observer(opts.Observer)
+		if opts.DryRun {
+			// One place for every recipe, so a recipe added later cannot
+			// forget it and write into the pack on a dry run.
+			p.Config(map[string]any{pipeline.ConfigDryRun: true})
+		}
+	}
+	return built, nil
+}
+
+func build(pack *config.PackConfig, version string, opts Options) ([]*pipeline.Pipeline, error) {
+	switch Select(pack) {
+	case RecipeTwemojiSets:
+		return buildTwemojiSets(pack, version, opts)
+
+	case RecipeOpenMojiSets:
+		return buildOpenMojiSets(pack, version, opts)
+
+	case RecipeManifestPack:
+		// A native per-set refresh, not the `iconify` one the pack config
+		// asks for -- see buildManifestPack for why that would have been a
+		// rewrite rather than a refresh.
+		return buildManifestPack(pack, opts)
+
+	case RecipeGeneric:
+		p, err := buildGeneric(pack, version, opts)
+		if err != nil {
+			return nil, err
+		}
+		return []*pipeline.Pipeline{p}, nil
+	}
+
+	return nil, fmt.Errorf("%s: no recipe wired for source.type=%q; set `recipe`, or use an npm or github-* source",
+		pack.Pack, pack.Source.Type)
+}
+
+// Select names the recipe a pack runs, or "" when none applies. Every recipe
+// but generic is chosen only by the config's `recipe` field; `auto` (or no
+// field) picks generic for a source it can fetch, and never looks at the
+// pack's name.
+func Select(pack *config.PackConfig) string {
+	switch pack.Recipe {
+	case RecipeGeneric, RecipeTwemojiSets, RecipeOpenMojiSets, RecipeManifestPack:
+		return pack.Recipe
+	}
+	if fetchable(pack.Source.Type) {
+		return RecipeGeneric
+	}
+	return ""
+}
+
+// packConfig is the config overlay every recipe supplies to its stages.
+func packConfig(pack *config.PackConfig) map[string]any {
+	old := pack.CurrentVersion
+	if vendored := config.ReadVendoredVersion(pack); vendored != "" {
+		// Prefer what the pack actually ships, so the commit message names the
+		// version being replaced rather than this repository's stale fallback.
+		old = vendored
+	}
+	if old == "" {
+		old = "unknown"
+	}
+	return map[string]any{
+		pipeline.ConfigPack:       pack.Pack,
+		pipeline.ConfigPackRoot:   pack.PackRoot,
+		pipeline.ConfigOldVersion: old,
+	}
+}
+
+// gitBranch builds the committing sink from a git-branch sink config and the
+// resolved settings.
+//
+// A field written on the sink is a pack-level value: it beats the default, and
+// gives way to the global config, the environment and flags -- the same
+// precedence as the pack's own `settings` block. So a scheduled run can be
+// pointed at another base branch with ICHAVA_GIT_BASE without editing four
+// pack configs.
+func gitBranch(pack *config.PackConfig, sink *config.SinkConfig, opts Options) sinks.GitBranch {
+	r := opts.resolved()
+	if sink == nil {
+		sink = &config.SinkConfig{Type: "git-branch"}
+	}
+	pick := func(key, onSink string) string {
+		if onSink != "" && !r.FromAbove(key) {
+			return onSink
+		}
+		return r.String(key)
+	}
+	openPR := r.Bool("git.open_pr")
+	if sink.OpenPR != nil && !r.FromAbove("git.open_pr") {
+		openPR = *sink.OpenPR
+	}
+
+	git := gitx.New()
+	git.Author = r.String("git.author")
+	if opts.Git != nil {
+		git.Run = opts.Git
+	}
+
+	return sinks.GitBranch{
+		RepoRoot:      text.OrDefault(sink.RepoRoot, pack.PackRoot),
+		Branch:        pick("git.branch", sink.Branch),
+		CommitSubject: pick("git.commit_subject", sink.CommitSubject),
+		CommitBody:    pick("git.commit_body", sink.CommitBody),
+		Base:          pick("git.base", sink.Base),
+		OpenPR:        openPR,
+		Git:           git,
+	}
+}
+
+// statedFacts moves the counts and version a pack states with the assets it just
+// wrote. It runs before VersionStamp, which still has to find the previous
+// version, and through the same git as the commit, so a stubbed runner covers it.
+func statedFacts(pack *config.PackConfig, opts Options) sinks.StatedFacts {
+	git := gitx.New()
+	if opts.Git != nil {
+		git.Run = opts.Git
+	}
+	return sinks.StatedFacts{Pack: pack, Git: git}
+}
+
+// firstSink returns the pack's first sink of a type, or nil.
+func firstSink(pack *config.PackConfig, typ string) *config.SinkConfig {
+	for i := range pack.Sinks {
+		if pack.Sinks[i].Type == typ {
+			return &pack.Sinks[i]
+		}
+	}
+	return nil
+}
+
+// buildTwemojiSets composes the emoji pack: Twemoji from npm, categorised
+// against the Unicode taxonomy, then a commit-only pipeline that stamps the
+// version and commits. The pack is Twemoji only; OpenMoji is
+// ichava/icon-sets-openmoji's, built by openmoji-sets.
+//
+// The Unicode version is a setting (emoji.unicode_version), defaulting to a
+// release that exists. It once defaulted ahead of what Unicode had published,
+// so every taxonomy fetch 404'd and the pack shipped a tagged release
+// containing zero SVGs.
+func buildTwemojiSets(pack *config.PackConfig, twemojiVersion string, opts Options) ([]*pipeline.Pipeline, error) {
+	if twemojiVersion == "" {
+		return nil, fmt.Errorf("twemoji-sets: a twemoji version is required")
+	}
+	r := opts.resolved()
+	unicodeVersion := r.String("emoji.unicode_version")
+
+	filesRoot := pack.PackRoot + "/resources/assets/svg/files"
+	licencesRoot := pack.PackRoot + "/resources/assets/svg/licenses"
+	cfg := packConfig(pack)
+	cldr := sources.UnicodeCldr{UnicodeVersion: unicodeVersion}
+
+	twemoji := pipeline.Named(fmt.Sprintf("twemoji-sets:twemoji@%s", twemojiVersion)).
+		Config(cfg).
+		Source(sources.Compound{
+			First:  cldr,
+			Second: sources.NpmTarball{Package: "@twemoji/svg", Version: twemojiVersion},
+		}).
+		Transform(transforms.FindLicences{}).
+		// Twemoji ships a class on every path; it is the one upstream where
+		// stripping it is wanted, so the pack's own styling applies.
+		Transform(transforms.Sanitise{AlsoStripClass: true, Force: r.Bool("force")}).
+		Transform(transforms.Categorise{By: "cldr"}).
+		Transform(transforms.Indexer{Targets: []string{"codepoints", "names"}}).
+		Sink(sinks.Filesystem{Root: filesRoot + "/twemoji"}).
+		Sink(sinks.LicenceTexts{Root: licencesRoot + "/twemoji", Set: "twemoji"})
+
+	pipelines := []*pipeline.Pipeline{twemoji}
+
+	if !opts.DryRun {
+		pipelines = append(pipelines,
+			pipeline.Named("twemoji-sets:commit").
+				Config(cfg).
+				// Carries the twemoji version forward. Each pipeline has its
+				// own context, so without this the stamp finds no version and
+				// silently does nothing -- which is what the Python did, and
+				// why this pack never converged.
+				Source(sources.Static{Version: twemojiVersion}).
+				Sink(statedFacts(pack, opts)).
+				Sink(sinks.VersionStamp{Pack: pack}).
+				Sink(gitBranch(pack, firstSink(pack, "git-branch"), opts)))
+	}
+	return pipelines, nil
+}
+
+// openmojiPipeline is how an OpenMoji set is fetched, narrowed, cleaned,
+// categorised and written. openmoji-sets is its only caller since the Twemoji
+// recipe (twemoji-sets) became Twemoji only. licence is the SPDX id to guard the licence text with;
+// empty means unguarded. guards carries the opt-in protections against losing
+// an icon, which openmoji-sets turns on. The pipeline is named for its
+// recipe, "openmoji-sets:", as twemoji-sets' pipelines are for theirs.
+func openmojiPipeline(cfg map[string]any, cldr sources.UnicodeCldr, version, name, subdir, filesRoot, licenceRoot, licenceSet, licence string, guards openmojiGuards) *pipeline.Pipeline {
+	return pipeline.Named(fmt.Sprintf("openmoji-sets:%s@%s", name, version)).
+		Config(cfg).
+		Source(sources.Compound{
+			First: cldr,
+			Second: sources.GithubArchive{
+				// OpenMoji tags without a `v`, so the built-in template
+				// would ask for a tag that does not exist.
+				ArchiveURL: "https://github.com/hfg-gmuend/openmoji/archive/refs/tags/{version}.zip",
+				Owner:      "hfg-gmuend", Repo: "openmoji",
+				Version: version,
+			},
+		}).
+		Transform(transforms.FindLicences{}).
+		Transform(transforms.SubsetTo{Subdir: subdir}).
+		Transform(transforms.Sanitise{Force: guards.force}).
+		Transform(transforms.Categorise{
+			By: "cldr", Preserve: guards.preserve,
+			MaxUncategorised: guards.maxUncategorised, Force: guards.force,
+		}).
+		Sink(sinks.Filesystem{Root: filesRoot + "/" + name, RefuseRemovals: guards.preserve, Force: guards.force}).
+		Sink(sinks.LicenceTexts{Root: licenceRoot, Set: licenceSet, Licence: licence})
+}
+
+// openmojiGuards are the opt-in protections against silently losing icons.
+type openmojiGuards struct {
+	preserve         bool
+	maxUncategorised float64
+	force            bool
+}
+
+// maxUncategorisedShare is the largest share of an OpenMoji release that may
+// match no taxonomy entry. Measured on 17.0.0 against the matching Unicode 17.0
+// taxonomy: 551 of 4,495 (12%), all OpenMoji extras and the nine component
+// glyphs. A taxonomy a release behind adds the new emoji and lands near 16%.
+const maxUncategorisedShare = 0.20
+
+// unicodeVersionFor derives the Unicode emoji release an OpenMoji release
+// follows: OpenMoji versions its major.minor after Unicode ("17.0.0" is Unicode
+// 17.0). Empty when the tag is not of that shape.
+func unicodeVersionFor(openmoji string) string {
+	parts := strings.Split(openmoji, ".")
+	if len(parts) < 2 {
+		return ""
+	}
+	for _, p := range parts[:2] {
+		if _, err := strconv.Atoi(p); err != nil {
+			return ""
+		}
+	}
+	return parts[0] + "." + parts[1]
+}
+
+// taxonomyFor is the Unicode emoji taxonomy an OpenMoji release is
+// categorised against: the release's own (unicodeVersionFor), or floor when
+// that is older or the tag is not of that shape. A newer taxonomy still names
+// every older emoji, and it is the one whose categories Unicode publishes now,
+// so an older release never needs an older taxonomy.
+func taxonomyFor(openmoji, floor string) string {
+	derived := unicodeVersionFor(openmoji)
+	if derived == "" || compareMajorMinor(derived, floor) < 0 {
+		return floor
+	}
+	return derived
+}
+
+// compareMajorMinor orders two "major.minor" versions numerically; a version
+// that does not parse sorts first, so the other wins.
+func compareMajorMinor(a, b string) int {
+	pa, okA := parseMajorMinor(a)
+	pb, okB := parseMajorMinor(b)
+	switch {
+	case !okA && !okB:
+		return 0
+	case !okA:
+		return -1
+	case !okB:
+		return 1
+	}
+	for i := range pa {
+		if pa[i] != pb[i] {
+			if pa[i] < pb[i] {
+				return -1
+			}
+			return 1
+		}
+	}
+	return 0
+}
+
+func parseMajorMinor(v string) ([2]int, bool) {
+	parts := strings.Split(v, ".")
+	if len(parts) < 2 {
+		return [2]int{}, false
+	}
+	var out [2]int
+	for i := range out {
+		n, err := strconv.Atoi(parts[i])
+		if err != nil {
+			return [2]int{}, false
+		}
+		out[i] = n
+	}
+	return out, true
+}
+
+// buildOpenMojiSets composes ichava/icon-sets-openmoji: the colour and black
+// sets from one OpenMoji release, then a commit-only pipeline so both land in a
+// single commit. The release is the version the checker discovered, not a
+// setting, so the pack's recorded upstream version and what it fetched cannot
+// diverge. Both sets share one licence directory, guarded by pack.Licence.
+func buildOpenMojiSets(pack *config.PackConfig, version string, opts Options) ([]*pipeline.Pipeline, error) {
+	if version == "" {
+		return nil, fmt.Errorf("openmoji-sets: an OpenMoji release tag is required")
+	}
+	r := opts.resolved()
+	cfg := packConfig(pack)
+	unicodeVersion := r.String("emoji.unicode_version")
+	if r.Origin("emoji.unicode_version") == settings.LayerDefault {
+		// Not chosen by anyone: follow the release, but never below the
+		// default. Categorising OpenMoji 17 against the 16.0 taxonomy left its
+		// 163 Unicode 17 emoji uncategorised; categorising OpenMoji 15.1.0
+		// against 15.1 moved crab, lobster, oyster, shrimp and squid back out
+		// of animals-nature, where Unicode 16.0 put them and the pack ships
+		// them, and the removal guard refused the run.
+		unicodeVersion = taxonomyFor(version, unicodeVersion)
+	}
+	cldr := sources.UnicodeCldr{UnicodeVersion: unicodeVersion}
+	guards := openmojiGuards{preserve: true, maxUncategorised: maxUncategorisedShare, force: r.Bool("force")}
+	filesRoot := pack.PackRoot + "/resources/assets/svg/files"
+	licenceRoot := pack.PackRoot + "/resources/assets/svg/licenses/openmoji"
+
+	pipelines := []*pipeline.Pipeline{
+		openmojiPipeline(cfg, cldr, version, "openmoji-color", "color/svg", filesRoot, licenceRoot, "openmoji", pack.Licence, guards),
+		openmojiPipeline(cfg, cldr, version, "openmoji-black", "black/svg", filesRoot, licenceRoot, "openmoji", pack.Licence, guards),
+	}
+	if !opts.DryRun {
+		pipelines = append(pipelines,
+			pipeline.Named("openmoji-sets:commit").
+				Config(cfg).
+				Source(sources.Static{Version: version}).
+				Sink(statedFacts(pack, opts)).
+				Sink(sinks.VersionStamp{Pack: pack}).
+				Sink(gitBranch(pack, firstSink(pack, "git-branch"), opts)))
+	}
+	return pipelines, nil
+}

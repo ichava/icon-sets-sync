@@ -1,0 +1,46 @@
+{{define "content"}}{{with .Data}}
+{{template "about_header"}}
+<div class="card">
+  <div class="card-header">{{template "about_tabs" .Tab}}</div>
+  {{if eq .Tab "shortcuts"}}
+  <table class="table table-vcenter card-table">
+    <caption class="visually-hidden">Keys and what they do</caption>
+    <thead><tr><th scope="col">Keys</th><th scope="col">Does</th></tr></thead>
+    <tbody>
+      {{range shortcuts}}<tr><td class="text-nowrap">{{range $i, $k := .Keys}}{{if $i}} then {{end}}<kbd>{{$k}}</kbd>{{end}}</td><td>{{.Description}}</td></tr>{{end}}
+    </tbody>
+  </table>
+  <div class="card-footer text-secondary small">Shortcuts are off while you type in a field. <kbd>?</kbd> shows them anywhere.</div>
+  {{else if eq .Tab "help"}}
+  <div class="list-group list-group-flush">
+    <a class="list-group-item list-group-item-action" href="{{.Docs}}" target="_blank" rel="noreferrer noopener">{{iconc "book" "me-2 text-secondary"}}Documentation</a>
+    <a class="list-group-item list-group-item-action" href="{{.Changes}}" target="_blank" rel="noreferrer noopener">{{iconc "file-text" "me-2 text-secondary"}}Changelog</a>
+    <a class="list-group-item list-group-item-action" href="{{.Issues}}" target="_blank" rel="noreferrer noopener">{{iconc "bug" "me-2 text-secondary"}}Report an issue</a>
+    <a class="list-group-item list-group-item-action" href="{{.Repo}}" target="_blank" rel="noreferrer noopener">{{iconc "brand-github" "me-2 text-secondary"}}Source code</a>
+  </div>
+  {{else}}
+  <div class="card-body">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h2 class="h3">This build</h2>
+        <dl class="row mb-0">
+          <dt class="col-5">Version</dt><dd class="col-7"><code>{{versionLabel .Build.Version}}</code></dd>
+          <dt class="col-5">Commit</dt><dd class="col-7"><code>{{version .Build.Commit}}</code></dd>
+          <dt class="col-5">Built</dt><dd class="col-7">{{.Build.Date}}</dd>
+          <dt class="col-5">Go</dt><dd class="col-7">{{.Build.Go}}</dd>
+          <dt class="col-5">Platform</dt><dd class="col-7">{{.Build.Platform}}</dd>
+        </dl>
+      </div>
+      <div class="col-lg-6">
+        <h2 class="h3">This server</h2>
+        <dl class="row mb-0">
+          <dt class="col-5">Listening on</dt><dd class="col-7"><code>{{.BindAddr}}</code></dd>
+          <dt class="col-5">Config dir</dt><dd class="col-7"><code class="text-break">{{.ConfigDir}}</code></dd>
+          <dt class="col-5">Mode</dt><dd class="col-7">{{if .ReadOnly}}{{icon "lock"}} read-only{{else}}runs and edits allowed{{end}}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{end}}{{end}}

@@ -1,0 +1,11 @@
+{{define "run_mode"}}<fieldset class="mb-3">
+  <legend class="form-label">Mode <span class="form-help" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" tabindex="0" role="button" aria-label="About the two modes" data-bs-content="A dry run is the CLI's --dry-run: it downloads upstream and reports what would change, and writes nothing. A real sync is what CI runs: it writes the files, commits, pushes and opens a pull request.">?</span></legend>
+  <label class="form-check">
+    <input class="form-check-input" type="radio" name="mode" value="dry-run" checked>
+    <span class="form-check-label">Dry run <span class="text-secondary">-- fetch and report the diff; nothing is written into the pack, and no version stamp, commit, push or pull request</span></span>
+  </label>
+  <label class="form-check">
+    <input class="form-check-input" type="radio" name="mode" value="real">
+    <span class="form-check-label">Real sync <span class="text-secondary">-- commits, pushes and opens a pull request; asks you to confirm</span></span>
+  </label>
+</fieldset>{{end}}

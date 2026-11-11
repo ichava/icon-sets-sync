@@ -1,0 +1,37 @@
+{
+  "_note": "PINNED to Remix Icon v4.8.0, the last Apache-2.0 release: v4.9.0 and later carry the custom 'Remix Icon License v1.0', which forbids redistribution as an icon pack. `version_check_url` names the v4.8.0 tag, never `releases/latest`. The licence guard is mandatory here: `licence` and `licence_sha256` both fail a sync whose License text changes. Category folders are slugged (`Game & Sports` -> `game-sports`). Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 3,188 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-remix",
+  "pack": "ichava/icon-sets-remix",
+  "pack_root": "/work/icon-sets-remix",
+  "current_version": "4.8.0",
+  "version_check_url": "https://api.github.com/repos/Remix-Design/RemixIcon/releases/tags/v4.8.0",
+  "licence": "Apache-2.0",
+  "licence_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+  "source": {
+    "type": "github-archive",
+    "owner": "Remix-Design",
+    "repo": "RemixIcon",
+    "archive_url": "https://github.com/Remix-Design/RemixIcon/archive/refs/tags/v{version}.zip",
+    "source_path": "icons"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    },
+    {
+      "type": "slugify",
+      "dirs": true
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

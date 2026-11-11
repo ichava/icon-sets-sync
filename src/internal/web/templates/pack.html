@@ -1,0 +1,122 @@
+{{define "content"}}{{with .Data}}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col">
+      <div class="page-pretitle"><a href="/">{{iconc "arrow-left" "icon-inline"}} Packs</a></div>
+      <h1 class="page-title">{{.Pack.Name}}</h1>
+      <div class="text-secondary mt-1">{{.Pack.Pack}} · recipe {{orDash .Recipe}} · vendored <code>{{version (orDash .Current)}}</code>
+        {{if .Checked}} · upstream <code>{{version (orDash .Result.Latest)}}</code> <span class="badge {{statusClass .Status}}">{{statusText .Status}}</span>{{end}}
+        {{if .Result.ReleaseURL}} · <a href="{{.Result.ReleaseURL}}" rel="noreferrer noopener" target="_blank">release notes{{icon "external-link"}}<span class="visually-hidden"> (opens in a new tab)</span></a>{{end}}
+      </div>
+    </div>
+    <div class="col-auto ms-auto">
+      <div class="btn-list">
+        <a href="#cli-panel" class="btn" data-bs-toggle="offcanvas" role="button" aria-controls="cli-panel">{{icon "terminal-2"}}CLI &amp; CI</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{if .Running}}<div class="alert alert-info" role="status">{{icon "info-circle"}} A run is in progress for this pack. <a href="/jobs/{{.Running}}">Watch it</a>.</div>{{end}}
+
+<div class="row row-cards">
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title">Configuration</h2></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-4">File</dt><dd class="col-8"><code class="text-break">{{.Pack.File}}</code></dd>
+          <dt class="col-4">Pack root</dt><dd class="col-8"><code class="text-break">{{.Pack.PackRoot}}</code>{{if .Pack.PackRootOrigin}} <span class="text-secondary small">({{.Pack.PackRootOrigin}})</span>{{end}}</dd>
+          <dt class="col-4">Version check</dt><dd class="col-8"><code class="text-break">{{.Pack.VersionCheckURL}}</code></dd>
+          <dt class="col-4">Pack repo</dt><dd class="col-8">{{if .Stats.Err}}<span class="text-danger text-break">{{.Stats.Err}}</span>{{else if .Stats.Branch}}{{icon "git-branch"}} <code>{{.Stats.Branch}}</code>{{if .Stats.Dirty}} <span class="badge badge-warn">uncommitted changes</span>{{end}} · {{thousands .Stats.SVGs}} SVGs{{else}}not checked yet{{end}}</dd>
+        </dl>
+        {{if .Notes}}
+        <h3 class="mt-3 h4">Notes from the config file</h3>
+        {{range .Notes}}<p class="mb-2"><code>{{.Key}}</code>: {{.Text}}</p>{{end}}
+        {{end}}
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title">Pipeline</h2></div>
+      <div class="card-body">
+        <ol class="steps steps-vertical mb-0">
+          {{range .Stages}}<li class="step-item"><div class="h4 m-0">{{.Type}}</div><div class="text-secondary">{{.Role}}{{if .Detail}} · <code>{{.Detail}}</code>{{end}}</div></li>{{end}}
+        </ol>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title">Settings for this pack</h2></div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <caption class="visually-hidden">This pack's effective settings and where each came from</caption>
+          <thead><tr><th scope="col">Setting</th><th scope="col">Value</th><th scope="col">From</th></tr></thead>
+          <tbody>
+            {{range .Settings.Rows}}{{if .PackScoped}}<tr><th scope="row"><code>{{.Name}}</code></th><td><code class="text-break">{{orDash .Value}}</code></td><td><span class="badge {{if eq .Origin "default"}}badge-muted{{else}}badge-info{{end}}">{{.Origin}}</span></td></tr>{{end}}{{end}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    {{if not $.ReadOnly}}
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title">Sync</h2></div>
+      <div class="card-body">
+        <p class="text-secondary">Checks upstream first and refreshes only when the pack is behind, unless forced.</p>
+        <form method="post" action="/packs/{{.Pack.Name}}/sync" data-real-phrase="{{.Pack.Name}}" data-real-packs="{{.Pack.Name}}">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          {{template "run_mode"}}
+          <label class="form-check mb-3"><input class="form-check-input" type="checkbox" name="force" value="1"><span class="form-check-label">Refresh even if up to date</span></label>
+          <button type="submit" class="btn btn-primary">{{icon "player-play"}}Start sync</button>
+        </form>
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title">Run the recipe at a version</h2></div>
+      <div class="card-body">
+        <p class="text-secondary">Skips the upstream check and fetches exactly this version.</p>
+        <form method="post" action="/packs/{{.Pack.Name}}/recipe" data-real-phrase="{{.Pack.Name}}" data-real-packs="{{.Pack.Name}}">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <div class="mb-3">
+            <label class="form-label" for="recipe-version">Version</label>
+            <input class="form-control" id="recipe-version" name="version" value="{{.Pack.CurrentVersion}}" autocomplete="off" spellcheck="false">
+          </div>
+          {{template "run_mode"}}
+          <button type="submit" class="btn btn-outline-primary">{{icon "player-play"}}Run recipe</button>
+        </form>
+      </div>
+    </div>
+    {{end}}
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Recent runs</h2></div>
+      {{if .Runs}}
+      <div class="list-group list-group-flush">
+        {{range .Runs}}<a class="list-group-item list-group-item-action" href="/jobs/{{.ID}}"><span class="badge {{runClass .Status}} me-2">{{.Status}}</span>{{.Kind}} · {{.Label}} <span class="text-secondary small d-block">{{when .Started}}</span></a>{{end}}
+      </div>
+      {{else}}<div class="card-body text-secondary">No runs yet.</div>{{end}}
+    </div>
+  </div>
+</div>
+{{end}}{{end}}
+
+{{define "panels"}}{{with .Data}}
+<div class="offcanvas offcanvas-end" tabindex="-1" id="cli-panel" role="dialog" aria-labelledby="cli-panel-title">
+  <div class="offcanvas-header">
+    <h2 class="offcanvas-title" id="cli-panel-title">{{.Pack.Name}} from the command line</h2>
+    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body">
+    <p class="text-secondary">What this page does, as commands. Add <code>--json --non-interactive</code> in a script or CI.</p>
+    {{template "cli_snippet" (cli "cli-check" "Check upstream" (printf "icon-sets-sync check --pack %s" .Pack.Name))}}
+    {{template "cli_snippet" (cli "cli-dry" "Dry run" (printf "icon-sets-sync sync --pack %s --dry-run" .Pack.Name))}}
+    {{template "cli_snippet" (cli "cli-real" "Real sync (commits, pushes, opens a pull request)" (printf "icon-sets-sync sync --pack %s --non-interactive" .Pack.Name))}}
+    {{template "cli_snippet" (cli "cli-recipe" "Recipe at a version" (printf "icon-sets-sync recipe %s --version %s --dry-run" .Pack.Name .Pack.CurrentVersion))}}
+    <h3 class="h4 mt-4">{{icon "brand-github"}} GitHub Actions</h3>
+    <p class="text-secondary small">In the pack repository's <code>.github/workflows/sync-upstream.yml</code>. Pin <code>toolkit-ref</code> and the <code>uses</code> line to the same commit SHA.</p>
+    {{template "cli_snippet" (cli "cli-gha" "Workflow job" (printf "jobs:\n  sync:\n    uses: ichava/icon-sets-sync/.github/workflows/sync-pack.yml@<sha>\n    with:\n      pack: %s\n      toolkit-ref: <sha>\n      refresh-app-client-id: ${{ vars.REFRESH_APP_CLIENT_ID }}\n    secrets:\n      refresh-app-private-key: ${{ secrets.REFRESH_APP_PRIVATE_KEY }}" (repo .Pack.Pack)))}}
+  </div>
+</div>
+{{end}}{{end}}

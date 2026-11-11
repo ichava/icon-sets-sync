@@ -1,0 +1,52 @@
+{
+  "_note": "Four upstream directories become four variant directories: 24/outline -> outline, 24/solid -> solid, 20/solid -> mini, 16/solid -> micro (split-variants). Sanitise enforces, which drops the root `data-slot=\"icon\"` attribute the vendored files do not carry. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 1,288 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-heroicons",
+  "pack": "ichava/icon-sets-heroicons",
+  "pack_root": "/work/icon-sets-heroicons",
+  "recipe": "generic",
+  "current_version": "2.2.0",
+  "version_check_url": "https://registry.npmjs.org/heroicons/latest",
+  "licence": "MIT",
+  "licence_sha256": "60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985",
+  "source": {
+    "type": "npm",
+    "package": "heroicons"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    },
+    {
+      "type": "split-variants",
+      "variants": [
+        {
+          "path": "outline",
+          "from": "24/outline"
+        },
+        {
+          "path": "solid",
+          "from": "24/solid"
+        },
+        {
+          "path": "mini",
+          "from": "20/solid"
+        },
+        {
+          "path": "micro",
+          "from": "16/solid"
+        }
+      ]
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

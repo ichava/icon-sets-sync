@@ -1,0 +1,939 @@
+// icon-sets-sync web UI: the whole of its own JavaScript. Every page works
+// without it; this only adds conveniences on top. It never builds HTML from
+// strings: every value goes in through textContent.
+(function () {
+  "use strict";
+
+  // Reload while background work the page is waiting on is running.
+  // The reload waits while a dialog or side panel is open or a field has
+  // focus: reloading under them threw away what was being chosen (U11).
+  var reload = document.body.getAttribute("data-reload-after");
+  function busy() {
+    var a = document.activeElement;
+    return document.querySelector(".modal.show, .offcanvas.show, .offcanvas.showing") ||
+      (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName));
+  }
+  function reloadWhenIdle() {
+    if (busy()) { window.setTimeout(reloadWhenIdle, 1000); return; }
+    disposeTips();
+    window.location.reload();
+  }
+  var reloadTimer = reload ? window.setTimeout(reloadWhenIdle, Number(reload) * 1000) : null;
+
+  var tb = window.tabler || {};
+
+  // Toasts: Tabler's toast, filled from the layout's <template> through
+  // textContent. A success hides itself; a warning or an error stays until
+  // it is dismissed, and is announced as an alert.
+  var toastBadge = { success: "badge-ok", warning: "badge-warn", danger: "badge-bad", info: "badge-info" };
+  function showToast(level, title, body, href) {
+    var tpl = document.getElementById("toast-template");
+    var box = document.getElementById("toasts");
+    if (!tpl || !box) { return; }
+    var t = tpl.content.firstElementChild.cloneNode(true);
+    var sticky = level === "danger" || level === "warning";
+    if (sticky) { t.setAttribute("role", "alert"); t.setAttribute("aria-live", "assertive"); }
+    var badge = t.querySelector("[data-role=toast-badge]");
+    badge.className = "badge me-2 " + (toastBadge[level] || "badge-info");
+    badge.textContent = level === "danger" ? "failed" : level === "warning" ? "check" : level === "success" ? "done" : "info";
+    t.querySelector("[data-role=toast-title]").textContent = title;
+    t.querySelector("[data-role=toast-body]").textContent = body || "";
+    var link = t.querySelector("[data-role=toast-link]");
+    if (href) { link.href = href; link.hidden = false; }
+    box.appendChild(t);
+    if (tb.Toast) {
+      tb.Toast.getOrCreateInstance(t, { autohide: !sticky, delay: 6000 }).show();
+      t.addEventListener("hidden.bs.toast", function () { t.remove(); });
+    } else {
+      t.classList.add("show");
+    }
+  }
+  window.iconSetsToast = showToast;
+
+  // A real sync asks for its typed confirmation in a modal on the page that
+  // starts it, instead of a separate confirmation page. A form that can start
+  // one carries data-real-phrase (what to type) and data-real-packs. The
+  // server still checks the phrase, and without this script it shows its
+  // confirmation page.
+  var realModal = document.getElementById("real-run-modal");
+  var realForm = null;
+  function isReal(form, submitter) {
+    if (submitter && submitter.name === "mode") { return submitter.value === "real"; }
+    var mode = form.querySelector("input[name=mode]:checked") || form.querySelector("input[type=hidden][name=mode]");
+    return !!mode && mode.value === "real";
+  }
+  if (realModal && tb.Modal) {
+    var realInput = document.getElementById("real-run-confirm");
+    var realStart = document.getElementById("real-run-start");
+    var realHelp = document.getElementById("real-run-help");
+    var phraseOf = function () { return realForm ? realForm.getAttribute("data-real-phrase") : ""; };
+    var match = function () { return realInput.value.trim() === phraseOf(); };
+    realInput.addEventListener("input", function () {
+      realStart.disabled = !match();
+      realHelp.textContent = realInput.value === "" || match() ? "Nothing has been started yet." : "That does not match yet.";
+    });
+    realInput.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); if (match()) { realStart.click(); } }
+    });
+    realModal.addEventListener("shown.bs.modal", function () { realInput.focus(); });
+    realStart.addEventListener("click", function () {
+      if (!realForm || !match()) { return; }
+      var input = realForm.querySelector("input[name=confirm]");
+      if (!input) {
+        input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "confirm";
+        realForm.appendChild(input);
+      }
+      input.value = phraseOf();
+      realForm.setAttribute("data-real-confirmed", "1");
+      var form = realForm;
+      tb.Modal.getOrCreateInstance(realModal).hide();
+      form.requestSubmit();
+    });
+    document.addEventListener("submit", function (ev) {
+      var form = ev.target;
+      if (!form.hasAttribute || !form.hasAttribute("data-real-phrase") || !form.getAttribute("data-real-phrase")) { return; }
+      if (!isReal(form, ev.submitter) || form.getAttribute("data-real-confirmed") === "1") { return; }
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      realForm = form;
+      realModal.querySelector("[data-role=real-phrase]").textContent = phraseOf();
+      var list = realModal.querySelector("[data-role=real-packs]");
+      while (list.firstChild) { list.removeChild(list.firstChild); }
+      (form.getAttribute("data-real-packs") || "").split(" ").filter(Boolean).forEach(function (p) {
+        var li = document.createElement("li");
+        var code = document.createElement("code");
+        code.textContent = p;
+        li.appendChild(code);
+        list.appendChild(li);
+      });
+      var note = realModal.querySelector("[data-role=real-note]");
+      note.textContent = form.getAttribute("data-real-note") || "";
+      note.hidden = !note.textContent;
+      realInput.value = "";
+      realStart.disabled = true;
+      realHelp.textContent = "Nothing has been started yet.";
+      var panel = form.closest(".offcanvas");
+      if (panel && tb.Offcanvas) { tb.Offcanvas.getOrCreateInstance(panel).hide(); }
+      tb.Modal.getOrCreateInstance(realModal).show();
+    }, true);
+  }
+
+  // A page asks for a toast with a hidden [data-toast] element: a save, a
+  // finished check or run, rendered after the redirect that follows it.
+  document.querySelectorAll("[data-toast]").forEach(function (el) {
+    showToast(el.getAttribute("data-toast"), el.getAttribute("data-toast-title"),
+      el.getAttribute("data-toast-body"), el.getAttribute("data-toast-href"));
+  });
+
+  // Runs still going when a page loads are watched, so a toast says when
+  // each finishes, whatever page is open. The run's own page shows it there.
+  var watch = document.body.getAttribute("data-watch-jobs");
+  if (watch && window.EventSource && !document.getElementById("job")) {
+    watch.split(" ").forEach(function (id) {
+      var src = new EventSource("/events/jobs/" + encodeURIComponent(id));
+      src.addEventListener("done", function (msg) {
+        var e = {};
+        try { e = JSON.parse(msg.data); } catch (err) { /* keep the defaults */ }
+        var level = e.status === "succeeded" ? "success" : e.status === "needs-review" ? "warning" : e.status === "cancelled" ? "info" : "danger";
+        showToast(level, "Run " + (e.status || "finished"), e.error || "", "/jobs/" + encodeURIComponent(id));
+        src.close();
+      });
+    });
+  }
+
+  // The dashboard's alert bar follows a running upstream check: n of N packs
+  // in its progress bar, then a reload that shows the results and a toast.
+  var checkBar = document.getElementById("check-status");
+  if (checkBar && checkBar.getAttribute("data-running") === "1" && window.fetch) {
+    if (reloadTimer) { window.clearTimeout(reloadTimer); }
+    var poll = function () {
+      fetch(checkBar.getAttribute("data-status-url"), { headers: { Accept: "application/json" }, credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function (st) {
+          var count = checkBar.querySelector("[data-role=check-count]");
+          var bar = checkBar.querySelector("[data-role=check-progress]");
+          if (count) { count.textContent = st.done + " of " + st.total + " packs"; }
+          if (bar) { bar.max = st.total || 1; bar.value = st.done; bar.textContent = st.done + " of " + st.total; }
+          if (st.running) { window.setTimeout(poll, 1000); return; }
+          if (busy()) { window.setTimeout(poll, 1000); return; }
+          window.location.href = "/?checked=1";
+        })
+        .catch(function () { window.setTimeout(poll, 3000); });
+    };
+    window.setTimeout(poll, 1000);
+  }
+
+  // Work in flight: a thin indeterminate bar pinned to the top of the window
+  // (#page-progress in the layout), where it is seen whatever is scrolled
+  // into view, and a spinner in the button that started it. A form with
+  // data-progress shows both while its request is out; fetch-driven actions
+  // call busyStart and busyEnd.
+  var pageBar = document.getElementById("page-progress");
+  var busyCount = 0;
+  function busyStart(btn, label) {
+    busyCount++;
+    if (pageBar) {
+      pageBar.hidden = false;
+      pageBar.setAttribute("aria-label", label || "Working");
+    }
+    if (btn) { btn.classList.add("btn-loading"); btn.setAttribute("aria-busy", "true"); }
+  }
+  function busyEnd(btn) {
+    busyCount = Math.max(0, busyCount - 1);
+    if (pageBar && busyCount === 0) { pageBar.hidden = true; }
+    if (btn) { btn.classList.remove("btn-loading"); btn.removeAttribute("aria-busy"); }
+  }
+  document.addEventListener("submit", function (ev) {
+    var form = ev.target;
+    if (!form.hasAttribute || !form.hasAttribute("data-progress") || ev.defaultPrevented) { return; }
+    if (form.hasAttribute("data-confirm") && form.getAttribute("data-confirmed") !== "1" &&
+        !(ev.submitter && ev.submitter.hasAttribute("data-confirm-skip"))) { return; }
+    var btn = ev.submitter;
+    busyStart(btn, form.getAttribute("data-progress"));
+    if (btn) { window.setTimeout(function () { btn.disabled = true; }, 0); }
+  });
+  // A page restored from the back/forward cache must not keep a stuck bar.
+  window.addEventListener("pageshow", function () {
+    busyCount = 0;
+    if (pageBar) { pageBar.hidden = true; }
+    document.querySelectorAll(".btn-loading").forEach(function (b) { b.classList.remove("btn-loading"); b.disabled = false; });
+  });
+
+  // A form with data-confirm asks first, in Tabler's danger modal
+  // (#confirm-modal in the layout): data-confirm is the body text,
+  // data-confirm-title and data-confirm-button the heading and the button.
+  // The server still requires its own typed confirmation for a real sync;
+  // this is the first of the two. Without the modal script it falls back to
+  // the browser's own confirm.
+  var modalEl = document.getElementById("confirm-modal");
+  var pending = null;
+  document.addEventListener("submit", function (ev) {
+    var form = ev.target;
+    var msg = form.getAttribute && form.getAttribute("data-confirm");
+    if (!msg || form.getAttribute("data-confirmed") === "1" ||
+        (ev.submitter && ev.submitter.hasAttribute("data-confirm-skip"))) {
+      return;
+    }
+    ev.preventDefault();
+    if (!modalEl || !tb.Modal) {
+      if (window.confirm(msg)) { form.setAttribute("data-confirmed", "1"); form.requestSubmit(ev.submitter || undefined); }
+      return;
+    }
+    pending = { form: form, submitter: ev.submitter || null };
+    document.getElementById("confirm-modal-title").textContent = form.getAttribute("data-confirm-title") || "Are you sure?";
+    document.getElementById("confirm-modal-body").textContent = msg;
+    document.getElementById("confirm-modal-ok").textContent = form.getAttribute("data-confirm-button") || "Confirm";
+    tb.Modal.getOrCreateInstance(modalEl).show();
+  });
+  if (modalEl) {
+    document.getElementById("confirm-modal-ok").addEventListener("click", function () {
+      if (!pending) { return; }
+      var p = pending;
+      pending = null;
+      tb.Modal.getOrCreateInstance(modalEl).hide();
+      p.form.setAttribute("data-confirmed", "1");
+      if (p.submitter) { p.form.requestSubmit(p.submitter); } else { p.form.requestSubmit(); }
+    });
+    modalEl.addEventListener("hidden.bs.modal", function () { pending = null; });
+  }
+
+  // Tooltips, after the owner's rules of 2026-11-08: only on icon-only
+  // controls (a test holds the templates to that), one at a time, never over
+  // an open menu, panel or dialog, gone on click, Escape or scroll, and never
+  // on a touch screen, where a tap would leave one stuck. This is the one
+  // place they are created and the one place they are disposed.
+  var tips = [];
+  function hideTips(except) {
+    tips.forEach(function (t) { if (t !== except) { t.hide(); } });
+  }
+  function disposeTips() {
+    tips.forEach(function (t) { t.dispose(); });
+    tips = [];
+  }
+  function initTips(root) {
+    if (!tb.Tooltip || (window.matchMedia && window.matchMedia("(hover: none)").matches)) { return; }
+    root.querySelectorAll("[data-bs-toggle=tooltip]").forEach(function (n) {
+      var t = tb.Tooltip.getOrCreateInstance(n);
+      tips.push(t);
+      n.addEventListener("show.bs.tooltip", function (ev) {
+        if (document.querySelector(".dropdown-menu.show, .modal.show, .offcanvas.show")) { ev.preventDefault(); return; }
+        hideTips(t);
+      });
+    });
+  }
+  initTips(document);
+  ["show.bs.dropdown", "show.bs.offcanvas", "show.bs.modal"].forEach(function (type) {
+    document.addEventListener(type, function () { hideTips(null); });
+  });
+  document.addEventListener("click", function () { hideTips(null); }, true);
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { hideTips(null); } }, true);
+  window.addEventListener("scroll", function () { hideTips(null); }, { capture: true, passive: true });
+  window.addEventListener("pagehide", disposeTips);
+  if (tb.Popover) {
+    document.querySelectorAll("[data-bs-toggle=popover]").forEach(function (n) { tb.Popover.getOrCreateInstance(n); });
+  }
+
+  // The dashboard's per-pack sync panel: one offcanvas, pointed at the pack
+  // whose row opened it. Without the script the row's button is a plain link
+  // to the pack page, which has the same form.
+  var packPanel = document.getElementById("pack-sync-panel");
+  if (packPanel) {
+    packPanel.addEventListener("show.bs.offcanvas", function (ev) {
+      var slug = ev.relatedTarget && ev.relatedTarget.getAttribute("data-pack");
+      if (!slug) { return; }
+      var base = "/packs/" + encodeURIComponent(slug);
+      var packForm = packPanel.querySelector("[data-role=pack-sync-form]");
+      packForm.setAttribute("action", base + "/sync");
+      packForm.setAttribute("data-real-phrase", slug);
+      packForm.setAttribute("data-real-packs", slug);
+      packPanel.querySelector("[data-role=pack-page]").setAttribute("href", base);
+      packPanel.querySelector("[data-role=pack-name]").textContent = slug;
+    });
+  }
+
+  // Command palette (Ctrl K, Cmd K or /): filters the pages, commands and
+  // packs it lists as you type; arrows move, Enter opens.
+  var palette = document.getElementById("command-palette");
+  var paletteInput = document.getElementById("command-palette-input");
+  function paletteItems() {
+    return Array.prototype.slice.call(palette.querySelectorAll("[role=option]"));
+  }
+  function visibleItems() {
+    return paletteItems().filter(function (n) { return !n.classList.contains("d-none"); });
+  }
+  function markActive(n) {
+    paletteItems().forEach(function (i) { i.classList.remove("active-option"); i.removeAttribute("aria-selected"); });
+    if (n) { n.classList.add("active-option"); n.setAttribute("aria-selected", "true"); n.scrollIntoView({ block: "nearest" }); }
+  }
+  function filterPalette() {
+    var q = paletteInput.value.trim().toLowerCase();
+    var shown = 0;
+    paletteItems().forEach(function (n) {
+      var hit = !q || n.textContent.toLowerCase().indexOf(q) >= 0 || (n.getAttribute("href") || "").toLowerCase().indexOf(q) >= 0;
+      n.classList.toggle("d-none", !hit);
+      if (hit) { shown++; }
+    });
+    palette.querySelectorAll(".list-group-header").forEach(function (h) { h.classList.toggle("d-none", !!q); });
+    palette.querySelector("[data-role=palette-empty]").classList.toggle("d-none", shown > 0);
+    markActive(visibleItems()[0]);
+  }
+  function toggleTheme() {
+    var dark = document.documentElement.getAttribute("data-bs-theme") === "dark";
+    window.location.search = "?theme=" + (dark ? "light" : "dark");
+  }
+  function runCommand(n) {
+    var cmd = n.getAttribute("data-command");
+    if (!cmd) { window.location.href = n.getAttribute("href"); return; }
+    if (tb.Modal) { tb.Modal.getOrCreateInstance(palette).hide(); }
+    if (cmd === "check") { document.getElementById("palette-check").requestSubmit(); }
+    if (cmd === "sync-all-dry-run") { document.getElementById("palette-sync-all").requestSubmit(); }
+    if (cmd === "theme") { toggleTheme(); }
+    if (cmd === "shortcuts") { showModal("shortcuts-modal"); }
+    if (cmd === "stop") { document.querySelector("form[action='/server/stop']").requestSubmit(); }
+  }
+  function showModal(id) {
+    var el = document.getElementById(id);
+    if (el && tb.Modal) { tb.Modal.getOrCreateInstance(el).show(); }
+  }
+  if (palette && paletteInput) {
+    palette.addEventListener("shown.bs.modal", function () { paletteInput.value = ""; filterPalette(); paletteInput.focus(); });
+    paletteInput.addEventListener("input", filterPalette);
+    paletteInput.addEventListener("keydown", function (ev) {
+      var items = visibleItems();
+      var at = items.indexOf(palette.querySelector(".active-option"));
+      if (ev.key === "ArrowDown") { ev.preventDefault(); markActive(items[Math.min(at + 1, items.length - 1)]); }
+      if (ev.key === "ArrowUp") { ev.preventDefault(); markActive(items[Math.max(at - 1, 0)]); }
+      if (ev.key === "Enter" && at >= 0) { ev.preventDefault(); runCommand(items[at]); }
+    });
+    palette.addEventListener("click", function (ev) {
+      var n = ev.target.closest("[data-command]");
+      if (n) { ev.preventDefault(); runCommand(n); }
+    });
+  }
+
+  // Keyboard shortcuts, listed in the shortcuts dialog (and in Go, in the
+  // shortcuts table a test holds to this file). None fires while a field
+  // has focus or a modifier other than Ctrl/Cmd K is held.
+  var pendingG = false;
+  var goTo = { p: "/", r: "/jobs", a: "/manifest-pack/audit", c: "/config", s: "/settings", i: "/about" };
+  document.addEventListener("keydown", function (ev) {
+    var a = document.activeElement;
+    var typing = a && (/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) || a.isContentEditable);
+    if ((ev.ctrlKey || ev.metaKey) && ev.key === "k") {
+      if (palette) { ev.preventDefault(); showModal("command-palette"); }
+      return;
+    }
+    if (typing || ev.ctrlKey || ev.metaKey || ev.altKey || document.querySelector(".modal.show")) { return; }
+    if (pendingG) {
+      pendingG = false;
+      if (goTo[ev.key]) { ev.preventDefault(); window.location.href = goTo[ev.key]; }
+      return;
+    }
+    if (ev.key === "g") { pendingG = true; window.setTimeout(function () { pendingG = false; }, 1200); return; }
+    if (ev.key === "/" && palette) { ev.preventDefault(); showModal("command-palette"); return; }
+    if (ev.key === "?") { ev.preventDefault(); showModal("shortcuts-modal"); return; }
+    if (ev.key === "t") { ev.preventDefault(); toggleTheme(); }
+  });
+
+  // Editor helpers: a finding's "line N" link selects that line; a known
+  // setting's Insert button types it at the cursor; the filter narrows them.
+  document.addEventListener("click", function (ev) {
+    var text = document.getElementById("editor-text");
+    if (!text) { return; }
+    var jump = ev.target.closest && ev.target.closest("[data-editor-line]");
+    if (jump) {
+      ev.preventDefault();
+      var line = parseInt(jump.getAttribute("data-editor-line"), 10) || 1;
+      var col = parseInt(jump.getAttribute("data-editor-col"), 10) || 1;
+      var lines = text.value.split("\n");
+      var at = 0;
+      for (var i = 0; i < line - 1 && i < lines.length; i++) { at += lines[i].length + 1; }
+      var end = at + (lines[line - 1] || "").length;
+      text.focus();
+      text.setSelectionRange(Math.min(at + col - 1, end), end);
+      return;
+    }
+    var ins = ev.target.closest && ev.target.closest("[data-insert]");
+    if (ins && !text.readOnly) {
+      var snippet = ins.getAttribute("data-insert");
+      var start = text.selectionStart, stop = text.selectionEnd;
+      text.value = text.value.slice(0, start) + snippet + text.value.slice(stop);
+      text.focus();
+      text.setSelectionRange(start + snippet.length, start + snippet.length);
+      text.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  var keyFilter = document.querySelector("[data-key-filter]");
+  if (keyFilter) {
+    keyFilter.addEventListener("input", function () {
+      var q = keyFilter.value.toLowerCase();
+      document.querySelectorAll("[data-key-name]").forEach(function (row) {
+        row.hidden = q !== "" && row.textContent.toLowerCase().indexOf(q) < 0;
+      });
+    });
+  }
+
+  // List editors: data-list-add appends the form's <template data-list-template>
+  // row to its [data-list]; data-list-remove removes its row.
+  document.addEventListener("click", function (ev) {
+    var add = ev.target.closest && ev.target.closest("[data-list-add]");
+    if (add) {
+      var form = add.closest("form");
+      var list = form && form.querySelector("[data-list=\"" + add.getAttribute("data-list-add") + "\"]");
+      var tpl = form && form.querySelector("template[data-list-template]");
+      if (list && tpl) {
+        var empty = list.querySelector("[data-list-empty]");
+        if (empty) { empty.remove(); }
+        list.appendChild(tpl.content.cloneNode(true));
+        var inputs = list.querySelectorAll("input");
+        if (inputs.length) { inputs[inputs.length - 1].focus(); }
+      }
+      return;
+    }
+    var remove = ev.target.closest && ev.target.closest("[data-list-remove]");
+    if (remove) {
+      var row = remove.closest("[data-list-row]");
+      if (row) { row.remove(); }
+    }
+  });
+
+  // Copy buttons: data-copy-target names the element whose text is copied.
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target.closest && ev.target.closest("[data-copy-target]");
+    if (!btn) { return; }
+    var src = document.getElementById(btn.getAttribute("data-copy-target"));
+    if (!src || !navigator.clipboard) { return; }
+    navigator.clipboard.writeText(src.textContent).then(function () {
+      var label = btn.querySelector("[data-role=copy-label]");
+      if (!label) { return; }
+      var was = label.textContent;
+      label.textContent = "Copied";
+      window.setTimeout(function () { label.textContent = was; }, 1500);
+    });
+  });
+
+  // Log level filter: the CSS hides the levels below the chosen one.
+  var log = document.getElementById("job-log");
+  var filter = document.querySelector("[data-log-filter]");
+  if (log && filter) {
+    filter.addEventListener("change", function () { log.setAttribute("data-level", filter.value); });
+  }
+  var follow = document.getElementById("log-follow");
+  function scrollLog() {
+    if (log && (!follow || follow.checked)) { log.scrollTop = log.scrollHeight; }
+  }
+  scrollLog();
+
+  // Config editor: keep the line numbers in step, and check as you type
+  // (debounced) through the endpoint the Validate button posts to. Validate
+  // and Fix run in place, with a status badge beside the buttons and a toast;
+  // without this script they post the form and the page comes back.
+  var editor = document.getElementById("editor-text");
+  if (editor) {
+    var gutter = document.getElementById("editor-gutter");
+    var form = document.getElementById("editor-form");
+    var save = document.getElementById("editor-save");
+    var findings = document.getElementById("editor-findings-list");
+    var title = document.getElementById("findings-title");
+    var statusBox = document.getElementById("editor-status");
+    var fixCard = document.getElementById("editor-fix");
+    var timer = null;
+    var seq = 0;
+    var saved = editor.value;
+    var csrf = document.querySelector("meta[name=csrf-token]").getAttribute("content");
+    var lang = editor.getAttribute("data-lang") || "json";
+    var hl = document.getElementById("editor-hl");
+    var hlCode = hl && hl.firstElementChild;
+    var hlMax = 200000; // past this the editor stays plain: highlighting is a convenience
+
+    // Highlighting: the text is cut into tokens by a small scanner and
+    // written into the <pre> under the textarea as text nodes and spans,
+    // never as markup. A JSON syntax error is underlined where it is.
+    var jsonTok = /("(?:[^"\\\n]|\\.)*"?)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b|([{}\[\],:])|(\s+)|([^\s"{}\[\],:]+)/g;
+    var tokensJSON = function (text) {
+      var out = [], m;
+      jsonTok.lastIndex = 0;
+      while ((m = jsonTok.exec(text)) !== null) {
+        var cls = "";
+        if (m[1] !== undefined) {
+          var rest = text.slice(jsonTok.lastIndex).match(/^\s*:/);
+          cls = rest ? "tok-key" : "tok-str";
+        } else if (m[2] !== undefined) { cls = "tok-num"; }
+        else if (m[3] !== undefined) { cls = "tok-lit"; }
+        else if (m[4] !== undefined) { cls = "tok-punc"; }
+        out.push([cls, m[0]]);
+      }
+      return out;
+    };
+    var yamlScalar = /^(?:true|false|null|yes|no|on|off|~)$/i;
+    var tokensYAML = function (text) {
+      var out = [];
+      text.split(/(\n)/).forEach(function (line) {
+        if (line === "\n" || line === "") { out.push(["", line]); return; }
+        var body = line, comment = "";
+        var hash = line.search(/(^|\s)#/);
+        if (hash >= 0 && !/["']/.test(line.slice(0, hash))) {
+          var at = line[hash] === "#" ? hash : hash + 1;
+          body = line.slice(0, at); comment = line.slice(at);
+        }
+        var km = body.match(/^(\s*(?:-\s+)?)((?!-\s)[^\s:#"'][^:#]*?|"[^"]*"|'[^']*')(:)(?=\s|$)/);
+        var rest = body;
+        if (km) {
+          out.push(["", km[1]], ["tok-key", km[2]], ["tok-punc", km[3]]);
+          rest = body.slice(km[0].length);
+        } else {
+          var dash = body.match(/^(\s*)(-)(?=\s|$)/);
+          if (dash) { out.push(["", dash[1]], ["tok-punc", dash[2]]); rest = body.slice(dash[0].length); }
+        }
+        var vm = rest.match(/^(\s*)(.*?)(\s*)$/);
+        var v = vm[2], cls = "";
+        if (/^(["']).*\1$/.test(v)) { cls = "tok-str"; }
+        else if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v)) { cls = "tok-num"; }
+        else if (yamlScalar.test(v)) { cls = "tok-lit"; }
+        else if (/^[\[\]{}|>]/.test(v)) { cls = "tok-punc"; }
+        else if (v) { cls = "tok-str"; }
+        out.push(["", vm[1]], [cls, v], ["", vm[3]]);
+        if (comment) { out.push(["tok-com", comment]); }
+      });
+      return out;
+    };
+    var render = function (errAt) {
+      if (!hlCode) { return; }
+      var text = editor.value;
+      if (text.length > hlMax) {
+        hl.parentNode.parentNode.classList.remove("editor-hl-on");
+        while (hlCode.firstChild) { hlCode.removeChild(hlCode.firstChild); }
+        return;
+      }
+      var toks = lang === "yaml" ? tokensYAML(text) : tokensJSON(text);
+      var errEnd = -1;
+      if (errAt >= 0) {
+        errEnd = text.indexOf("\n", errAt);
+        if (errEnd < 0) { errEnd = text.length; }
+        if (errEnd === errAt) { errEnd = errAt + 1; }
+      }
+      var frag = document.createDocumentFragment();
+      var pos = 0;
+      var put = function (cls, str) {
+        if (!str) { return; }
+        frag.appendChild(cls ? el("span", cls, str) : document.createTextNode(str));
+      };
+      toks.forEach(function (t) {
+        var str = t[1], end = pos + str.length;
+        if (errEnd > errAt && errAt < end && errEnd > pos) {
+          var a = Math.max(errAt, pos) - pos, b = Math.min(errEnd, end) - pos;
+          put(t[0], str.slice(0, a));
+          put("tok-err", str.slice(a, b));
+          put(t[0], str.slice(b));
+        } else {
+          put(t[0], str);
+        }
+        pos = end;
+      });
+      if (errAt >= text.length) { put("tok-err", " "); }
+      // A trailing newline needs a character after it, or the <pre> is a
+      // line shorter than the textarea.
+      frag.appendChild(document.createTextNode("\n"));
+      while (hlCode.firstChild) { hlCode.removeChild(hlCode.firstChild); }
+      hlCode.appendChild(frag);
+      hl.parentNode.parentNode.classList.add("editor-hl-on");
+    };
+
+    // The in-browser check: JSON must parse before the server is asked
+    // anything, and a syntax error is shown at once, with its place.
+    var where = function (text, pos) {
+      var before = text.slice(0, pos).split("\n");
+      return { line: before.length, col: before[before.length - 1].length + 1 };
+    };
+    // jsonErrorAt is where JSON stops being JSON: a small scanner, because
+    // only some browsers put the place in JSON.parse's message.
+    var jsonErrorAt = function (s) {
+      var i = 0, n = s.length;
+      var fail = function () { throw i; };
+      var ws = function () { while (i < n && " \t\n\r".indexOf(s[i]) >= 0) { i++; } };
+      var str = function () {
+        if (s[i] !== "\"") { fail(); }
+        i++;
+        while (i < n) {
+          var c = s[i];
+          if (c === "\"") { i++; return; }
+          if (c === "\\") {
+            i++;
+            if ("\"\\/bfnrt".indexOf(s[i]) >= 0 && i < n) { i++; continue; }
+            if (s[i] === "u" && /^[0-9a-fA-F]{4}$/.test(s.substr(i + 1, 4))) { i += 5; continue; }
+            fail();
+          }
+          if (c < " ") { fail(); }
+          i++;
+        }
+        fail();
+      };
+      var val = function () {
+        ws();
+        var c = s[i], m;
+        if (c === "{" || c === "[") {
+          var close = c === "{" ? "}" : "]";
+          i++; ws();
+          if (s[i] === close) { i++; return; }
+          for (;;) {
+            if (c === "{") { ws(); str(); ws(); if (s[i] !== ":") { fail(); } i++; }
+            val(); ws();
+            if (s[i] === ",") { i++; continue; }
+            if (s[i] === close) { i++; return; }
+            fail();
+          }
+        }
+        if (c === "\"") { str(); return; }
+        if ((m = /^(?:true|false|null)/.exec(s.slice(i, i + 5)))) { i += m[0].length; return; }
+        if ((m = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(s.slice(i, i + 400)))) { i += m[0].length; return; }
+        fail();
+      };
+      try { val(); ws(); if (i < n) { fail(); } return -1; } catch (p) { return typeof p === "number" ? p : n; }
+    };
+    var syntax = function () {
+      if (lang !== "json") { return { ok: true }; }
+      var text = editor.value;
+      try { JSON.parse(text); return { ok: true }; } catch (e) {
+        var msg = String(e.message || e).replace(/^JSON\.parse: /, "").replace(/ of the JSON data$/, "")
+          .replace(/ in JSON at position \d+( \(line \d+ column \d+\))?/, "").replace(/ at line \d+ column \d+/, "")
+          .replace(/, ".*" is not valid JSON$/, "").replace(/^JSON Parse error: /, "");
+        var pos = jsonErrorAt(text);
+        if (pos < 0) { pos = text.length; }
+        var at = where(text, pos);
+        return { ok: false, pos: pos, line: at.line, col: at.col, text: "JSON syntax: " + msg };
+      }
+    };
+    var markGutter = function (lines) {
+      for (var i = 0; i < gutter.children.length; i++) {
+        gutter.children[i].classList.toggle("badge-bad", !!lines[i + 1]);
+        gutter.children[i].classList.toggle("fw-bold", !!lines[i + 1]);
+      }
+    };
+
+    var syncGutter = function () {
+      var n = editor.value.split("\n").length;
+      if (editor.value.slice(-1) === "\n") { n--; }
+      n = Math.max(n, 1);
+      while (gutter.children.length < n) { gutter.appendChild(document.createElement("li")); }
+      while (gutter.children.length > n) { gutter.removeChild(gutter.lastChild); }
+      editor.style.height = "auto";
+      editor.style.height = editor.scrollHeight + "px";
+    };
+    var setStatus = function (cls, text) {
+      while (statusBox.firstChild) { statusBox.removeChild(statusBox.firstChild); }
+      statusBox.appendChild(el("span", "badge " + cls, text));
+      if (editor.value !== saved) { statusBox.appendChild(el("span", "text-secondary small", "unsaved changes")); }
+    };
+    var lineOf = function (f) { return f.line ? "line " + f.line + ", column " + f.col + ": " : ""; };
+    var show = function (res, label) {
+      var marks = {};
+      while (findings.firstChild) { findings.removeChild(findings.firstChild); }
+      (res.findings || []).forEach(function (f) {
+        var li = el("li", "finding finding-" + f.level);
+        li.appendChild(document.createTextNode(f.level === "error" ? "✗ " : f.level === "warn" ? "! " : "✓ "));
+        if (f.line) {
+          var a = el("a", "", "line " + f.line + ", column " + f.col);
+          a.href = "#editor-text";
+          a.setAttribute("data-editor-line", f.line);
+          a.setAttribute("data-editor-col", f.col);
+          li.appendChild(a);
+          li.appendChild(document.createTextNode(": "));
+          if (f.level === "error") { marks[f.line] = true; }
+        }
+        li.appendChild(el("span", "finding-text", f.text));
+        findings.appendChild(li);
+      });
+      markGutter(marks);
+      var word = label || (res.ok ? "Valid" : res.problems + " problem(s)");
+      title.textContent = word;
+      setStatus(res.ok ? "badge-ok" : "badge-bad", word);
+      if (save) { save.disabled = !res.ok; }
+    };
+    // check runs the in-browser check and redraws; it answers whether the
+    // text is worth sending to the server.
+    var check = function () {
+      var r = syntax();
+      render(r.ok ? -1 : r.pos);
+      if (!r.ok) {
+        show({ ok: false, problems: 1, findings: [{ level: "error", text: r.text, line: r.line, col: r.col }] }, "JSON syntax error");
+      }
+      return r;
+    };
+    var post = function (url) {
+      var body = new URLSearchParams();
+      body.set("content", editor.value);
+      body.set("csrf", csrf);
+      return fetch(url, {
+        method: "POST",
+        headers: { "Accept": "application/json", "X-CSRF-Token": csrf, "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString(),
+        credentials: "same-origin"
+      }).then(function (r) {
+        if (!r.ok && (r.headers.get("Content-Type") || "").indexOf("json") < 0) { throw new Error("the server answered " + r.status); }
+        return r.json();
+      });
+    };
+    var validate = function (btn) {
+      var local = check();
+      if (!local.ok) {
+        ++seq; // a server answer still in flight is now stale
+        if (btn) { showToast("danger", "JSON syntax error", (local.line ? lineOf(local) : "") + local.text); }
+        return Promise.resolve();
+      }
+      var mine = ++seq;
+      if (btn) { busyStart(btn, "Validating"); }
+      setStatus("badge-info", "Checking…");
+      return post(form.getAttribute("data-validate-url")).then(function (res) {
+        if (mine === seq) { show(res); }
+        if (btn) {
+          var first = (res.findings || []).filter(function (f) { return f.level === "error"; })[0];
+          if (res.ok) { showToast("success", "Valid", "No problems found. Save when ready."); }
+          else { showToast("danger", res.problems + " problem(s)", first ? lineOf(first) + first.text : ""); }
+        }
+      }).catch(function (err) {
+        setStatus("badge-warn", "Not checked");
+        if (btn) { showToast("danger", "Could not validate", String(err.message || err)); }
+      }).then(function () { if (btn) { busyEnd(btn); } });
+    };
+    var fix = function (btn) {
+      busyStart(btn, "Fixing");
+      post(btn.getAttribute("data-fix-url")).then(function (res) {
+        if (res.text === undefined) { throw new Error((res.findings && res.findings[0] && res.findings[0].text) || "Fix failed"); }
+        var list = document.getElementById("editor-fix-list");
+        var diff = document.getElementById("editor-fix-diff");
+        if (!res.changes.length) {
+          fixCard.hidden = true;
+          showToast("info", "Nothing to fix", "Fix found nothing it can repair safely.");
+          show(res);
+          return;
+        }
+        editor.value = res.text;
+        syncGutter();
+        check();
+        while (list.firstChild) { list.removeChild(list.firstChild); }
+        res.changes.forEach(function (c) { list.appendChild(el("li", "", c)); });
+        diff.firstElementChild.textContent = res.diff;
+        diff.hidden = !res.diff;
+        fixCard.hidden = false;
+        show(res);
+        showToast("info", "Fix made " + res.changes.length + " change(s)", "Review them in the editor, then Save.");
+      }).catch(function (err) {
+        showToast("danger", "Could not fix", String(err.message || err));
+      }).then(function () { busyEnd(btn); });
+    };
+    form.addEventListener("click", function (ev) {
+      var btn = ev.target.closest && ev.target.closest("[data-editor-action]");
+      if (!btn || !window.fetch) { return; }
+      ev.preventDefault();
+      if (btn.getAttribute("data-editor-action") === "fix") { fix(btn); } else { validate(btn); }
+    });
+    var frame = 0;
+    editor.addEventListener("input", function () {
+      syncGutter();
+      if (save) { save.disabled = true; }
+      window.clearTimeout(timer);
+      window.cancelAnimationFrame(frame);
+      // Redraw at once, check the syntax in the browser, and ask the server
+      // only once the text parses and typing has paused.
+      frame = window.requestAnimationFrame(function () {
+        if (check().ok) {
+          setStatus("badge-muted", "Not checked");
+          timer = window.setTimeout(function () { validate(null); }, 400);
+        } else {
+          window.clearTimeout(timer);
+        }
+      });
+    });
+    syncGutter();
+    check();
+  }
+
+  var job = document.getElementById("job");
+  if (!job || job.getAttribute("data-live") !== "1" || !window.EventSource) {
+    return;
+  }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) { n.className = cls; }
+    if (text !== undefined) { n.textContent = text; }
+    return n;
+  }
+  function badgeClass(status) {
+    switch (status) {
+      case "succeeded": case "synced": case "up-to-date": case "finished": return "badge badge-ok";
+      case "running": case "started": return "badge badge-info";
+      case "cancelled": return "badge badge-muted";
+      case "needs-review": return "badge badge-warn";
+      default: return "badge badge-bad";
+    }
+  }
+  function clock(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? "" : d.toISOString().substring(11, 19);
+  }
+
+  var packs = document.getElementById("job-packs");
+  var stages = document.getElementById("job-stages");
+  var status = document.getElementById("job-status");
+
+  function packItem(name) {
+    var items = packs.querySelectorAll("[data-pack]");
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].getAttribute("data-pack") === name) { return items[i]; }
+    }
+    var empty = packs.querySelector("[data-role=empty]");
+    if (empty) { empty.remove(); }
+    var li = el("li", "list-group-item");
+    li.setAttribute("data-pack", name);
+    var row = el("div", "d-flex justify-content-between");
+    row.appendChild(el("code", "", name));
+    var badge = el("span", "badge", "");
+    badge.setAttribute("data-role", "status");
+    row.appendChild(badge);
+    li.appendChild(row);
+    packs.appendChild(li);
+    return li;
+  }
+  function setLine(parent, role, cls, text) {
+    var n = parent.querySelector("[data-role=" + role + "]");
+    if (!text) { if (n) { n.remove(); } return; }
+    if (!n) { n = el("div", cls); n.setAttribute("data-role", role); parent.appendChild(n); }
+    n.textContent = text;
+  }
+
+  var handlers = {
+    "log": function (e) {
+      var li = el("li", "log-line log-" + (e.level || "info"));
+      var t = el("time", "", clock(e.time));
+      t.setAttribute("datetime", e.time);
+      li.appendChild(t);
+      li.appendChild(document.createTextNode(" "));
+      li.appendChild(el("span", "log-level", e.level || "info"));
+      li.appendChild(document.createTextNode(" " + (e.msg || "")));
+      if (e.attrs) {
+        Object.keys(e.attrs).sort().forEach(function (k) {
+          li.appendChild(document.createTextNode(" "));
+          li.appendChild(el("span", "log-attr", k + "=" + e.attrs[k]));
+        });
+      }
+      log.appendChild(li);
+      scrollLog();
+    },
+    "stage": function (e) {
+      var key = e.pipeline + "|" + e.stage;
+      var item = null;
+      var items = stages.querySelectorAll("[data-stage]");
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].getAttribute("data-stage") === key) { item = items[i]; }
+      }
+      if (!item) {
+        item = el("li", "list-group-item");
+        item.setAttribute("data-stage", key);
+        var b = el("span", "", "");
+        b.setAttribute("data-role", "state");
+        item.appendChild(b);
+        item.appendChild(el("code", "", e.stage));
+        item.appendChild(document.createTextNode(" "));
+        item.appendChild(el("span", "text-secondary small", e.pipeline));
+        stages.appendChild(item);
+      }
+      var state = item.querySelector("[data-role=state]");
+      state.className = badgeClass(e.state) + " me-2";
+      state.textContent = e.state;
+      setLine(item, "error", "text-danger small text-break", e.error || "");
+      var working = item.querySelector("[data-role=stage-progress]");
+      if (e.state === "started" && !working) {
+        working = el("div", "progress progress-sm mt-1");
+        working.setAttribute("data-role", "stage-progress");
+        working.setAttribute("role", "progressbar");
+        working.setAttribute("aria-label", e.stage + " in progress");
+        working.appendChild(el("div", "progress-bar progress-bar-indeterminate"));
+        item.appendChild(working);
+      } else if (e.state !== "started" && working) {
+        working.remove();
+      }
+    },
+    "pack-start": function (e) {
+      var li = packItem(e.pack);
+      var b = li.querySelector("[data-role=status]");
+      b.className = badgeClass("running");
+      b.textContent = "running";
+      setLine(li, "detail", "text-secondary small", e.msg || "");
+      status.textContent = "Running: " + e.pack;
+    },
+    "pack-done": function (e) {
+      var progress = document.getElementById("job-progress");
+      if (progress) {
+        progress.value = Math.min(progress.max, progress.value + 1);
+        progress.textContent = progress.value + " of " + progress.max;
+        var count = document.getElementById("job-progress-count");
+        if (count) { count.textContent = progress.value + " of " + progress.max + " packs done"; }
+      }
+      var li = packItem(e.pack);
+      var b = li.querySelector("[data-role=status]");
+      b.className = badgeClass(e.status);
+      b.textContent = e.status;
+      if (e.msg) { setLine(li, "detail", "text-secondary small", e.msg); }
+      setLine(li, "error", "text-danger small text-break", e.error || "");
+      status.textContent = e.pack + ": " + e.status;
+    },
+    "done": function (e) {
+      status.textContent = "Run " + e.status + (e.error ? ": " + e.error : "") + ". Reloading the final summary.";
+      source.close();
+      window.setTimeout(function () { window.location.replace(window.location.pathname + "?finished=1"); }, 1500);
+    }
+  };
+
+  var url = job.getAttribute("data-events-url") + "?after=" + encodeURIComponent(job.getAttribute("data-last-id") || "0");
+  var source = new EventSource(url);
+  Object.keys(handlers).forEach(function (type) {
+    source.addEventListener(type, function (msg) {
+      var data;
+      try { data = JSON.parse(msg.data); } catch (err) { return; }
+      handlers[type](data);
+    });
+  });
+})();

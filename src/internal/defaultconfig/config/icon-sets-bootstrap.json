@@ -1,0 +1,32 @@
+{
+  "_note": "bootstrap-icons' icons/ straight into files/. `-fill` names stay separate icons. Upstream files already satisfy the policy. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 2,078 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-bootstrap",
+  "pack": "ichava/icon-sets-bootstrap",
+  "pack_root": "/work/icon-sets-bootstrap",
+  "current_version": "1.13.2",
+  "version_check_url": "https://registry.npmjs.org/bootstrap-icons/latest",
+  "licence": "MIT",
+  "licence_sha256": "0fb3e11bd57e896c5a512afd64864d28a37de45d19835016c87ca1ad19ead969",
+  "licence_set": "bootstrap",
+  "source": {
+    "type": "npm",
+    "package": "bootstrap-icons",
+    "source_path": "icons"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

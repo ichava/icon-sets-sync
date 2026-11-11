@@ -1,0 +1,43 @@
+{
+  "_note": "One of the 20 sets of ichava/icon-sets-extras, each refreshed by its own config into files/<set>/ and licenses/<set>/, with its version recorded at upstream.sets.<set>.current_version in the pack's config.json. <contributor>/<name>.svg kept, one directory per contributor, so every icon stays attributable. badges/ and various-artists/ are excluded: license.txt does not name them, so no licence is stated for them. license.txt is the project's own CC-BY-3.0 statement rather than the CC text, so it is pinned by SHA-256. Upstream has no tags, so the version is a commit. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 4,178 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-extras-game-icons",
+  "pack": "ichava/icon-sets-extras",
+  "pack_root": "/work/icon-sets-extras",
+  "current_version": "82d948812bfe3f269ef8f731dcdb07b08160edc4",
+  "version_keys": [
+    "upstream.sets.game-icons.current_version"
+  ],
+  "version_check_url": "https://api.github.com/repos/game-icons/icons/commits/master",
+  "licence_sha256": "fac95252798668fab5ea2cb08338f2ebc6bf894a72b19a15af1ca62f0a6d2e79",
+  "licence_set": "game-icons",
+  "source": {
+    "type": "github-archive",
+    "owner": "game-icons",
+    "repo": "icons",
+    "archive_url": "https://github.com/game-icons/icons/archive/{version}.tar.gz",
+    "source_path": "."
+  },
+  "transforms": [
+    {
+      "type": "exclude",
+      "directories": [
+        "badges",
+        "various-artists"
+      ]
+    },
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files/game-icons"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-game-icons-{version}"
+    }
+  ]
+}

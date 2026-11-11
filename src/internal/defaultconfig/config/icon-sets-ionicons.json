@@ -1,0 +1,48 @@
+{
+  "_note": "ionicons' dist/svg holds <name>.svg, <name>-outline.svg and <name>-sharp.svg, plus the logo-*.svg files. split-variants writes outline/, sharp/ and filled/, the last taking every unsuffixed name, logos included. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 1,357 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-ionicons",
+  "pack": "ichava/icon-sets-ionicons",
+  "pack_root": "/work/icon-sets-ionicons",
+  "current_version": "8.1.0",
+  "version_check_url": "https://registry.npmjs.org/ionicons/latest",
+  "licence": "MIT",
+  "licence_sha256": "c89dabc60b2e4e1a04b33bd7010b5a56bb4725ffe8c00d793a5ae009fbbfebd8",
+  "source": {
+    "type": "npm",
+    "package": "ionicons",
+    "source_path": "dist/svg"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    },
+    {
+      "type": "split-variants",
+      "variants": [
+        {
+          "path": "outline",
+          "suffix": "-outline"
+        },
+        {
+          "path": "sharp",
+          "suffix": "-sharp"
+        },
+        {
+          "path": "filled",
+          "suffix": ""
+        }
+      ]
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

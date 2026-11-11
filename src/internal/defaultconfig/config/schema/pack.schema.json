@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ichava:icon-sets-sync:pack.schema.json",
+  "title": "icon-sets-sync pack config",
+  "description": "One config/<pack>.json (or .yaml). Validated on load; a file that fails is never run. Keys beginning with an underscore are authoring notes and are ignored.",
+  "type": "object",
+  "required": ["name", "pack", "pack_root", "version_check_url", "source"],
+  "additionalProperties": false,
+  "patternProperties": {
+    "^_": {}
+  },
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Editor hint. Ignored by the loader."
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 100,
+      "description": "The pack slug, and the config's file name without .json: lowercase letters a-z and digits in words joined by single hyphens, e.g. icon-sets-tabler or icon-sets-extras-feather. No dots, underscores, capitals or spaces."
+    },
+    "pack": {
+      "type": "string",
+      "pattern": "^[a-z0-9]([_.-]?[a-z0-9]+)*/[a-z0-9](([_.]|-{1,2})?[a-z0-9]+)*$",
+      "description": "Composer package name, e.g. ichava/icon-sets-tabler."
+    },
+    "pack_root": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the pack repository. Absolute, ~-prefixed, or relative to the `workspace` setting."
+    },
+    "current_version": {
+      "type": "string",
+      "description": "Fallback only. The version recorded in the pack repo's version_file wins."
+    },
+    "version_file": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Pack-relative JSON file recording the vendored upstream version."
+    },
+    "version_keys": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Dot-paths inside version_file. Read first-hit-wins, written at every existing key."
+    },
+    "version_check_url": {
+      "type": "string",
+      "pattern": "^https?://",
+      "description": "URL polled for the latest upstream version."
+    },
+    "recipe": {
+      "type": "string",
+      "enum": ["auto", "generic", "twemoji-sets", "openmoji-sets", "manifest-pack"],
+      "description": "Which recipe builds the pipelines. `auto` (the default) picks `generic` for an npm or github-* source and nothing otherwise; it never looks at the pack's name. `twemoji-sets`, `openmoji-sets` and `manifest-pack` are only ever chosen by naming them here. `manifest-pack` refreshes one pipeline per set in the pack's set manifest."
+    },
+    "licence": {
+      "type": "string",
+      "enum": ["Apache-2.0", "CC-BY-3.0", "CC-BY-4.0", "CC-BY-SA-4.0", "CC0-1.0", "ISC", "MIT"],
+      "description": "SPDX id the upstream is expected to carry. The licence-text sink blocks a sync whose upstream licence text no longer opens as this licence."
+    },
+    "licence_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 one of the upstream's licence files must have. The licence-text sink blocks a sync whose upstream licence text changed by a byte. For a licence with no standard text, or to pin one exactly."
+    },
+    "licence_set": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "Directory under resources/assets/svg/licenses the upstream's licence texts are written to. Defaults to one named after the npm package or GitHub repository."
+    },
+    "licence_from": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Upstream directory, relative to its root, the licence files are read from, for an upstream whose icons carry their own licence in a sub-directory. Defaults to the root."
+    },
+    "licence_missing": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Why the upstream ships no licence file at its root, with the evidence. Lets a sync run and reports the gap; the text is supplied by hand in the pack beside a source.md."
+    },
+    "source": { "$ref": "#/$defs/source" },
+    "sinks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sink" }
+    },
+    "transforms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/transform" },
+      "description": "Transforms run after source.source_path is applied. Empty means the default: sanitise."
+    },
+    "settings": { "$ref": "#/$defs/settings" }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "patternProperties": { "^_": {} },
+      "properties": {
+        "type": {
+          "enum": ["npm", "github-archive", "github-tag", "github-release", "url", "script"]
+        },
+        "package": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "repo": { "type": "string", "minLength": 1 },
+        "archive_url": { "type": "string", "pattern": "^https?://" },
+        "source_path": { "type": "string" },
+        "path": { "type": "string" },
+        "args": { "type": "array", "items": { "type": "string" } },
+        "max_download_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967296,
+          "description": "Raises the 1 GiB archive download cap for this source, for an upstream whose tagged archive is larger. At most 4 GiB."
+        },
+        "version_field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Dot-path into the version_check_url response, for type url. Defaults to `version`."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "npm" } } },
+          "then": { "required": ["package"] }
+        }
+      ]
+    },
+    "sink": {
+      "type": "object",
+      "required": ["type"],
+      "patternProperties": { "^_": {} },
+      "properties": {
+        "type": { "enum": ["filesystem", "git-branch"] }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "filesystem" },
+            "root": { "type": "string", "minLength": 1 },
+            "incremental": { "type": "boolean" },
+            "min_retention": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "required": ["root"],
+          "additionalProperties": false,
+          "patternProperties": { "^_": {} }
+        },
+        {
+          "properties": {
+            "type": { "const": "git-branch" },
+            "repo_root": { "type": "string", "minLength": 1 },
+            "branch": { "type": "string", "minLength": 1 },
+            "commit_subject": { "type": "string", "minLength": 1 },
+            "commit_body": { "type": "string" },
+            "base": { "type": "string", "minLength": 1 },
+            "open_pr": { "type": "boolean" }
+          },
+          "additionalProperties": false,
+          "patternProperties": { "^_": {} }
+        }
+      ]
+    },
+    "transform": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["subset", "sanitise", "slugify", "categorise", "indexer", "flatten-variants", "split-variants", "exclude"] }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "subset" },
+            "subdir": { "type": "string", "minLength": 1 }
+          },
+          "required": ["subdir"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": { "const": "sanitise" },
+            "also_strip_class": { "type": "boolean" },
+            "strict": { "type": "boolean" },
+            "report_only": { "type": "boolean" },
+            "drop_unparsable": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": { "const": "slugify" },
+            "dirs": { "type": "boolean" },
+            "hyphenate_dots": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": { "const": "categorise" },
+            "by": { "enum": ["cldr", "passthrough"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": { "const": "indexer" },
+            "targets": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "enum": ["codepoints", "names"] }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": { "const": "flatten-variants" },
+            "separator": { "type": "string" },
+            "slug": { "type": "boolean" },
+            "variants": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["path"],
+                "additionalProperties": false,
+                "properties": {
+                  "path": { "type": "string", "minLength": 1 },
+                  "prefix": { "type": "string" },
+                  "suffix": { "type": "string" }
+                }
+              }
+            }
+          },
+          "required": ["variants"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": { "const": "split-variants" },
+            "variants": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["path"],
+                "additionalProperties": false,
+                "properties": {
+                  "path": { "type": "string", "minLength": 1 },
+                  "from": { "type": "string" },
+                  "suffix": { "type": "string" },
+                  "flatten_prefix": { "type": "boolean" }
+                }
+              }
+            }
+          },
+          "required": ["variants"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": { "const": "exclude" },
+            "names": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+            "directories": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+            "metadata": {
+              "type": "object",
+              "required": ["file", "name", "field"],
+              "additionalProperties": false,
+              "properties": {
+                "file": { "type": "string", "minLength": 1 },
+                "name": { "type": "string", "minLength": 1 },
+                "field": { "type": "string", "minLength": 1 },
+                "allow": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "anyOf": [
+            { "required": ["names"] },
+            { "required": ["directories"] },
+            { "required": ["metadata"] }
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "settings": {
+      "type": "object",
+      "description": "Per-pack settings. Overridden by the global config, ICHAVA_* environment variables and flags, in that order.",
+      "additionalProperties": false,
+      "properties": {
+        "dry_run": { "type": "boolean" },
+        "force": { "type": "boolean" },
+        "git": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "author": { "type": "string", "pattern": "^[^<>]+ <[^<>@]+@[^<>]+>$" },
+            "base": { "type": "string", "minLength": 1 },
+            "branch": { "type": "string", "minLength": 1 },
+            "commit_subject": { "type": "string", "minLength": 1 },
+            "commit_body": { "type": "string" },
+            "open_pr": { "type": "boolean" }
+          }
+        },
+        "emoji": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "unicode_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" }
+          }
+        }
+      }
+    }
+  }
+}

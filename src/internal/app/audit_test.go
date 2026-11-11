@@ -1,0 +1,182 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
+)
+
+func sprintf(format string, a ...any) string { return fmt.Sprintf(format, a...) }
+
+// copyFetcher "downloads" a package by copying a prepared directory, so the
+// audit's own scoring runs against real bytes without npm.
+type copyFetcher map[string]string
+
+func (f copyFetcher) Fetch(_ context.Context, pkg, dest string) (string, error) {
+	src, ok := f[pkg]
+	if !ok {
+		return "", errors.New("no such package")
+	}
+	// NpmFetcher extracts under dest/x/package; the resolver looks there.
+	dest = filepath.Join(dest, "x", "package")
+	if err := os.MkdirAll(dest, 0o755); err != nil {
+		return "", err
+	}
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return "", err
+	}
+	for _, e := range entries {
+		b, err := os.ReadFile(filepath.Join(src, e.Name()))
+		if err != nil {
+			return "", err
+		}
+		if err := os.WriteFile(filepath.Join(dest, e.Name()), b, 0o644); err != nil {
+			return "", err
+		}
+	}
+	return "1.2.3", nil
+}
+
+func manifestPackFixture(t *testing.T) (configDir, upstream string) {
+	t.Helper()
+	root := t.TempDir()
+	packRoot := filepath.Join(root, "icon-sets-bundled")
+	set := filepath.Join(packRoot, "resources", "assets", "svg", "files", "demo-icons")
+	upstream = filepath.Join(root, "upstream")
+	for _, d := range []string{set, upstream} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := range 3 {
+		body := fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M%d 0h1"/></svg>`, i)
+		for _, d := range []string{set, upstream} {
+			if err := os.WriteFile(filepath.Join(d, fmt.Sprintf("icon-%d.svg", i)), []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	configDir = filepath.Join(root, "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	pack := `{"name": "icon-sets-bundled", "pack": "ichava/icon-sets-bundled", "pack_root": "` + packRoot + `",
+  "current_version": "1.0.0", "version_check_url": "https://example.invalid/latest",
+  "source": {"type": "npm", "package": "demo"}, "sinks": []}`
+	if err := os.WriteFile(filepath.Join(configDir, ManifestPack+".json"), []byte(pack), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return configDir, upstream
+}
+
+func TestAuditManifestPackScoresAgainstTheCommittedBytes(t *testing.T) {
+	configDir, upstream := manifestPackFixture(t)
+	var started int
+	var done []string
+	results, err := AuditManifestPack(context.Background(), AuditOptions{
+		SetDone:   func(r manifestpack.Resolution) { done = append(done, r.Set) },
+		ConfigDir: configDir,
+		Set:       "demo-icons",
+		Package:   "demo-pkg",
+		WorkDir:   t.TempDir(),
+		Fetcher:   copyFetcher{"demo-pkg": upstream},
+		Starting:  func(n int, _ string) { started = n },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if started != 1 || len(results) != 1 || len(done) != 1 || done[0] != "demo-icons" {
+		t.Fatalf("started %d, results %+v", started, results)
+	}
+	r := results[0]
+	if r.Confidence != manifestpack.ConfidenceExact || r.Identical != 3 || r.Package != "demo-pkg" {
+		t.Fatalf("resolution %+v", r)
+	}
+}
+
+func TestAuditManifestPackPackageNeedsASet(t *testing.T) {
+	configDir, _ := manifestPackFixture(t)
+	_, err := AuditManifestPack(context.Background(), AuditOptions{ConfigDir: configDir, Package: "x", Fetcher: copyFetcher{}})
+	if !IsUsage(err) {
+		t.Fatalf("want a usage error, got %v", err)
+	}
+}
+
+// TestResolveSetsRefusesASetThatLeavesTheFilesRoot is go/path-injection: the
+// set name comes from the audit form, and one that climbs out of the files
+// root must be refused before anything is fetched or read.
+func TestResolveSetsRefusesASetThatLeavesTheFilesRoot(t *testing.T) {
+	root := t.TempDir()
+	filesRoot := filepath.Join(root, "files")
+	if err := os.MkdirAll(filepath.Join(root, "elsewhere"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "elsewhere", "icon.svg"), []byte("<svg/>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fetched := recordingFetcher{}
+	res := ResolveSets(context.Background(), []string{"../elsewhere"}, filesRoot, t.TempDir(), 1, "", fetched)
+	if len(res) != 1 || res[0].Confidence != manifestpack.ConfidenceNone || res[0].Icons != 0 {
+		t.Errorf("a set outside the files root was surveyed: %+v", res)
+	}
+	if len(fetched) != 0 {
+		t.Errorf("fetched %v for a set outside the files root", fetched)
+	}
+}
+
+type recordingFetcher map[string]string
+
+func (f recordingFetcher) Fetch(_ context.Context, pkg, dest string) (string, error) {
+	f[pkg] = dest
+	return "", errors.New("no network in tests")
+}
+
+// "tabler" is not a set in the aggregator pack ("tabler-icons" is). The audit
+// used to accept the name, read a directory that does not exist, and report
+// the run as succeeded with an lstat error in the set's note (2026-11-09).
+func TestAuditRefusesAnUnknownSetAndSuggestsOne(t *testing.T) {
+	configDir, _ := manifestPackFixture(t)
+	_, err := AuditManifestPack(context.Background(), AuditOptions{ConfigDir: configDir, Set: "demo", Fetcher: copyFetcher{}})
+	if !IsUsage(err) {
+		t.Fatalf("want a usage error, got %v", err)
+	}
+	var unknown *UnknownSetError
+	if !errors.As(err, &unknown) || len(unknown.Suggestions) != 1 || unknown.Suggestions[0] != "demo-icons" {
+		t.Fatalf("err = %#v", err)
+	}
+	if got := err.Error(); got != `there is no set "demo" in icon-sets-bundled; did you mean demo-icons?` {
+		t.Errorf("message = %q", got)
+	}
+}
+
+func TestSuggestSets(t *testing.T) {
+	sets := []string{"tabler-icons", "tabler-flags", "lucide-icons", "mdi", "twemoji"}
+	for in, want := range map[string]string{
+		"tabler": "tabler-flags tabler-icons", "lucide": "lucide-icons", "tabler-icon": "tabler-icons",
+		"mdl": "mdi", "nothing-like-it": "",
+	} {
+		got := fmt.Sprint(SuggestSets(in, sets))
+		if want == "" && got != "[]" || want != "" && got != "["+want+"]" {
+			t.Errorf("SuggestSets(%q) = %s, want [%s]", in, got, want)
+		}
+	}
+}
+
+// A set that cannot be read is an error, apart from an unresolved one: the
+// survey could not look at it.
+func TestAnUnreadableSetIsAnError(t *testing.T) {
+	root := t.TempDir()
+	rs := ResolveSets(context.Background(), []string{"missing"}, root, t.TempDir(), 1, "", copyFetcher{})
+	if len(rs) != 1 || rs[0].Error == "" || rs[0].Confidence != manifestpack.ConfidenceNone {
+		t.Fatalf("%+v", rs)
+	}
+	if manifestpack.CountErrors(rs) != 1 {
+		t.Errorf("CountErrors = %d", manifestpack.CountErrors(rs))
+	}
+}
