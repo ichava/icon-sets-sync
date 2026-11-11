@@ -10,6 +10,7 @@ import (
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/confighistory"
+	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
 )
 
@@ -57,6 +58,9 @@ type editorData struct {
 	// "same" after one found nothing to change.
 	Init   *GlobalInitInfo
 	Reinit string
+	// Lang is "json" or "yaml", for the editor's highlighting and its
+	// in-browser syntax check.
+	Lang string
 }
 
 func (s *Server) editorView(r *http.Request, doc ConfigDoc, text, base string) editorData {
@@ -71,6 +75,10 @@ func (s *Server) editorView(r *http.Request, doc ConfigDoc, text, base string) e
 		Doc: doc, Text: text, Base: base, Lines: make([]struct{}, n),
 		Saved:    r.URL.Query().Get("saved") == "1",
 		Editable: !s.opts.ReadOnly && !doc.ReadOnly,
+		Lang:     "json",
+	}
+	if docfile.IsYAML(doc.Path) {
+		d.Lang = "yaml"
 	}
 	if doc.Kind == KindGlobal {
 		d.Keys = keyHints()

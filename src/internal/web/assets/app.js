@@ -483,6 +483,174 @@
     var seq = 0;
     var saved = editor.value;
     var csrf = document.querySelector("meta[name=csrf-token]").getAttribute("content");
+    var lang = editor.getAttribute("data-lang") || "json";
+    var hl = document.getElementById("editor-hl");
+    var hlCode = hl && hl.firstElementChild;
+    var hlMax = 200000; // past this the editor stays plain: highlighting is a convenience
+
+    // Highlighting: the text is cut into tokens by a small scanner and
+    // written into the <pre> under the textarea as text nodes and spans,
+    // never as markup. A JSON syntax error is underlined where it is.
+    var jsonTok = /("(?:[^"\\\n]|\\.)*"?)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b|([{}\[\],:])|(\s+)|([^\s"{}\[\],:]+)/g;
+    var tokensJSON = function (text) {
+      var out = [], m;
+      jsonTok.lastIndex = 0;
+      while ((m = jsonTok.exec(text)) !== null) {
+        var cls = "";
+        if (m[1] !== undefined) {
+          var rest = text.slice(jsonTok.lastIndex).match(/^\s*:/);
+          cls = rest ? "tok-key" : "tok-str";
+        } else if (m[2] !== undefined) { cls = "tok-num"; }
+        else if (m[3] !== undefined) { cls = "tok-lit"; }
+        else if (m[4] !== undefined) { cls = "tok-punc"; }
+        out.push([cls, m[0]]);
+      }
+      return out;
+    };
+    var yamlScalar = /^(?:true|false|null|yes|no|on|off|~)$/i;
+    var tokensYAML = function (text) {
+      var out = [];
+      text.split(/(\n)/).forEach(function (line) {
+        if (line === "\n" || line === "") { out.push(["", line]); return; }
+        var body = line, comment = "";
+        var hash = line.search(/(^|\s)#/);
+        if (hash >= 0 && !/["']/.test(line.slice(0, hash))) {
+          var at = line[hash] === "#" ? hash : hash + 1;
+          body = line.slice(0, at); comment = line.slice(at);
+        }
+        var km = body.match(/^(\s*(?:-\s+)?)((?!-\s)[^\s:#"'][^:#]*?|"[^"]*"|'[^']*')(:)(?=\s|$)/);
+        var rest = body;
+        if (km) {
+          out.push(["", km[1]], ["tok-key", km[2]], ["tok-punc", km[3]]);
+          rest = body.slice(km[0].length);
+        } else {
+          var dash = body.match(/^(\s*)(-)(?=\s|$)/);
+          if (dash) { out.push(["", dash[1]], ["tok-punc", dash[2]]); rest = body.slice(dash[0].length); }
+        }
+        var vm = rest.match(/^(\s*)(.*?)(\s*)$/);
+        var v = vm[2], cls = "";
+        if (/^(["']).*\1$/.test(v)) { cls = "tok-str"; }
+        else if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v)) { cls = "tok-num"; }
+        else if (yamlScalar.test(v)) { cls = "tok-lit"; }
+        else if (/^[\[\]{}|>]/.test(v)) { cls = "tok-punc"; }
+        else if (v) { cls = "tok-str"; }
+        out.push(["", vm[1]], [cls, v], ["", vm[3]]);
+        if (comment) { out.push(["tok-com", comment]); }
+      });
+      return out;
+    };
+    var render = function (errAt) {
+      if (!hlCode) { return; }
+      var text = editor.value;
+      if (text.length > hlMax) {
+        hl.parentNode.parentNode.classList.remove("editor-hl-on");
+        while (hlCode.firstChild) { hlCode.removeChild(hlCode.firstChild); }
+        return;
+      }
+      var toks = lang === "yaml" ? tokensYAML(text) : tokensJSON(text);
+      var errEnd = -1;
+      if (errAt >= 0) {
+        errEnd = text.indexOf("\n", errAt);
+        if (errEnd < 0) { errEnd = text.length; }
+        if (errEnd === errAt) { errEnd = errAt + 1; }
+      }
+      var frag = document.createDocumentFragment();
+      var pos = 0;
+      var put = function (cls, str) {
+        if (!str) { return; }
+        frag.appendChild(cls ? el("span", cls, str) : document.createTextNode(str));
+      };
+      toks.forEach(function (t) {
+        var str = t[1], end = pos + str.length;
+        if (errEnd > errAt && errAt < end && errEnd > pos) {
+          var a = Math.max(errAt, pos) - pos, b = Math.min(errEnd, end) - pos;
+          put(t[0], str.slice(0, a));
+          put("tok-err", str.slice(a, b));
+          put(t[0], str.slice(b));
+        } else {
+          put(t[0], str);
+        }
+        pos = end;
+      });
+      if (errAt >= text.length) { put("tok-err", " "); }
+      // A trailing newline needs a character after it, or the <pre> is a
+      // line shorter than the textarea.
+      frag.appendChild(document.createTextNode("\n"));
+      while (hlCode.firstChild) { hlCode.removeChild(hlCode.firstChild); }
+      hlCode.appendChild(frag);
+      hl.parentNode.parentNode.classList.add("editor-hl-on");
+    };
+
+    // The in-browser check: JSON must parse before the server is asked
+    // anything, and a syntax error is shown at once, with its place.
+    var where = function (text, pos) {
+      var before = text.slice(0, pos).split("\n");
+      return { line: before.length, col: before[before.length - 1].length + 1 };
+    };
+    // jsonErrorAt is where JSON stops being JSON: a small scanner, because
+    // only some browsers put the place in JSON.parse's message.
+    var jsonErrorAt = function (s) {
+      var i = 0, n = s.length;
+      var fail = function () { throw i; };
+      var ws = function () { while (i < n && " \t\n\r".indexOf(s[i]) >= 0) { i++; } };
+      var str = function () {
+        if (s[i] !== "\"") { fail(); }
+        i++;
+        while (i < n) {
+          var c = s[i];
+          if (c === "\"") { i++; return; }
+          if (c === "\\") {
+            i++;
+            if ("\"\\/bfnrt".indexOf(s[i]) >= 0 && i < n) { i++; continue; }
+            if (s[i] === "u" && /^[0-9a-fA-F]{4}$/.test(s.substr(i + 1, 4))) { i += 5; continue; }
+            fail();
+          }
+          if (c < " ") { fail(); }
+          i++;
+        }
+        fail();
+      };
+      var val = function () {
+        ws();
+        var c = s[i], m;
+        if (c === "{" || c === "[") {
+          var close = c === "{" ? "}" : "]";
+          i++; ws();
+          if (s[i] === close) { i++; return; }
+          for (;;) {
+            if (c === "{") { ws(); str(); ws(); if (s[i] !== ":") { fail(); } i++; }
+            val(); ws();
+            if (s[i] === ",") { i++; continue; }
+            if (s[i] === close) { i++; return; }
+            fail();
+          }
+        }
+        if (c === "\"") { str(); return; }
+        if ((m = /^(?:true|false|null)/.exec(s.slice(i, i + 5)))) { i += m[0].length; return; }
+        if ((m = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(s.slice(i, i + 400)))) { i += m[0].length; return; }
+        fail();
+      };
+      try { val(); ws(); if (i < n) { fail(); } return -1; } catch (p) { return typeof p === "number" ? p : n; }
+    };
+    var syntax = function () {
+      if (lang !== "json") { return { ok: true }; }
+      var text = editor.value;
+      try { JSON.parse(text); return { ok: true }; } catch (e) {
+        var msg = String(e.message || e).replace(/^JSON\.parse: /, "").replace(/ of the JSON data$/, "")
+          .replace(/ in JSON at position \d+( \(line \d+ column \d+\))?/, "").replace(/ at line \d+ column \d+/, "")
+          .replace(/, ".*" is not valid JSON$/, "").replace(/^JSON Parse error: /, "");
+        var pos = jsonErrorAt(text);
+        if (pos < 0) { pos = text.length; }
+        var at = where(text, pos);
+        return { ok: false, pos: pos, line: at.line, col: at.col, text: "JSON syntax: " + msg };
+      }
+    };
+    var markGutter = function (lines) {
+      for (var i = 0; i < gutter.children.length; i++) {
+        gutter.children[i].classList.toggle("badge-bad", !!lines[i + 1]);
+        gutter.children[i].classList.toggle("fw-bold", !!lines[i + 1]);
+      }
+    };
 
     var syncGutter = function () {
       var n = editor.value.split("\n").length;
@@ -499,16 +667,39 @@
       if (editor.value !== saved) { statusBox.appendChild(el("span", "text-secondary small", "unsaved changes")); }
     };
     var lineOf = function (f) { return f.line ? "line " + f.line + ", column " + f.col + ": " : ""; };
-    var show = function (res) {
+    var show = function (res, label) {
+      var marks = {};
       while (findings.firstChild) { findings.removeChild(findings.firstChild); }
       (res.findings || []).forEach(function (f) {
         var li = el("li", "finding finding-" + f.level);
-        li.textContent = (f.level === "error" ? "✗ " : f.level === "warn" ? "! " : "✓ ") + lineOf(f) + f.text;
+        li.appendChild(document.createTextNode(f.level === "error" ? "✗ " : f.level === "warn" ? "! " : "✓ "));
+        if (f.line) {
+          var a = el("a", "", "line " + f.line + ", column " + f.col);
+          a.href = "#editor-text";
+          a.setAttribute("data-editor-line", f.line);
+          a.setAttribute("data-editor-col", f.col);
+          li.appendChild(a);
+          li.appendChild(document.createTextNode(": "));
+          if (f.level === "error") { marks[f.line] = true; }
+        }
+        li.appendChild(el("span", "finding-text", f.text));
         findings.appendChild(li);
       });
-      title.textContent = res.ok ? "Valid" : res.problems + " problem(s)";
-      setStatus(res.ok ? "badge-ok" : "badge-bad", res.ok ? "Valid" : res.problems + " problem(s)");
+      markGutter(marks);
+      var word = label || (res.ok ? "Valid" : res.problems + " problem(s)");
+      title.textContent = word;
+      setStatus(res.ok ? "badge-ok" : "badge-bad", word);
       if (save) { save.disabled = !res.ok; }
+    };
+    // check runs the in-browser check and redraws; it answers whether the
+    // text is worth sending to the server.
+    var check = function () {
+      var r = syntax();
+      render(r.ok ? -1 : r.pos);
+      if (!r.ok) {
+        show({ ok: false, problems: 1, findings: [{ level: "error", text: r.text, line: r.line, col: r.col }] }, "JSON syntax error");
+      }
+      return r;
     };
     var post = function (url) {
       var body = new URLSearchParams();
@@ -525,6 +716,12 @@
       });
     };
     var validate = function (btn) {
+      var local = check();
+      if (!local.ok) {
+        ++seq; // a server answer still in flight is now stale
+        if (btn) { showToast("danger", "JSON syntax error", (local.line ? lineOf(local) : "") + local.text); }
+        return Promise.resolve();
+      }
       var mine = ++seq;
       if (btn) { busyStart(btn, "Validating"); }
       setStatus("badge-info", "Checking…");
@@ -554,6 +751,7 @@
         }
         editor.value = res.text;
         syncGutter();
+        check();
         while (list.firstChild) { list.removeChild(list.firstChild); }
         res.changes.forEach(function (c) { list.appendChild(el("li", "", c)); });
         diff.firstElementChild.textContent = res.diff;
@@ -571,13 +769,25 @@
       ev.preventDefault();
       if (btn.getAttribute("data-editor-action") === "fix") { fix(btn); } else { validate(btn); }
     });
+    var frame = 0;
     editor.addEventListener("input", function () {
       syncGutter();
       if (save) { save.disabled = true; }
       window.clearTimeout(timer);
-      timer = window.setTimeout(function () { validate(null); }, 400);
+      window.cancelAnimationFrame(frame);
+      // Redraw at once, check the syntax in the browser, and ask the server
+      // only once the text parses and typing has paused.
+      frame = window.requestAnimationFrame(function () {
+        if (check().ok) {
+          setStatus("badge-muted", "Not checked");
+          timer = window.setTimeout(function () { validate(null); }, 400);
+        } else {
+          window.clearTimeout(timer);
+        }
+      });
     });
     syncGutter();
+    check();
   }
 
   var job = document.getElementById("job");

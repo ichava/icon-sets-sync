@@ -180,8 +180,10 @@
   <div class="card mb-3">
     <div class="editor">
       <ol class="editor-gutter" aria-hidden="true" id="editor-gutter"><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li></ol>
-      <label class="visually-hidden" for="editor-text">Contents of icon-sets-demo.json</label>
-      <textarea class="editor-text" id="editor-text" name="content" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-describedby="editor-findings">{
+      <div class="editor-body">
+        <pre class="editor-hl" id="editor-hl" aria-hidden="true"><code></code></pre>
+        <label class="visually-hidden" for="editor-text">Contents of icon-sets-demo.json</label>
+        <textarea class="editor-text" id="editor-text" name="content" data-lang="json" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-describedby="editor-findings">{
   &#34;_note&#34;: &#34;kept verbatim by the editor&#34;,
   &#34;name&#34;: &#34;icon-sets-demo&#34;,
   &#34;pack&#34;: &#34;ichava/icon-sets-demo&#34;,
@@ -192,6 +194,7 @@
   &#34;sinks&#34;: [{&#34;type&#34;: &#34;filesystem&#34;, &#34;root&#34;: &#34;{pack_root}/files&#34;}]
 }
 </textarea>
+      </div>
     </div>
   </div>
   <div class="btn-list mb-2 align-items-center">

@@ -157,3 +157,29 @@ func TestEditorValidatesOnOpen(t *testing.T) {
 		t.Error("the editor did not check the file on open")
 	}
 }
+
+// The editor carries the highlighting layer and the document's language,
+// which app.js reads for its highlighting and its in-browser syntax check.
+func TestEditorCarriesTheHighlightLayerAndLanguage(t *testing.T) {
+	s, eng := newTestServer(t)
+	c := signIn(t, s)
+	page := c.get("/config/global").Body.String()
+	for _, want := range []string{`id="editor-hl"`, `aria-hidden="true"`, `data-lang="json"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("editor lacks %s", want)
+		}
+	}
+	// A YAML global config is highlighted as YAML.
+	doc, _ := eng.cfg.ReadConfig(GlobalName)
+	yml := strings.TrimSuffix(doc.Path, ".json") + ".yaml"
+	if err := os.MkdirAll(strings.TrimSuffix(yml, "config.yaml"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(yml, []byte("concurrency: 2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	eng.cfg.GlobalPath = yml
+	if page := c.get("/config/global").Body.String(); !strings.Contains(page, `data-lang="yaml"`) {
+		t.Error("a YAML config is not marked yaml")
+	}
+}
