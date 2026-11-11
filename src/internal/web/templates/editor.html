@@ -9,30 +9,63 @@
   </div>
 </div>
 
-{{if .Saved}}<div class="alert alert-success" role="status">{{icon "circle-check"}} Saved. The next run reads it.</div>{{end}}
+{{if .Saved}}<div class="alert alert-success" role="status">{{icon "circle-check"}} Saved. The next run reads it.</div><div hidden data-toast="success" data-toast-title="Saved {{.Doc.Name}}" data-toast-body="The previous copy is in the history."></div>{{end}}
 {{if .Conflict}}<div class="alert alert-warning" role="alert">{{icon "alert-triangle"}} This file changed on disk after you opened it, so nothing was saved. Your text is below; <a href="/config/{{.Doc.Name}}">reload the file</a> to see the current version, then apply your change again.</div>{{end}}
 {{if .Doc.ReadOnly}}<div class="alert alert-info" role="status">{{icon "lock"}} Read-only: {{.Doc.Why}}</div>{{else if $.ReadOnly}}<div class="alert alert-info" role="status">{{icon "lock"}} This server was started with --read-only.</div>{{end}}
 
-<form method="post" action="/config/{{.Doc.Name}}" id="editor-form" data-validate-url="/config/{{.Doc.Name}}/validate" data-confirm="The file on disk is replaced with the contents of the editor." data-confirm-title="Save {{.Doc.Name}}?" data-confirm-button="Save">
+<form method="post" action="/config/{{.Doc.Name}}" id="editor-form" data-progress="Saving {{.Doc.Name}}" data-validate-url="/config/{{.Doc.Name}}/validate" data-confirm="The file on disk is replaced with the contents of the editor." data-confirm-title="Save {{.Doc.Name}}?" data-confirm-button="Save">
   <input type="hidden" name="csrf" value="{{$.CSRF}}">
   <input type="hidden" name="base" value="{{.Base}}">
   <div class="card mb-3">
     <div class="editor">
-      <ol class="editor-gutter" aria-hidden="true" id="editor-gutter">{{range .Lines}}<li></li>{{end}}</ol>
+      <ol class="editor-gutter" aria-hidden="true" id="editor-gutter">{{range $i, $_ := .Lines}}<li{{if index $.Data.ErrorLines (inc $i)}} class="badge-bad fw-bold"{{end}}></li>{{end}}</ol>
       <label class="visually-hidden" for="editor-text">Contents of {{.Doc.Name}}</label>
       <textarea class="editor-text" id="editor-text" name="content" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-describedby="editor-findings"{{if not .Editable}} readonly{{end}}>{{.Text}}</textarea>
     </div>
   </div>
   <div class="btn-list mb-3">
     <button type="submit" class="btn btn-outline-primary" formaction="/config/{{.Doc.Name}}/validate" data-confirm-skip>{{icon "shield-check"}}Validate</button>
-    {{if .Editable}}<button type="submit" class="btn btn-primary" id="editor-save">{{icon "device-floppy"}}Save</button>{{end}}
+    <button type="submit" class="btn" formaction="/config/{{.Doc.Name}}/fix" data-confirm-skip>{{icon "wand"}}Fix</button>
+    <a class="btn" href="/config/{{.Doc.Name}}/history">{{icon "history"}}History</a>
+    {{if .Editable}}<button type="submit" class="btn btn-primary ms-auto" id="editor-save">{{icon "device-floppy"}}Save</button>{{end}}
   </div>
 </form>
+
+{{if .Fixed}}
+<div class="card mb-3" data-role="fix">
+  <div class="card-header"><h2 class="card-title">{{icon "wand"}}Fix proposes</h2><div class="card-subtitle ms-2">nothing is saved until you press Save</div></div>
+  <div class="card-body">
+    <ul class="mb-0">{{range .Fixed}}<li>{{.}}</li>{{end}}</ul>
+  </div>
+  {{if .FixDiff}}<pre class="mb-0 border-top px-3 py-2"><code>{{.FixDiff}}</code></pre>{{end}}
+</div>
+{{end}}
+
+{{if .Keys}}
+<details class="card mb-3" data-role="key-picker">
+  <summary class="card-header">{{icon "list-details"}}<span class="ms-1">Known settings: insert one at the cursor</span></summary>
+  <div class="card-body">
+    <label class="form-label" for="key-filter">Filter</label>
+    <input class="form-control mb-2" id="key-filter" data-key-filter placeholder="git, packages, dry…" autocomplete="off">
+    <div class="list-group" data-key-list>
+      {{range .Keys}}
+      <div class="list-group-item" data-key-name="{{.Name}}">
+        <div class="d-flex align-items-start gap-2">
+          <div class="flex-fill"><code>{{.Name}}</code> <span class="badge badge-muted">{{.Type}}</span><div class="text-secondary small">{{.Help}}</div></div>
+          {{if $.Data.Editable}}<button type="button" class="btn btn-sm" data-insert="{{.Insert}}" aria-label="Insert {{.Name}}">{{icon "plus"}}Insert</button>{{end}}
+        </div>
+      </div>
+      {{end}}
+    </div>
+    <p class="text-secondary small mt-2 mb-0">The full schema is <a href="/schema/global.schema.json">global.schema.json</a>; the <code>$schema</code> line makes an editor complete and check every key.</p>
+  </div>
+</details>
+{{end}}
 
 <section id="editor-findings" aria-live="polite" aria-labelledby="findings-title">
   <h2 class="h3" id="findings-title">{{if .Checked}}{{if .Problems}}{{.Problems}} problem(s){{else}}Valid{{end}}{{else}}Not validated yet{{end}}</h2>
   <ul class="list-unstyled" id="editor-findings-list">
-    {{range .Findings}}<li class="finding finding-{{.Level}}">{{if eq .Level "error"}}{{icon "circle-x"}}{{else if eq .Level "warn"}}{{icon "alert-triangle"}}{{else}}{{icon "circle-check"}}{{end}} <span class="finding-text">{{.Text}}</span></li>{{end}}
+    {{range .Findings}}<li class="finding finding-{{.Level}}">{{if eq .Level "error"}}{{icon "circle-x"}}{{else if eq .Level "warn"}}{{icon "alert-triangle"}}{{else}}{{icon "circle-check"}}{{end}} {{if .Line}}<a href="#editor-text" data-editor-line="{{.Line}}" data-editor-col="{{.Col}}">line {{.Line}}, column {{.Col}}</a>: {{end}}<span class="finding-text">{{.Text}}</span></li>{{end}}
   </ul>
 </section>
 {{end}}{{end}}

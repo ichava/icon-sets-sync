@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/web/jobs"
@@ -51,6 +52,10 @@ func DefaultHistoryDir(lookup func(string) (string, bool)) string {
 type Options struct {
 	// Engine is the sync engine. Required.
 	Engine Engine
+
+	// Tools reports the external programs a run needs; nil is app.Tools.
+	// Tests pin it so a page does not depend on what the machine has.
+	Tools func() []app.Tool
 
 	// Token is the launch token printed in the URL. Required.
 	Token string
@@ -190,6 +195,9 @@ type statusCache struct {
 	stats   []PackStats
 	err     string
 	running bool
+	// done and total count the packs a running check has finished, for the
+	// dashboard's progress bar.
+	done, total int
 }
 
 type statusSnapshot struct {
@@ -199,12 +207,14 @@ type statusSnapshot struct {
 	Stats   []PackStats
 	Err     string
 	Running bool
+	Done    int
+	Total   int
 }
 
 func (c *statusCache) snapshot() statusSnapshot {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return statusSnapshot{At: c.at, Packs: c.packs, Results: c.results, Stats: c.stats, Err: c.err, Running: c.running}
+	return statusSnapshot{At: c.at, Packs: c.packs, Results: c.results, Stats: c.stats, Err: c.err, Running: c.running, Done: c.done, Total: c.total}
 }
 
 // refresh starts a background check unless one is running. It returns
@@ -217,6 +227,7 @@ func (s *Server) refresh() bool {
 		return false
 	}
 	c.running = true
+	c.done, c.total = 0, 0
 	c.mu.Unlock()
 
 	go func() {
@@ -226,7 +237,18 @@ func (s *Server) refresh() bool {
 		var results []checker.Result
 		var stats []PackStats
 		if err == nil {
-			results = s.opts.Engine.Check(ctx, packs)
+			c.mu.Lock()
+			c.total = len(packs)
+			c.mu.Unlock()
+			if pc, ok := s.opts.Engine.(ProgressChecker); ok {
+				results = pc.CheckProgress(ctx, packs, func(done int) {
+					c.mu.Lock()
+					c.done = done
+					c.mu.Unlock()
+				})
+			} else {
+				results = s.opts.Engine.Check(ctx, packs)
+			}
 			stats = make([]PackStats, len(packs))
 			for i, p := range packs {
 				stats[i] = s.opts.Engine.PackStats(ctx, p)

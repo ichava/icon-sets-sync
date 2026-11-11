@@ -18,6 +18,7 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
 	"github.com/ichava/icon-sets-sync/src/internal/ui"
 	"github.com/ichava/icon-sets-sync/src/internal/version"
 )
@@ -26,10 +27,15 @@ import (
 // exiting 1 on a stale pack is what makes it usable as a CI gate, and Click
 // used 2 for a usage error, which anything wrapping the earlier binary may
 // already depend on.
+//
+// ExitNeedsReview (3) is a sync a guard stopped for a person: it would rename
+// or remove shipped icons. A dry run that would hit the guard exits 3 too,
+// having listed every icon. A failure in the same run wins: 1.
 const (
-	ExitOK      = 0
-	ExitFailure = 1
-	ExitUsage   = 2
+	ExitOK          = 0
+	ExitFailure     = 1
+	ExitUsage       = 2
+	ExitNeedsReview = 3
 )
 
 // ExitError carries an exit code out of a command.
@@ -63,6 +69,8 @@ type globals struct {
 	quiet        bool
 	noColor      bool
 	noInput      bool
+	packagesDirs []string
+	output       string
 	assumeYes    bool
 	jsonOut      bool
 
@@ -82,6 +90,7 @@ type runState struct {
 	stack      settings.Stack
 	run        settings.Resolved
 	globalPath string
+	global     settings.GlobalLocation
 }
 
 var state runState
@@ -152,7 +161,8 @@ stamps the version and opens a pull request.
 
 Settings resolve in this order, highest first:
   flags > ICHAVA_* environment > global config > pack config > defaults
-The global config is $XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml}.
+The global config is ~/.config/icon-sets-sync/config.{json,yaml} on every OS
+($XDG_CONFIG_HOME replaces ~/.config); "config migrate" moves an old one there.
 Run "config print --origins" to see where every value came from.
 
 Run with no arguments (or double-click the binary) to open the web UI in your
@@ -169,7 +179,8 @@ the interactive terminal menu.`,
 	pf.StringVar(&g.configDir, "config-dir", "", "where pack configs live (setting config_dir; default: config/ beside the binary, else ./config, else the repository's own config/)")
 	pf.StringVar(&g.privateDir, "private-config-dir", "", "directory of private pack configs merged over --config-dir (setting private_config_dir; default: none)")
 	pf.StringVar(&g.workspace, "workspace", "", "directory holding the pack checkouts; replaces /work/<pack> in shipped configs (setting workspace)")
-	pf.StringVar(&g.globalConfig, "global-config", "", "global config file (default: $XDG_CONFIG_HOME/icon-sets-sync/config.{json,yaml})")
+	pf.StringArrayVar(&g.packagesDirs, "packages-dir", nil, "a directory holding ichava pack checkouts; repeat for several, searched in order (setting packages_dirs)")
+	pf.StringVar(&g.globalConfig, "global-config", "", "global config file (default: ~/.config/icon-sets-sync/config.{json,yaml} on every OS; $XDG_CONFIG_HOME replaces ~/.config)")
 	pf.StringArrayVar(&g.sets, "set", nil, "set any setting, as key=value (repeatable; see `config print`)")
 	pf.BoolVarP(&g.verbose, "verbose", "v", false, "debug logging (log_level=debug)")
 	pf.BoolVarP(&g.quiet, "quiet", "q", false, "only errors (log_level=error) and no status output")
@@ -177,9 +188,17 @@ the interactive terminal menu.`,
 	pf.BoolVar(&g.noInput, "no-input", false, "never prompt; fail instead of asking")
 	pf.BoolVar(&g.noInput, "non-interactive", false, "same as --no-input, the name CI mode uses")
 	pf.BoolVar(&g.assumeYes, "yes", false, "assume yes for confirmations")
-	pf.BoolVar(&g.jsonOut, "json", false, "machine-readable output")
+	pf.BoolVar(&g.jsonOut, "json", false, "machine-readable output (the same as --output json)")
+	pf.StringVar(&g.output, "output", "text", "output format: text or json")
 
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		switch g.output {
+		case "json":
+			g.jsonOut = true
+		case "text", "":
+		default:
+			return usageErr("--output must be text or json, not %q", g.output)
+		}
 		if err := resolveState(cmd); err != nil {
 			return err
 		}
@@ -193,6 +212,14 @@ the interactive terminal menu.`,
 			Err:       cmd.ErrOrStderr(),
 		})
 		setupLogging(state.run.String("log_level"))
+		for _, d := range app.MissingPackagesDirs(state.run.Strings("packages_dirs")) {
+			ui.Warning("packages_dirs: %s is not a directory; skipped", d)
+		}
+		if state.global.Legacy && cmd.Name() != "migrate" {
+			ui.Warning("using the global config at its old location %s; it belongs at %s. "+
+				"Run `icon-sets-sync config migrate` to copy it there (the old file is left in place)",
+				state.global.Path, state.global.Default)
+		}
 		return nil
 	}
 
@@ -203,6 +230,8 @@ the interactive terminal menu.`,
 	root.AddCommand(
 		newListPacksCommand(),
 		newCheckCommand(),
+		newValidateCommand(),
+		newDoctorCommand(),
 		newSyncCommand(),
 		newSyncAllCommand(),
 		newRecipeCommand(),
@@ -242,6 +271,13 @@ func resolveState(cmd *cobra.Command) error {
 		setFlag("config-dir", "config_dir", g.configDir)
 		setFlag("private-config-dir", "private_config_dir", g.privateDir)
 		setFlag("workspace", "workspace", g.workspace)
+		if changed("packages-dir") {
+			if err := flagValues.Set("packages_dirs", g.packagesDirs); err != nil {
+				return fmt.Errorf("--packages-dir: %s", err)
+			}
+			cwd, _ := os.Getwd()
+			settings.ResolvePaths(flagValues, cwd)
+		}
 		if g.verbose {
 			flagValues["log_level"] = "debug"
 		}
@@ -264,7 +300,7 @@ func resolveState(cmd *cobra.Command) error {
 	// The layering itself lives in app.BuildStack, so the web UI resolves
 	// precedence through the same code. This function keeps the CLI-only
 	// parts: the contradiction checks and the mapping onto exit codes.
-	stack, path, err := app.BuildStack(app.StackInput{
+	stack, loc, err := app.BuildStackLocated(app.StackInput{
 		GlobalPath:  g.globalConfig,
 		Lookup:      os.LookupEnv,
 		Assignments: g.sets,
@@ -277,7 +313,8 @@ func resolveState(cmd *cobra.Command) error {
 		return failure(err)
 	}
 
-	state.globalPath = path
+	state.globalPath = loc.Path
+	state.global = loc
 	state.stack = stack
 	state.run = state.stack.Resolve(nil)
 	// Every config loader reads the private overlay from here, so the CLI,
@@ -287,6 +324,8 @@ func resolveState(cmd *cobra.Command) error {
 	// The upstream allowlist is run-wide for the same reason, and is set the
 	// same way: on every run, empty included.
 	httpx.SetExtraAllowedHosts(httpx.ParseHostList(state.run.String("allowed_hosts")))
+	sources.SetNpmPath(state.run.String("npm_path"))
+	app.SetPackagesDirs(state.run.Strings("packages_dirs"))
 	if err := config.CheckPrivateConfigDir(); err != nil {
 		return usageErr("%s", err)
 	}

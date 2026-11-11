@@ -10,6 +10,7 @@ import (
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/confighistory"
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
@@ -169,7 +170,46 @@ func (e *AppEngine) ValidateConfig(name string, data []byte) []app.Finding {
 	if err != nil {
 		return []app.Finding{{Level: app.LevelError, Text: err.Error()}}
 	}
-	return validateDoc(f, data, e.configDir(), e.stack())
+	return locate(validateDoc(f, data, e.configDir(), e.stack()), data)
+}
+
+// locate gives each problem a line and column where one can be found, so the
+// editor can point at it.
+func locate(findings []app.Finding, data []byte) []app.Finding {
+	for i, f := range findings {
+		if f.Level == app.LevelOK || f.Line > 0 {
+			continue
+		}
+		findings[i].Line, findings[i].Col = app.Locate(data, errors.New(f.Text))
+	}
+	return findings
+}
+
+// FixConfig implements Engine.
+func (e *AppEngine) FixConfig(name string, data []byte) (app.Fixed, error) {
+	f, err := e.configFile(name)
+	if err != nil {
+		return app.Fixed{}, err
+	}
+	return app.FixConfig(f.Kind, f.Path, data)
+}
+
+// ConfigHistory implements Engine.
+func (e *AppEngine) ConfigHistory(name string) ([]confighistory.Entry, error) {
+	f, err := e.configFile(name)
+	if err != nil {
+		return nil, err
+	}
+	return e.History.List(f.Path)
+}
+
+// ConfigHistoryRead implements Engine.
+func (e *AppEngine) ConfigHistoryRead(name, id string) ([]byte, error) {
+	f, err := e.configFile(name)
+	if err != nil {
+		return nil, err
+	}
+	return e.History.Read(f.Path, id)
 }
 
 func validateDoc(f ConfigFile, data []byte, dir string, stack settings.Stack) []app.Finding {
@@ -228,7 +268,13 @@ func (e *AppEngine) WriteConfig(name string, data []byte, base string) error {
 	}
 	findings := validateDoc(doc.ConfigFile, data, e.configDir(), e.stack())
 	if app.Problems(findings) > 0 {
-		return &ValidationError{Findings: findings}
+		return &ValidationError{Findings: locate(findings, data)}
+	}
+	if doc.Exists {
+		// Kept before the write, so a save that goes wrong can be undone.
+		if _, err := e.History.Save(doc.Path, doc.Data); err != nil {
+			return fmt.Errorf("keeping a copy in the history before saving: %w", err)
+		}
 	}
 	switch doc.Kind {
 	case KindPack:
@@ -251,7 +297,12 @@ func (e *AppEngine) WriteConfig(name string, data []byte, base string) error {
 		e.mu.Lock()
 		e.Stack.Global = values
 		e.GlobalPath = doc.Path
+		resolved := e.Stack.Resolve(nil)
 		e.mu.Unlock()
+		// packages_dirs is read where packs are loaded, so a save takes effect
+		// on the next page without a restart.
+		app.SetPackagesDirs(resolved.Strings("packages_dirs"))
+		config.SetPrivateConfigDir(resolved.String("private_config_dir"))
 	}
 	return nil
 }

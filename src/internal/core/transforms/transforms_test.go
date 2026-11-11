@@ -688,3 +688,29 @@ func TestSanitiseDropUnparsable(t *testing.T) {
 		}
 	}
 }
+
+// The emoji components -- the five skin tones and four hair styles -- are
+// rows of status "component" in emoji-test.txt, under the Component group.
+// Reading only fully-qualified rows left all nine uncategorised in OpenMoji
+// and dropped them from Twemoji (2026-11-09).
+func TestParseCLDRReadsComponentRows(t *testing.T) {
+	text := `# group: Component
+# subgroup: skin-tone
+1F3FB                                                  ; component            # 🏻 E1.0 light skin tone
+# subgroup: hair-style
+1F9B0                                                  ; component            # 🦰 E11.0 red hair
+# group: Smileys & Emotion
+1F600 ; fully-qualified # 😀 E1.0 grinning face
+263A ; unqualified # ☺ E0.6 smiling face
+`
+	recs := ParseCLDR(text)
+	if len(recs) != 3 {
+		t.Fatalf("records = %+v, want the two components and the fully-qualified row", recs)
+	}
+	if recs[0].Key() != "1f3fb" || recs[0].Group != "Component" || recs[0].Name != "light skin tone" {
+		t.Errorf("skin tone = %+v", recs[0])
+	}
+	if SlugifyGroup(recs[1].Group) != "component" {
+		t.Errorf("group slug = %q", SlugifyGroup(recs[1].Group))
+	}
+}

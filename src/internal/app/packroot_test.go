@@ -89,3 +89,27 @@ func must(t *testing.T, err error) {
 		t.Fatal(err)
 	}
 }
+
+// packages_dirs is searched in order, before the workspace setting, for both
+// a shipped /work/<pack> root and a relative one.
+func TestPackagesDirsAreSearchedInOrder(t *testing.T) {
+	a, b, ws := t.TempDir(), t.TempDir(), t.TempDir()
+	for _, d := range []string{filepath.Join(b, "icon-sets-x"), filepath.Join(ws, "icon-sets-x")} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	p := &config.PackConfig{PackRoot: "/work/icon-sets-x"}
+	applyPackagesIn(p, []string{a, b}, ws, "", "", "/work")
+	if p.PackRoot != filepath.Join(b, "icon-sets-x") || !strings.Contains(p.PackRootOrigin, "packages_dirs") {
+		t.Fatalf("got %s (%s)", p.PackRoot, p.PackRootOrigin)
+	}
+	rel := &config.PackConfig{PackRoot: "icon-sets-x"}
+	applyPackagesIn(rel, []string{a, b}, ws, "", "", "/work")
+	if rel.PackRoot != filepath.Join(b, "icon-sets-x") {
+		t.Errorf("relative: %s", rel.PackRoot)
+	}
+	if got := MissingPackagesDirs([]string{a, filepath.Join(a, "nope")}); len(got) != 1 {
+		t.Errorf("missing = %v", got)
+	}
+}

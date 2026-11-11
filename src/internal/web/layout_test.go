@@ -145,12 +145,20 @@ func TestTableErrorTextMayBreak(t *testing.T) {
 func TestAuditPageSaysWhenTheManifestPackConfigIsMissing(t *testing.T) {
 	s, _ := newTestServer(t)
 	body := signIn(t, s).get("/manifest-pack/audit").Body.String()
-	for _, want := range []string{"--private-config-dir", `class="alert alert-warning"`, "Start audit</button>"} {
+	for _, want := range []string{"--private-config-dir", `data-role="audit-unavailable"`, "Start audit</button>", "Cause", "Fix"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("audit page lacks %q", want)
 		}
 	}
-	if !strings.Contains(body, `<button type="submit" class="btn btn-primary w-100" disabled>`) {
+	if !strings.Contains(body, `<button type="submit" class="btn btn-primary w-100" disabled aria-describedby="audit-start-why">`) {
 		t.Error("Start audit is not disabled")
+	}
+}
+
+// A long path wraps between its segments, and the text is still escaped.
+func TestBreakableWrapsPathsAndEscapes(t *testing.T) {
+	got := string(breakable(`/a/<b>/c`))
+	if got != `/<wbr>a/<wbr>&lt;b&gt;/<wbr>c` {
+		t.Errorf("breakable = %s", got)
 	}
 }

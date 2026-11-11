@@ -156,6 +156,8 @@ func funcs(a *assetSet) template.FuncMap {
 				return "badge-info"
 			case "cancelled":
 				return "badge-muted"
+			case "needs-review":
+				return "badge-warn"
 			}
 			return "badge-bad"
 		},
@@ -167,6 +169,8 @@ func funcs(a *assetSet) template.FuncMap {
 				return "alert-info"
 			case jobs.StatusCancelled:
 				return "alert-secondary"
+			case jobs.StatusNeedsReview:
+				return "alert-warning"
 			}
 			return "alert-danger"
 		},
@@ -178,6 +182,8 @@ func funcs(a *assetSet) template.FuncMap {
 				return "Running"
 			case jobs.StatusCancelled:
 				return "Cancelled"
+			case jobs.StatusNeedsReview:
+				return "Needs review"
 			}
 			return "Failed"
 		},
@@ -200,11 +206,13 @@ func funcs(a *assetSet) template.FuncMap {
 			return "badge-bad"
 		},
 		"outcomes": func() []string {
-			return []string{string(jobs.StatusRunning), string(jobs.StatusSucceeded), string(jobs.StatusFailed), string(jobs.StatusCancelled)}
+			return []string{string(jobs.StatusRunning), string(jobs.StatusSucceeded), string(jobs.StatusNeedsReview), string(jobs.StatusFailed), string(jobs.StatusCancelled)}
 		},
 		"version":      shortVersion,
 		"appName":      func() string { return AppName },
 		"versionLabel": versionLabel,
+		"breakable":    breakable,
+		"inc":          func(i int) int { return i + 1 },
 		"aboutTabs":    func() any { return aboutTabs },
 		"paletteItem": func(href, icon, label, keys string) paletteItem {
 			return paletteItem{Href: href, Icon: icon, Label: label, Keys: keys}
@@ -226,6 +234,15 @@ type paletteItem struct{ Href, Icon, Label, Keys string }
 
 // cliSnippet is one copyable command in a CLI panel.
 type cliSnippet struct{ ID, Label, Text string }
+
+// breakable escapes s and offers a line break after every path separator,
+// so a long path in a log line or an error wraps between its segments instead
+// of mid-word. The copy buttons copy textContent, which <wbr> does not change.
+func breakable(s string) template.HTML {
+	esc := template.HTMLEscapeString(s)
+	r := strings.NewReplacer("/", "/<wbr>", `\`, `\<wbr>`)
+	return template.HTML(r.Replace(esc)) //nolint:gosec // escaped above; only <wbr> is added
+}
 
 // shortVersion shows a version that is a full commit SHA (a pack whose
 // upstream has no tags) as its first 12 characters and nothing else: no
@@ -353,6 +370,9 @@ type view struct {
 	// Running counts the ones still running.
 	Recent  []jobs.Info
 	Running int
+	// RunningIDs are the running runs, watched by app.js so a toast says
+	// when each one finishes, whatever page is open.
+	RunningIDs []string
 	// Reload asks app.js to reload the page after a few seconds, while
 	// background work the page is waiting on is running.
 	Reload bool
@@ -368,6 +388,7 @@ func (s *Server) newView(r *http.Request, nav, title string, data any) view {
 		for _, info := range s.jobs.List() {
 			if info.Status == jobs.StatusRunning {
 				v.Running++
+				v.RunningIDs = append(v.RunningIDs, info.ID)
 			}
 			if len(v.Recent) < 5 {
 				v.Recent = append(v.Recent, info)

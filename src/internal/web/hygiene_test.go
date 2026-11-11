@@ -11,7 +11,7 @@ import (
 // minTemplates is the number of template files this package ships. The walk
 // below must inspect at least this many, so a glob that stops matching fails
 // rather than passing over nothing. Raise it when you add a template.
-const minTemplates = 16
+const minTemplates = 23
 
 var (
 	inlineScript = regexp.MustCompile(`(?i)<script(?:\s[^>]*)?>`)
@@ -85,8 +85,12 @@ func TestAppJSAvoidsDynamicCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, bad := range []string{"eval(", "new Function", "innerHTML", "document.write", "setAttribute(\"style\""} {
-		if strings.Contains(string(js), bad) {
+	// The one inline style app.js may set: the editor grows to its content,
+	// a height no class can know. Anything else styles through classes, so
+	// the look stays Tabler's and app.css's.
+	text := strings.ReplaceAll(string(js), "editor.style.height", "")
+	for _, bad := range []string{"eval(", "new Function", "innerHTML", "document.write", "setAttribute(\"style\"", ".style.", ".style["} {
+		if strings.Contains(text, bad) {
 			t.Errorf("app.js uses %s", bad)
 		}
 	}

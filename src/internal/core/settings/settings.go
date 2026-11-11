@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -48,6 +50,9 @@ const (
 	String Kind = iota
 	Bool
 	Int
+	// List is a list of strings, written as a string or an array in a config
+	// file and with the OS list separator (: or ;) in the environment.
+	List
 )
 
 func (k Kind) String() string {
@@ -56,6 +61,8 @@ func (k Kind) String() string {
 		return "boolean"
 	case Int:
 		return "integer"
+	case List:
+		return "string or array of strings"
 	default:
 		return "string"
 	}
@@ -84,6 +91,15 @@ type Key struct {
 
 	// Pattern, when set, must match a string value.
 	Pattern *regexp.Regexp
+
+	// Aliases are other names a config file, --set or Lookup accept for this
+	// key, such as the singular packages_dir. Values are stored under Name.
+	Aliases []string
+
+	// Paths marks a List of directories: ~ is expanded, and a relative entry
+	// resolves against the config file that names it (else the working
+	// directory).
+	Paths bool
 
 	Help string
 }
@@ -115,6 +131,12 @@ var Keys = []Key{
 		Help:    "extra upstream hosts, comma separated, on top of the built-in github.com, api.github.com, codeload.github.com, registry.npmjs.org and unicode.org (https only)"},
 	{Name: "workspace", Kind: String, Default: "", Env: "ICHAVA_WORKSPACE",
 		Help: "directory holding the pack checkouts: a relative pack_root is resolved against it, and it replaces the /work/<pack> a shipped config names (default: /work if present, else the checkouts beside this repository)"},
+	{Name: "npm_path", Kind: String, Default: "", Env: "ICHAVA_NPM_PATH",
+		Help: "the npm executable, for the npm pack fallback when the registry fetch fails (default: PATH, then Homebrew, Volta, fnm, asdf and nvm's directories; npm's own on Windows)"},
+	{Name: "packages_dirs", Kind: List, Default: []string{}, Env: "ICHAVA_PACKAGES_DIRS", Aliases: []string{"packages_dir"}, Paths: true,
+		Help: "directories holding the ichava pack checkouts, searched in order for <pack>/ (a string or a list; ~ and paths relative to the config file are resolved; ICHAVA_PACKAGES_DIRS uses the OS list separator; --packages-dir repeats). Searched before workspace"},
+	{Name: "history_keep", Kind: Int, Default: 50, Env: "ICHAVA_HISTORY_KEEP", Min: 0,
+		Help: "copies of each config file kept in ~/.local/state/icon-sets-sync/history/ before a save from the web UI or config edit, fix or restore; 0 keeps none"},
 	{Name: "dry_run", Kind: Bool, Default: false, Env: "ICHAVA_DRY_RUN", PackScoped: true,
 		Help: "fetch and diff, but write nothing into the pack and skip the version stamp, commit, push and pull request"},
 	{Name: "force", Kind: Bool, Default: false, Env: "ICHAVA_FORCE", PackScoped: true,
@@ -141,6 +163,11 @@ func Lookup(name string) (Key, bool) {
 	for _, k := range Keys {
 		if k.Name == name {
 			return k, true
+		}
+		for _, a := range k.Aliases {
+			if a == name {
+				return k, true
+			}
 		}
 	}
 	return Key{}, false
@@ -169,7 +196,7 @@ func (v Values) Set(name string, value any) error {
 	if err != nil {
 		return fmt.Errorf("setting %q: %w", name, err)
 	}
-	v[name] = coerced
+	v[key.Name] = coerced
 	return nil
 }
 
@@ -191,6 +218,17 @@ func (k Key) ParseString(raw string) (any, error) {
 			return nil, fmt.Errorf("%q is not an integer", raw)
 		}
 		return k.coerce(n)
+	case List:
+		var parts []string
+		for _, p := range filepath.SplitList(raw) {
+			if p = strings.TrimSpace(p); p != "" {
+				parts = append(parts, p)
+			}
+		}
+		if parts == nil {
+			parts = []string{}
+		}
+		return k.coerce(parts)
 	default:
 		return k.coerce(raw)
 	}
@@ -239,6 +277,32 @@ func (k Key) coerce(value any) (any, error) {
 		}
 		return n, nil
 
+	case List:
+		var out []string
+		switch x := value.(type) {
+		case string:
+			out = []string{x}
+		case []string:
+			out = append([]string{}, x...)
+		case []any:
+			out = []string{}
+			for i, item := range x {
+				s, ok := item.(string)
+				if !ok {
+					return nil, fmt.Errorf("item %d: want a string, got %T", i, item)
+				}
+				out = append(out, s)
+			}
+		default:
+			return nil, fmt.Errorf("want a string or an array of strings, got %T", value)
+		}
+		for i, s := range out {
+			if strings.TrimSpace(s) == "" {
+				return nil, fmt.Errorf("item %d is empty", i)
+			}
+		}
+		return out, nil
+
 	default:
 		s, ok := value.(string)
 		if !ok {
@@ -280,7 +344,7 @@ func FromTree(tree map[string]any, layer Layer) (Values, error) {
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			if prefix == "" && strings.HasPrefix(name, "_") {
+			if prefix == "" && (strings.HasPrefix(name, "_") || name == "$schema") {
 				continue
 			}
 			full := name
@@ -328,6 +392,8 @@ func FromEnv(lookup func(string) (string, bool)) (Values, error) {
 		}
 		out[key.Name] = value
 	}
+	cwd, _ := os.Getwd()
+	ResolvePaths(out, cwd)
 	return out, nil
 }
 
@@ -348,8 +414,10 @@ func FromAssignments(pairs []string) (Values, error) {
 		if err != nil {
 			return nil, fmt.Errorf("--set %s: %w", name, err)
 		}
-		out[name] = value
+		out[key.Name] = value
 	}
+	cwd, _ := os.Getwd()
+	ResolvePaths(out, cwd)
 	return out, nil
 }
 
@@ -409,6 +477,57 @@ func (r Resolved) Bool(name string) bool { return r.get(name).(bool) }
 
 // Int returns an integer setting.
 func (r Resolved) Int(name string) int { return r.get(name).(int) }
+
+// Strings returns a list setting.
+func (r Resolved) Strings(name string) []string { return r.get(name).([]string) }
+
+// FormatValue renders any setting as text, for tables: a list joined with
+// the OS list separator.
+func FormatValue(r Resolved, name string) string {
+	switch v := r.get(name).(type) {
+	case []string:
+		return strings.Join(v, string(filepath.ListSeparator))
+	case bool:
+		return strconv.FormatBool(v)
+	case int:
+		return strconv.Itoa(v)
+	default:
+		return fmt.Sprint(v)
+	}
+}
+
+// ResolvePaths expands ~ and makes relative entries of every Paths key in v
+// absolute against base (a config file's directory, or the working
+// directory). It is applied where a layer is read, because only there is it
+// known what a relative path was relative to.
+func ResolvePaths(v Values, base string) {
+	for _, k := range Keys {
+		if !k.Paths {
+			continue
+		}
+		list, ok := v[k.Name].([]string)
+		if !ok {
+			continue
+		}
+		out := make([]string, len(list))
+		for i, p := range list {
+			out[i] = resolvePath(p, base)
+		}
+		v[k.Name] = out
+	}
+}
+
+func resolvePath(p, base string) string {
+	if p == "~" || strings.HasPrefix(p, "~/") || strings.HasPrefix(p, `~\`) {
+		if home, err := os.UserHomeDir(); err == nil {
+			p = filepath.Join(home, p[1:])
+		}
+	}
+	if !filepath.IsAbs(p) && base != "" {
+		p = filepath.Join(base, p)
+	}
+	return filepath.Clean(p)
+}
 
 func (r Resolved) get(name string) any {
 	v, ok := r.values[name]

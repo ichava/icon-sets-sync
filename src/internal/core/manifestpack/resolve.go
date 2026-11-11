@@ -28,7 +28,11 @@ func (f NpmFetcher) Fetch(ctx context.Context, pkg, dest string) (string, error)
 		return "", err
 	}
 
-	cmd := exec.CommandContext(ctx, "npm", sources.NpmPackArgs(pkg)...)
+	found, err := sources.FindNpm()
+	if err != nil {
+		return "", err
+	}
+	cmd := exec.CommandContext(ctx, found.Found, sources.NpmPackArgs(pkg)...)
 	cmd.Dir = dest
 	out, err := cmd.Output()
 	if err != nil {
@@ -107,7 +111,7 @@ func ResolveSet(ctx context.Context, setDir string, fetch Fetcher, workDir strin
 
 	fp, err := FingerprintSet(setDir)
 	if err != nil {
-		return Resolution{Set: filepath.Base(setDir), Confidence: ConfidenceNone, Note: err.Error()}
+		return Resolution{Set: filepath.Base(setDir), Confidence: ConfidenceNone, Error: err.Error()}
 	}
 
 	res := Resolution{Set: fp.Name, Icons: fp.Count(), Confidence: ConfidenceNone}

@@ -32,6 +32,9 @@ const (
 	StatusSucceeded Status = "succeeded"
 	StatusFailed    Status = "failed"
 	StatusCancelled Status = "cancelled"
+	// StatusNeedsReview is a run a guard stopped for a person to decide:
+	// it would rename or remove shipped icons.
+	StatusNeedsReview Status = "needs-review"
 )
 
 // Spec describes a job to start.

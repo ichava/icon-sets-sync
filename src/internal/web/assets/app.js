@@ -18,11 +18,171 @@
     disposeTips();
     window.location.reload();
   }
-  if (reload) {
-    window.setTimeout(reloadWhenIdle, Number(reload) * 1000);
-  }
+  var reloadTimer = reload ? window.setTimeout(reloadWhenIdle, Number(reload) * 1000) : null;
 
   var tb = window.tabler || {};
+
+  // Toasts: Tabler's toast, filled from the layout's <template> through
+  // textContent. A success hides itself; a warning or an error stays until
+  // it is dismissed, and is announced as an alert.
+  var toastBadge = { success: "badge-ok", warning: "badge-warn", danger: "badge-bad", info: "badge-info" };
+  function showToast(level, title, body, href) {
+    var tpl = document.getElementById("toast-template");
+    var box = document.getElementById("toasts");
+    if (!tpl || !box) { return; }
+    var t = tpl.content.firstElementChild.cloneNode(true);
+    var sticky = level === "danger" || level === "warning";
+    if (sticky) { t.setAttribute("role", "alert"); t.setAttribute("aria-live", "assertive"); }
+    var badge = t.querySelector("[data-role=toast-badge]");
+    badge.className = "badge me-2 " + (toastBadge[level] || "badge-info");
+    badge.textContent = level === "danger" ? "failed" : level === "warning" ? "check" : level === "success" ? "done" : "info";
+    t.querySelector("[data-role=toast-title]").textContent = title;
+    t.querySelector("[data-role=toast-body]").textContent = body || "";
+    var link = t.querySelector("[data-role=toast-link]");
+    if (href) { link.href = href; link.hidden = false; }
+    box.appendChild(t);
+    if (tb.Toast) {
+      tb.Toast.getOrCreateInstance(t, { autohide: !sticky, delay: 6000 }).show();
+      t.addEventListener("hidden.bs.toast", function () { t.remove(); });
+    } else {
+      t.classList.add("show");
+    }
+  }
+  window.iconSetsToast = showToast;
+
+  // A real sync asks for its typed confirmation in a modal on the page that
+  // starts it, instead of a separate confirmation page. A form that can start
+  // one carries data-real-phrase (what to type) and data-real-packs. The
+  // server still checks the phrase, and without this script it shows its
+  // confirmation page.
+  var realModal = document.getElementById("real-run-modal");
+  var realForm = null;
+  function isReal(form, submitter) {
+    if (submitter && submitter.name === "mode") { return submitter.value === "real"; }
+    var mode = form.querySelector("input[name=mode]:checked") || form.querySelector("input[type=hidden][name=mode]");
+    return !!mode && mode.value === "real";
+  }
+  if (realModal && tb.Modal) {
+    var realInput = document.getElementById("real-run-confirm");
+    var realStart = document.getElementById("real-run-start");
+    var realHelp = document.getElementById("real-run-help");
+    var phraseOf = function () { return realForm ? realForm.getAttribute("data-real-phrase") : ""; };
+    var match = function () { return realInput.value.trim() === phraseOf(); };
+    realInput.addEventListener("input", function () {
+      realStart.disabled = !match();
+      realHelp.textContent = realInput.value === "" || match() ? "Nothing has been started yet." : "That does not match yet.";
+    });
+    realInput.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); if (match()) { realStart.click(); } }
+    });
+    realModal.addEventListener("shown.bs.modal", function () { realInput.focus(); });
+    realStart.addEventListener("click", function () {
+      if (!realForm || !match()) { return; }
+      var input = realForm.querySelector("input[name=confirm]");
+      if (!input) {
+        input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "confirm";
+        realForm.appendChild(input);
+      }
+      input.value = phraseOf();
+      realForm.setAttribute("data-real-confirmed", "1");
+      var form = realForm;
+      tb.Modal.getOrCreateInstance(realModal).hide();
+      form.requestSubmit();
+    });
+    document.addEventListener("submit", function (ev) {
+      var form = ev.target;
+      if (!form.hasAttribute || !form.hasAttribute("data-real-phrase") || !form.getAttribute("data-real-phrase")) { return; }
+      if (!isReal(form, ev.submitter) || form.getAttribute("data-real-confirmed") === "1") { return; }
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      realForm = form;
+      realModal.querySelector("[data-role=real-phrase]").textContent = phraseOf();
+      var list = realModal.querySelector("[data-role=real-packs]");
+      while (list.firstChild) { list.removeChild(list.firstChild); }
+      (form.getAttribute("data-real-packs") || "").split(" ").filter(Boolean).forEach(function (p) {
+        var li = document.createElement("li");
+        var code = document.createElement("code");
+        code.textContent = p;
+        li.appendChild(code);
+        list.appendChild(li);
+      });
+      var note = realModal.querySelector("[data-role=real-note]");
+      note.textContent = form.getAttribute("data-real-note") || "";
+      note.hidden = !note.textContent;
+      realInput.value = "";
+      realStart.disabled = true;
+      realHelp.textContent = "Nothing has been started yet.";
+      var panel = form.closest(".offcanvas");
+      if (panel && tb.Offcanvas) { tb.Offcanvas.getOrCreateInstance(panel).hide(); }
+      tb.Modal.getOrCreateInstance(realModal).show();
+    }, true);
+  }
+
+  // A page asks for a toast with a hidden [data-toast] element: a save, a
+  // finished check or run, rendered after the redirect that follows it.
+  document.querySelectorAll("[data-toast]").forEach(function (el) {
+    showToast(el.getAttribute("data-toast"), el.getAttribute("data-toast-title"),
+      el.getAttribute("data-toast-body"), el.getAttribute("data-toast-href"));
+  });
+
+  // Runs still going when a page loads are watched, so a toast says when
+  // each finishes, whatever page is open. The run's own page shows it there.
+  var watch = document.body.getAttribute("data-watch-jobs");
+  if (watch && window.EventSource && !document.getElementById("job")) {
+    watch.split(" ").forEach(function (id) {
+      var src = new EventSource("/events/jobs/" + encodeURIComponent(id));
+      src.addEventListener("done", function (msg) {
+        var e = {};
+        try { e = JSON.parse(msg.data); } catch (err) { /* keep the defaults */ }
+        var level = e.status === "succeeded" ? "success" : e.status === "needs-review" ? "warning" : e.status === "cancelled" ? "info" : "danger";
+        showToast(level, "Run " + (e.status || "finished"), e.error || "", "/jobs/" + encodeURIComponent(id));
+        src.close();
+      });
+    });
+  }
+
+  // The dashboard's alert bar follows a running upstream check: n of N packs
+  // in its progress bar, then a reload that shows the results and a toast.
+  var checkBar = document.getElementById("check-status");
+  if (checkBar && checkBar.getAttribute("data-running") === "1" && window.fetch) {
+    if (reloadTimer) { window.clearTimeout(reloadTimer); }
+    var poll = function () {
+      fetch(checkBar.getAttribute("data-status-url"), { headers: { Accept: "application/json" }, credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function (st) {
+          var count = checkBar.querySelector("[data-role=check-count]");
+          var bar = checkBar.querySelector("[data-role=check-progress]");
+          if (count) { count.textContent = st.done + " of " + st.total + " packs"; }
+          if (bar) { bar.max = st.total || 1; bar.value = st.done; bar.textContent = st.done + " of " + st.total; }
+          if (st.running) { window.setTimeout(poll, 1000); return; }
+          if (busy()) { window.setTimeout(poll, 1000); return; }
+          window.location.href = "/?checked=1";
+        })
+        .catch(function () { window.setTimeout(poll, 3000); });
+    };
+    window.setTimeout(poll, 1000);
+  }
+
+  // A form with data-progress shows an indeterminate bar and disables its
+  // submit button while the request is out: a long save shows it is working.
+  document.addEventListener("submit", function (ev) {
+    var form = ev.target;
+    if (!form.hasAttribute || !form.hasAttribute("data-progress") || ev.defaultPrevented) { return; }
+    if (form.hasAttribute("data-confirm") && form.getAttribute("data-confirmed") !== "1" &&
+        !(ev.submitter && ev.submitter.hasAttribute("data-confirm-skip"))) { return; }
+    var wrap = document.createElement("div");
+    wrap.className = "progress progress-sm mt-2";
+    wrap.setAttribute("role", "progressbar");
+    wrap.setAttribute("aria-label", form.getAttribute("data-progress") || "Working");
+    var bar = document.createElement("div");
+    bar.className = "progress-bar progress-bar-indeterminate";
+    wrap.appendChild(bar);
+    form.appendChild(wrap);
+    var btn = ev.submitter;
+    if (btn) { window.setTimeout(function () { btn.disabled = true; }, 0); }
+  });
 
   // A form with data-confirm asks first, in Tabler's danger modal
   // (#confirm-modal in the layout): data-confirm is the body text,
@@ -107,7 +267,10 @@
       var slug = ev.relatedTarget && ev.relatedTarget.getAttribute("data-pack");
       if (!slug) { return; }
       var base = "/packs/" + encodeURIComponent(slug);
-      packPanel.querySelector("[data-role=pack-sync-form]").setAttribute("action", base + "/sync");
+      var packForm = packPanel.querySelector("[data-role=pack-sync-form]");
+      packForm.setAttribute("action", base + "/sync");
+      packForm.setAttribute("data-real-phrase", slug);
+      packForm.setAttribute("data-real-packs", slug);
       packPanel.querySelector("[data-role=pack-page]").setAttribute("href", base);
       packPanel.querySelector("[data-role=pack-name]").textContent = slug;
     });
@@ -195,6 +358,68 @@
     if (ev.key === "/" && palette) { ev.preventDefault(); showModal("command-palette"); return; }
     if (ev.key === "?") { ev.preventDefault(); showModal("shortcuts-modal"); return; }
     if (ev.key === "t") { ev.preventDefault(); toggleTheme(); }
+  });
+
+  // Editor helpers: a finding's "line N" link selects that line; a known
+  // setting's Insert button types it at the cursor; the filter narrows them.
+  document.addEventListener("click", function (ev) {
+    var text = document.getElementById("editor-text");
+    if (!text) { return; }
+    var jump = ev.target.closest && ev.target.closest("[data-editor-line]");
+    if (jump) {
+      ev.preventDefault();
+      var line = parseInt(jump.getAttribute("data-editor-line"), 10) || 1;
+      var col = parseInt(jump.getAttribute("data-editor-col"), 10) || 1;
+      var lines = text.value.split("\n");
+      var at = 0;
+      for (var i = 0; i < line - 1 && i < lines.length; i++) { at += lines[i].length + 1; }
+      var end = at + (lines[line - 1] || "").length;
+      text.focus();
+      text.setSelectionRange(Math.min(at + col - 1, end), end);
+      return;
+    }
+    var ins = ev.target.closest && ev.target.closest("[data-insert]");
+    if (ins && !text.readOnly) {
+      var snippet = ins.getAttribute("data-insert");
+      var start = text.selectionStart, stop = text.selectionEnd;
+      text.value = text.value.slice(0, start) + snippet + text.value.slice(stop);
+      text.focus();
+      text.setSelectionRange(start + snippet.length, start + snippet.length);
+      text.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  var keyFilter = document.querySelector("[data-key-filter]");
+  if (keyFilter) {
+    keyFilter.addEventListener("input", function () {
+      var q = keyFilter.value.toLowerCase();
+      document.querySelectorAll("[data-key-name]").forEach(function (row) {
+        row.hidden = q !== "" && row.textContent.toLowerCase().indexOf(q) < 0;
+      });
+    });
+  }
+
+  // List editors: data-list-add appends the form's <template data-list-template>
+  // row to its [data-list]; data-list-remove removes its row.
+  document.addEventListener("click", function (ev) {
+    var add = ev.target.closest && ev.target.closest("[data-list-add]");
+    if (add) {
+      var form = add.closest("form");
+      var list = form && form.querySelector("[data-list=\"" + add.getAttribute("data-list-add") + "\"]");
+      var tpl = form && form.querySelector("template[data-list-template]");
+      if (list && tpl) {
+        var empty = list.querySelector("[data-list-empty]");
+        if (empty) { empty.remove(); }
+        list.appendChild(tpl.content.cloneNode(true));
+        var inputs = list.querySelectorAll("input");
+        if (inputs.length) { inputs[inputs.length - 1].focus(); }
+      }
+      return;
+    }
+    var remove = ev.target.closest && ev.target.closest("[data-list-remove]");
+    if (remove) {
+      var row = remove.closest("[data-list-row]");
+      if (row) { row.remove(); }
+    }
   });
 
   // Copy buttons: data-copy-target names the element whose text is copied.
@@ -292,6 +517,7 @@
       case "succeeded": case "synced": case "up-to-date": case "finished": return "badge badge-ok";
       case "running": case "started": return "badge badge-info";
       case "cancelled": return "badge badge-muted";
+      case "needs-review": return "badge badge-warn";
       default: return "badge badge-bad";
     }
   }
@@ -369,6 +595,17 @@
       state.className = badgeClass(e.state) + " me-2";
       state.textContent = e.state;
       setLine(item, "error", "text-danger small text-break", e.error || "");
+      var working = item.querySelector("[data-role=stage-progress]");
+      if (e.state === "started" && !working) {
+        working = el("div", "progress progress-sm mt-1");
+        working.setAttribute("data-role", "stage-progress");
+        working.setAttribute("role", "progressbar");
+        working.setAttribute("aria-label", e.stage + " in progress");
+        working.appendChild(el("div", "progress-bar progress-bar-indeterminate"));
+        item.appendChild(working);
+      } else if (e.state !== "started" && working) {
+        working.remove();
+      }
     },
     "pack-start": function (e) {
       var li = packItem(e.pack);
@@ -379,6 +616,13 @@
       status.textContent = "Running: " + e.pack;
     },
     "pack-done": function (e) {
+      var progress = document.getElementById("job-progress");
+      if (progress) {
+        progress.value = Math.min(progress.max, progress.value + 1);
+        progress.textContent = progress.value + " of " + progress.max;
+        var count = document.getElementById("job-progress-count");
+        if (count) { count.textContent = progress.value + " of " + progress.max + " packs done"; }
+      }
       var li = packItem(e.pack);
       var b = li.querySelector("[data-role=status]");
       b.className = badgeClass(e.status);
@@ -390,7 +634,7 @@
     "done": function (e) {
       status.textContent = "Run " + e.status + (e.error ? ": " + e.error : "") + ". Reloading the final summary.";
       source.close();
-      window.setTimeout(function () { window.location.reload(); }, 1500);
+      window.setTimeout(function () { window.location.replace(window.location.pathname + "?finished=1"); }, 1500);
     }
   };
 

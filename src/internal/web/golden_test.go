@@ -66,6 +66,8 @@ func goldenPages(t *testing.T) map[string]string {
 		"jobs":      "/jobs",
 		"config":    "/config",
 		"editor":    "/config/icon-sets-demo.json",
+		"history":   "/config/icon-sets-demo.json/history",
+		"validate":  "/validate?run=1&parse=1",
 		"audit":     "/manifest-pack/audit",
 		"about":     "/about",
 	} {

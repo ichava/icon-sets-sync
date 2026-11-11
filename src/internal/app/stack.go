@@ -53,40 +53,54 @@ type StackInput struct {
 // assignments or the overlay are *UsageError; a missing or malformed global
 // config is a plain error.
 func BuildStack(in StackInput) (settings.Stack, string, error) {
+	stack, loc, err := BuildStackLocated(in)
+	return stack, loc.Path, err
+}
+
+// BuildStackLocated is BuildStack, also returning where the global config was
+// found and where it belongs, so a front-end can explain it and warn about a
+// file at a legacy location.
+func BuildStackLocated(in StackInput) (settings.Stack, settings.GlobalLocation, error) {
 	lookup := in.Lookup
 	if lookup == nil {
 		lookup = os.LookupEnv
 	}
 
-	path := in.GlobalPath
-	if path == "" {
-		found, err := settings.GlobalConfigPath(lookup)
-		if err != nil {
-			return settings.Stack{}, "", err
-		}
-		path = found
+	loc, err := settings.FindGlobalConfig(lookup, settings.LegacyConfigDirs())
+	if err != nil && in.GlobalPath == "" {
+		return settings.Stack{}, loc, err
 	}
+	if in.GlobalPath != "" {
+		loc.Path, loc.Layer, loc.Legacy = in.GlobalPath, "--global-config", false
+	}
+	path := loc.Path
 	global, err := settings.LoadGlobal(path)
 	if err != nil {
-		return settings.Stack{}, "", err
+		// Every command fails here on a bad global config, so say where.
+		if data, rerr := os.ReadFile(path); rerr == nil {
+			if line, col := Locate(data, err); line > 0 {
+				err = fmt.Errorf("%w (at %s:%d:%d; `config fix global` or the web UI's editor can help)", err, path, line, col)
+			}
+		}
+		return settings.Stack{}, loc, err
 	}
 
 	envValues, err := settings.FromEnv(lookup)
 	if err != nil {
-		return settings.Stack{}, "", usage(err)
+		return settings.Stack{}, loc, usage(err)
 	}
 
 	flagValues, err := settings.FromAssignments(in.Assignments)
 	if err != nil {
-		return settings.Stack{}, "", usage(err)
+		return settings.Stack{}, loc, usage(err)
 	}
 	if in.Overlay != nil {
 		if err := in.Overlay(flagValues); err != nil {
-			return settings.Stack{}, "", usage(err)
+			return settings.Stack{}, loc, usage(err)
 		}
 	}
 
-	return settings.Stack{Global: global, Env: envValues, Flags: flagValues}, path, nil
+	return settings.Stack{Global: global, Env: envValues, Flags: flagValues}, loc, nil
 }
 
 // errf is fmt.Errorf, named for the call sites that build a usage error.

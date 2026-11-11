@@ -4,10 +4,15 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
 	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
+	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
+	"github.com/ichava/icon-sets-sync/src/internal/web/jobs"
 )
 
 func TestAuditRunsAndRendersItsResults(t *testing.T) {
@@ -99,5 +104,85 @@ func TestRemovedAuditRouteIsNotFound(t *testing.T) {
 	}
 	if calls := eng.runs(); len(calls) != 0 {
 		t.Errorf("the removed route started an audit: %+v", calls)
+	}
+}
+
+// The page names a private config directory it found, and loading it writes
+// private_config_dir into the global config. Only a found directory is taken.
+func TestAuditOffersTheFoundPrivateConfigDir(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "aggregate", ".dev", "icon-sets-sync")
+	s, eng := newTestServer(t)
+	eng.privateCandidates = []string{dir}
+	t.Cleanup(func() { config.SetPrivateConfigDir("") })
+	c := signIn(t, s)
+	body := c.get("/manifest-pack/audit").Body.String()
+	if !strings.Contains(body, dir) || !strings.Contains(body, "Use this directory") {
+		t.Fatal("the found directory is not offered")
+	}
+	if rec := c.post("/settings/private-config-dir", url.Values{"dir": {"/etc"}}); rec.Code != http.StatusBadRequest {
+		t.Errorf("a directory the server did not find was accepted: %d", rec.Code)
+	}
+	if rec := c.post("/settings/private-config-dir", url.Values{"dir": {dir}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("load = %d:\n%s", rec.Code, rec.Body.String())
+	}
+	global, _ := os.ReadFile(filepath.Join(eng.cfg.GlobalHome, settings.AppDir, "config.json"))
+	if !strings.Contains(string(global), `"private_config_dir": "`+dir+`"`) {
+		t.Errorf("global config:\n%s", global)
+	}
+	if config.PrivateConfigDir() != dir {
+		t.Errorf("not applied: %q", config.PrivateConfigDir())
+	}
+}
+
+// A set the pack does not have starts nothing and offers the near names.
+func TestAuditRefusesAnUnknownSet(t *testing.T) {
+	s, eng := newTestServer(t)
+	c := signIn(t, s)
+	rec := c.post("/manifest-pack/audit", url.Values{"set": {"tabler"}})
+	body := rec.Body.String()
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(body, `data-role="unknown-set"`) ||
+		!strings.Contains(body, `name="set" value="tabler-icons"`) || !strings.Contains(body, `name="set" value="tabler-outline"`) {
+		t.Fatalf("%d:\n%s", rec.Code, body)
+	}
+	if n := len(eng.runs()); n != 0 {
+		t.Errorf("%d audits started", n)
+	}
+}
+
+// A run recorded before Resolution.Error existed (the owner's screenshot,
+// 2026-11-09): its lstat note is shown as a cause and a fix, counted as could
+// not read, and its "succeeded" is qualified.
+func TestAnOldAuditsReadErrorIsExplained(t *testing.T) {
+	rs := []manifestpack.Resolution{{Set: "tabler", Confidence: manifestpack.ConfidenceNone,
+		Note: "lstat /p/aggregate/resources/assets/svg/files/tabler: no such file or directory"}}
+	got := explainAuditErrors(rs, []string{"mdi", "tabler-icons"})
+	p, ok := got["tabler"]
+	if !ok || rs[0].Error == "" || rs[0].Note != "" || len(p.Suggestions) != 1 || p.Suggestions[0] != "tabler-icons" ||
+		!strings.Contains(p.Cause, "no set directory named tabler") {
+		t.Fatalf("%+v %+v", rs, got)
+	}
+	// With the config not loaded there is no set list to suggest from.
+	unloaded := explainAuditErrors([]manifestpack.Resolution{{Set: "tabler", Note: rs[0].Error}}, nil)["tabler"]
+	if !strings.Contains(unloaded.Fix, "Load the aggregator pack's config") {
+		t.Errorf("fix without a set list: %q", unloaded.Fix)
+	}
+}
+
+// A survey that could not read a set did not survey it: the run fails.
+func TestAnAuditWithAnUnreadableSetFails(t *testing.T) {
+	s, _ := newTestServer(t)
+	c := signIn(t, s)
+	path := startRun(t, c, "/manifest-pack/audit", url.Values{"set": {"broken-set"}})
+	waitJob(t, s, path)
+	info := s.jobs.Get(strings.TrimPrefix(path, "/jobs/")).Info()
+	if info.Status != jobs.StatusFailed || !strings.Contains(info.Err, "1 of 1 sets could not be read") {
+		t.Fatalf("%+v", info)
+	}
+	body := c.get("/manifest-pack/audit").Body.String()
+	for _, want := range []string{"could not read", "permission denied", `data-role="set-problem"`,
+		`<div class="text-secondary">none</div><div class="h2 mb-0">0</div>`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("audit page lacks %q", want)
+		}
 	}
 }

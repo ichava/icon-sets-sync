@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/ichava/icon-sets-sync/src/internal/core/toolpath"
 )
 
 // DefaultAuthor is the identity sync commits are attributed to.
@@ -27,7 +29,13 @@ type Runner interface {
 type ExecRunner struct{}
 
 func (ExecRunner) Run(ctx context.Context, dir string, env []string, name string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
+	// Found on PATH, else in the usual install directories, so a server
+	// started from a desktop shortcut still finds Homebrew's gh.
+	bin := name
+	if p, _, err := toolpath.LookPath(name); err == nil {
+		bin = p
+	}
+	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = dir
 	if len(env) > 0 {
 		cmd.Env = append(cmd.Environ(), env...)

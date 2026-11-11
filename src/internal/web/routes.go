@@ -11,6 +11,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /assets/{hash}/{path...}", s.serveAsset)
 	mux.HandleFunc("GET /{$}", s.handleDashboard)
 	mux.HandleFunc("POST /check", s.handleRefresh)
+	mux.HandleFunc("GET /status.json", s.handleStatus)
 	mux.HandleFunc("GET /settings", s.handleSettings)
 	mux.HandleFunc("GET /about/licenses", s.handleLicenses)
 	mux.HandleFunc("GET /about", s.handleAbout)
@@ -22,10 +23,16 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /events/jobs/{id}", s.handleEvents)
 	mux.HandleFunc("GET "+auditPath, s.handleAudit)
 	mux.HandleFunc("GET "+auditPath+"/{id}/manifest.json", s.handleAuditManifest)
+	mux.HandleFunc("GET /validate", s.handleValidate)
 	mux.HandleFunc("GET /config", s.handleConfigList)
 	mux.HandleFunc("GET /config/{name}", s.handleConfigEdit)
 	// Validation writes nothing, so a read-only server keeps it.
 	mux.HandleFunc("POST /config/{name}/validate", s.handleConfigValidate)
+	// Fix proposes and writes nothing; history only reads.
+	mux.HandleFunc("POST /config/{name}/fix", s.handleConfigFix)
+	mux.HandleFunc("GET /config/{name}/history", s.handleConfigHistory)
+	mux.HandleFunc("GET /config/{name}/history/{id}", s.handleConfigHistory)
+	mux.HandleFunc("GET /schema/global.schema.json", s.handleGlobalSchema)
 	mux.HandleFunc("GET "+HealthPath, s.handleHealth)
 	// Stopping the server changes no file, so a read-only server keeps it.
 	mux.HandleFunc("POST "+StopPath, s.handleStop)
@@ -53,6 +60,9 @@ func (s *Server) writeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /sync-all", s.handleSyncAll)
 	mux.HandleFunc("POST /jobs/{id}/cancel", s.handleCancel)
 	mux.HandleFunc("POST /config/{name}", s.handleConfigSave)
+	mux.HandleFunc("POST /config/{name}/restore", s.handleConfigRestore)
+	mux.HandleFunc("POST /settings/packages-dirs", s.handlePackagesDirsSave)
+	mux.HandleFunc("POST /settings/private-config-dir", s.handlePrivateConfigDir)
 	mux.HandleFunc("POST "+auditPath, s.handleAuditStart)
 }
 

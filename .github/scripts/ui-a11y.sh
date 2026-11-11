@@ -73,7 +73,7 @@ for _ in $(seq 1 50); do
   sleep 0.2
 done
 
-pages=(/ /packs/icon-sets-a11y /jobs "$job" /config /config/icon-sets-a11y.json /manifest-pack/audit /settings /about /about/licenses)
+pages=(/ /packs/icon-sets-a11y /jobs "$job" /config /config/icon-sets-a11y.json /config/icon-sets-a11y.json/history /config/global /validate "/validate?run=1" /manifest-pack/audit /settings /about /about/licenses)
 echo "pages: ${#pages[@]}"
 
 status=0
@@ -82,7 +82,9 @@ for theme in light dark; do
   for p in "${pages[@]}"; do
     # Every URL signs in afresh: axe's browser has no cookie of its own, and
     # the token exchange keeps the theme parameter through its redirect.
-    urls+=("$origin$p?token=$token&theme=$theme")
+    sep='?'
+    case "$p" in *\?*) sep='&' ;; esac
+    urls+=("$origin$p${sep}token=$token&theme=$theme")
   done
   out="$work/axe-$theme.json"
   # --save is joined onto --dir, so the file name goes in one and the
@@ -95,7 +97,7 @@ for theme in light dark; do
   serious=$(jq '[.[].violations[] | select(.impact == "serious" or .impact == "critical")] | length' "$out")
   all=$(jq '[.[].violations[]] | length' "$out")
   echo "$theme: scanned $scanned pages, $all violation group(s), $serious serious or critical"
-  jq -r '.[] | .url as $u | .violations[] | "  [\(.impact)] \(.id): \(.help) (\(.nodes | length) node(s)) on \($u | sub("\\?token=[^&]*&"; "?"))"' "$out"
+  jq -r '.[] | .url as $u | .violations[] | "  [\(.impact)] \(.id): \(.help) (\(.nodes | length) node(s)) on \($u | sub("token=[^&]*&?"; ""))"' "$out"
   if [ "$scanned" -ne "${#pages[@]}" ]; then
     echo "::error::$theme: axe scanned $scanned pages, expected ${#pages[@]}"
     status=1

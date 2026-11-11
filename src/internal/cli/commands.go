@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -70,9 +71,11 @@ func newCheckCommand() *cobra.Command {
 		github bool
 	)
 
+	var failOnOutdated bool
 	cmd := &cobra.Command{
-		Use:   "check",
-		Short: "Check every pack against its upstream registry",
+		Use:     "check",
+		Aliases: []string{"check-upstream"},
+		Short:   "Check every pack against its upstream registry",
 		Long: `Check every pack against its upstream registry.
 
 Exits 1 when any pack is behind upstream, so it can gate a scheduled job.
@@ -89,6 +92,13 @@ pack that is behind or could not be checked.`,
 			if !validFailOn(failOn) {
 				return usageErr("--fail-on must be one of %s, not %q", strings.Join(failOnModes, ", "), failOn)
 			}
+			if failOnOutdated {
+				if cmd.Flags().Changed("fail-on") && failOn != "stale" {
+					return usageErr("--fail-on-outdated is --fail-on stale; it contradicts --fail-on %s", failOn)
+				}
+				failOn = "stale"
+			}
+			github = githubMode(cmd, github)
 			if github {
 				if _, _, err := githubFiles(); err != nil {
 					return usageErr("%s", err)
@@ -126,6 +136,7 @@ pack that is behind or could not be checked.`,
 		},
 	}
 	cmd.Flags().StringVar(&failOn, "fail-on", "stale", "what exits 1: stale, error (could not be checked), any, or never")
+	cmd.Flags().BoolVar(&failOnOutdated, "fail-on-outdated", false, "exit 1 when a pack is behind upstream (the same as --fail-on stale, the default)")
 	cmd.Flags().BoolVar(&github, "github", false, "in GitHub Actions: write a step summary, step outputs and annotations")
 	cmd.Flags().StringVar(&pack, "pack", "", "restrict to one pack slug")
 	addKindFlags(cmd.Flags(), &kf)
@@ -179,7 +190,7 @@ packs still run first.`,
 			}
 			// The scan reads the pack checkout, so it runs after the sync has
 			// refreshed it, and whether or not the sync succeeded.
-			syncErr := runSync(cmd.Context(), cmd, packs, github)
+			syncErr := runSync(cmd.Context(), cmd, packs, githubMode(cmd, github))
 			kf.report(packs)
 			return syncErr
 		},
@@ -201,6 +212,7 @@ func newSyncAllCommand() *cobra.Command {
 		Short: "Refresh every registered pack, up to --concurrency at a time",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			github = githubMode(cmd, github)
 			if github {
 				if _, _, err := githubFiles(); err != nil {
 					return usageErr("%s", err)
@@ -232,6 +244,11 @@ var (
 )
 
 func runSync(ctx context.Context, cmd *cobra.Command, packs []*config.PackConfig, github bool) error {
+	// In Actions, one collapsible group per pack -- only when packs run one at
+	// a time, since concurrent packs' lines interleave.
+	group := github && !ui.JSONMode() && state.run.Int("concurrency") <= 1
+	out := cmd.OutOrStdout()
+	opened := map[string]bool{}
 	outcomes := app.Sync(ctx, packs, app.SyncOptions{
 		Checker:     syncChecker,
 		Run:         syncRun,
@@ -243,9 +260,18 @@ func runSync(ctx context.Context, cmd *cobra.Command, packs []*config.PackConfig
 			if dryRun {
 				mode = " (dry run)"
 			}
+			if group {
+				opened[p.Pack] = true
+				_, _ = fmt.Fprintf(out, "::group::%s\n", p.Pack)
+			}
 			ui.Info("%s: refreshing from %s %s %s%s", p.Pack, text.OrDash(r.Current), ui.Sym.Arrow, r.Latest, mode)
 		},
-		Done: reportOutcome,
+		Done: func(o app.Outcome) {
+			reportOutcome(o)
+			if opened[o.Pack] {
+				_, _ = fmt.Fprintln(out, "::endgroup::")
+			}
+		},
 	})
 
 	if ui.JSONMode() {
@@ -266,6 +292,9 @@ func runSync(ctx context.Context, cmd *cobra.Command, packs []*config.PackConfig
 			if o.LicenceChanged() {
 				row["licence_changed"] = true
 			}
+			if reviews := o.Reviews(); len(reviews) > 0 {
+				row["reviews"] = reviews
+			}
 			rows = append(rows, row)
 		}
 		if err := ui.JSON(rows); err != nil {
@@ -282,6 +311,9 @@ func runSync(ctx context.Context, cmd *cobra.Command, packs []*config.PackConfig
 	if app.AnyFailed(outcomes) {
 		return &ExitError{Code: ExitFailure}
 	}
+	if app.AnyNeedsReview(outcomes) {
+		return &ExitError{Code: ExitNeedsReview}
+	}
 	return nil
 }
 
@@ -294,6 +326,24 @@ func reportOutcome(o app.Outcome) {
 		ui.Success("%s: up-to-date (%s)", o.Pack, o.Current)
 	case app.StatusSynced:
 		ui.Success("%s: done -- %s", o.Pack, o.Result.Headline())
+	case app.StatusNeedsReview:
+		ui.Warning("%s: needs review", o.Pack)
+		for _, r := range o.Reviews() {
+			if r.Reason != "" {
+				ui.Warning("  %s", r.Reason)
+			}
+			for _, rm := range r.Removals {
+				switch {
+				case rm.RenamedTo != "":
+					ui.Warning("  renamed  %s -> %s", rm.Path, rm.RenamedTo)
+				case rm.SameAs != "":
+					ui.Warning("  removed  %s (the same bytes stay at %s)", rm.Path, rm.SameAs)
+				default:
+					ui.Warning("  removed  %s", rm.Path)
+				}
+			}
+		}
+		ui.Warning("%s: check these, then re-run with --force to let them through", o.Pack)
 	default:
 		// A pack with no recipe yet is reported as a warning, not a failure.
 		// No recipe returns ErrRecipePending today, and since

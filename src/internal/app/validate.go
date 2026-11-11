@@ -23,6 +23,9 @@ const (
 type Finding struct {
 	Level Level  `json:"level"`
 	Text  string `json:"text"`
+	// Line and Col (1-based) place the finding in the document, when known.
+	Line int `json:"line,omitempty"`
+	Col  int `json:"col,omitempty"`
 }
 
 // Problems counts the error-level findings.
@@ -44,13 +47,13 @@ func Problems(fs []Finding) int {
 func ValidateConfigs(dir string, stack settings.Stack) []Finding {
 	registry, err := config.LoadRegistry(dir)
 	if err != nil {
-		return []Finding{{LevelError, err.Error()}}
+		return []Finding{{Level: LevelError, Text: err.Error()}}
 	}
 	where := dir
 	if private := config.PrivateConfigDir(); private != "" {
 		where += " and the private config dir " + private
 	}
-	out := []Finding{{LevelOK, fmt.Sprintf("registry: %d packs in %s", len(registry.Packs), where)}}
+	out := []Finding{{Level: LevelOK, Text: fmt.Sprintf("registry: %d packs in %s", len(registry.Packs), where)}}
 	for _, slug := range registry.Packs {
 		out = append(out, ValidatePack(dir, slug, stack)...)
 	}
@@ -84,7 +87,7 @@ func ValidatePackBytes(dir, slug, path string, data []byte, stack settings.Stack
 }
 
 func bad(format string, a ...any) []Finding {
-	return []Finding{{LevelError, fmt.Sprintf(format, a...)}}
+	return []Finding{{Level: LevelError, Text: fmt.Sprintf(format, a...)}}
 }
 
 // checkPack is every check after the document has loaded.
@@ -106,7 +109,7 @@ func checkPack(dir, slug, path string, pack *config.PackConfig, stack settings.S
 	}
 	var out []Finding
 	if len(pack.Sinks) == 0 {
-		out = append(out, Finding{LevelWarn, fmt.Sprintf("%s: declares no sinks; sync will refuse it outside --dry-run", path)})
+		out = append(out, Finding{Level: LevelWarn, Text: fmt.Sprintf("%s: declares no sinks; sync will refuse it outside --dry-run", path)})
 	}
-	return append(out, Finding{LevelOK, fmt.Sprintf("%s (recipe %s)", path, recipe)})
+	return append(out, Finding{Level: LevelOK, Text: fmt.Sprintf("%s (recipe %s)", path, recipe)})
 }

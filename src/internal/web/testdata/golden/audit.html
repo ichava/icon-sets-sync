@@ -122,6 +122,9 @@
   <a class="nav-link" href="/manifest-pack/audit" aria-current="page"><span class="nav-link-icon"><i class="icon ti ti-search" aria-hidden="true"></i></span><span class="nav-link-title">Manifest pack audit</span></a>
 </li>
                   <li class="nav-item">
+  <a class="nav-link" href="/validate"><span class="nav-link-icon"><i class="icon ti ti-checklist" aria-hidden="true"></i></span><span class="nav-link-title">Validate</span></a>
+</li>
+                  <li class="nav-item">
   <a class="nav-link" href="/config"><span class="nav-link-icon"><i class="icon ti ti-file-code" aria-hidden="true"></i></span><span class="nav-link-title">Config</span></a>
 </li>
                   <li class="nav-item">
@@ -162,13 +165,28 @@
 <p class="text-secondary">For every set in the aggregator pack, fetches candidate npm packages and scores them against the committed icons. Nothing is accepted on a name: a candidate is believed only when the bytes it ships match the bytes already committed. A survey, not a gate: unresolved sets are work for a person. It reads the pack tree and writes only temporary downloads.</p>
 
 
-<div class="alert alert-warning" role="alert">
-  <div class="alert-icon"><i class="icon ti ti-alert-triangle alert-icon" aria-hidden="true"></i></div>
-  <div>
-    <h2 class="alert-heading h4">The aggregator pack's config is not loaded</h2>
-    <div class="alert-description">The audit reads the aggregator pack, whose config is private. Start the server with <code>--private-config-dir</code> pointing at that pack's <code>.dev/icon-sets-sync</code> directory.</div>
+
+
+<div class="card mb-3" data-role="audit-unavailable">
+  <div class="card-header"><h2 class="card-title"><i class="icon ti ti-alert-triangle" aria-hidden="true"></i>The aggregator pack's config is not loaded</h2></div>
+  <div class="card-body">
+    <h3 class="h4">Cause</h3>
+    
+    <p>The aggregator pack's config is private: it lives in that pack's checkout, under <code>.dev/icon-sets-sync/</code>, not in the shipped <code>config/</code>. This server has no private config directory, so the pack is not registered and nothing can be audited.</p>
+    
+    <h3 class="h4">Fix</h3>
+    
+    <p>No pack checkout with a <code>.dev/icon-sets-sync/</code> directory was found under <code>packages_dirs</code>, the workspace or beside this checkout. Check out the aggregator pack, or set where the packs live on the <a class="text-decoration-underline" href="/settings#packages-dirs">Settings</a> page.</p>
+    
+    <p class="mb-1">Or set it yourself, any of these:</p>
+    <ul class="mb-0">
+      <li>start with <code>--private-config-dir &lt;pack&gt;/.dev/icon-sets-sync</code></li>
+      <li>export <code>ICHAVA_PRIVATE_CONFIG_DIR</code></li>
+      <li>add <code>"private_config_dir"</code> to the <a class="text-decoration-underline" href="/config/global">global config</a></li>
+    </ul>
   </div>
 </div>
+
 
 
 <div class="card mb-3">
@@ -178,15 +196,17 @@
       <div class="col-sm-4">
         <label class="form-label" for="audit-set">Set <span class="text-secondary">(optional)</span></label>
         <input class="form-control" id="audit-set" name="set" placeholder="every set" autocomplete="off" spellcheck="false" value="">
+        
       </div>
       <div class="col-sm-5">
         <label class="form-label" for="audit-package">Verify this npm package <span class="text-secondary">(needs a set)</span></label>
         <input class="form-control" id="audit-package" name="package" autocomplete="off" spellcheck="false" value="">
       </div>
       <div class="col-sm-3">
-        <button type="submit" class="btn btn-primary w-100" disabled><i class="icon ti ti-player-play" aria-hidden="true"></i>Start audit</button>
+        <button type="submit" class="btn btn-primary w-100" disabled aria-describedby="audit-start-why"><i class="icon ti ti-player-play" aria-hidden="true"></i>Start audit</button>
       </div>
     </form>
+    <div class="form-text" id="audit-start-why">Load the aggregator pack's config first: see the fix above.</div>
   </div>
 </div>
 
@@ -194,13 +214,14 @@
 
 <div class="d-flex flex-wrap gap-2 align-items-center mb-3" role="status" aria-live="polite">
   <span class="badge badge-ok">succeeded</span>
-  <span>Latest audit: every set, started <time datetime="2026-10-23T12:00:00Z">2026-10-23 12:00:00 UTC</time>.</span>
+  <span>Latest audit: every set, started <time datetime="2026-10-23T12:00:00Z">2026-10-23 12:00:00 UTC</time>. <span class="text-secondary">From before this server's config; run it again once the config is loaded.</span></span>
   <a href="/jobs/JOBID">Watch the run</a>
   <a class="ms-auto btn btn-outline-secondary btn-sm" href="/manifest-pack/audit/JOBID/manifest.json"><i class="icon ti ti-download" aria-hidden="true"></i>Download as a set manifest</a>
 </div>
 
 <div class="row row-cards mb-3">
-  <div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">exact</div><div class="h2 mb-0">1</div></div></div></div><div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">strong</div><div class="h2 mb-0">0</div></div></div></div><div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">package</div><div class="h2 mb-0">0</div></div></div></div><div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">ambiguous</div><div class="h2 mb-0">0</div></div></div></div><div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">partial</div><div class="h2 mb-0">0</div></div></div></div><div class="col-4 col-lg-2"><div class="card card-sm"><div class="card-body"><div class="text-secondary">none</div><div class="h2 mb-0">1</div></div></div></div>
+  
+  <div class="col-6 col-md-4 col-lg"><div class="card card-sm"><div class="card-body"><div class="text-secondary">exact</div><div class="h2 mb-0">1</div></div></div></div><div class="col-6 col-md-4 col-lg"><div class="card card-sm"><div class="card-body"><div class="text-secondary">strong</div><div class="h2 mb-0">0</div></div></div></div><div class="col-6 col-md-4 col-lg"><div class="card card-sm"><div class="card-body"><div class="text-secondary">package</div><div class="h2 mb-0">0</div></div></div></div><div class="col-6 col-md-4 col-lg"><div class="card card-sm"><div class="card-body"><div class="text-secondary">ambiguous</div><div class="h2 mb-0">0</div></div></div></div><div class="col-6 col-md-4 col-lg"><div class="card card-sm"><div class="card-body"><div class="text-secondary">partial</div><div class="h2 mb-0">0</div></div></div></div><div class="col-6 col-md-4 col-lg"><div class="card card-sm"><div class="card-body"><div class="text-secondary">none</div><div class="h2 mb-0">1</div></div></div></div>
 </div>
 <div class="card">
   <div class="table-responsive">
@@ -210,7 +231,8 @@
       <tbody>
         
         <tr>
-          <th scope="row"><code>tabler-outline</code></th>
+          <th scope="row"><code>tabler-outline</code>
+            <div class="small fw-normal mt-1" data-role="set-problem"><div><strong>Cause:</strong> <span class="text-break"></span></div><div><strong>Fix:</strong> </div></div></th>
           <td>4,900</td>
           <td><span class="badge badge-ok">exact</span></td>
           <td>4900/4900</td>
@@ -219,7 +241,8 @@
         </tr>
         
         <tr>
-          <th scope="row"><code>mystery-icons</code><div class="text-secondary small fw-normal">no candidate reproduced any icon</div></th>
+          <th scope="row"><code>mystery-icons</code><div class="text-secondary small fw-normal">no candidate reproduced any icon</div>
+            <div class="small fw-normal mt-1" data-role="set-problem"><div><strong>Cause:</strong> <span class="text-break"></span></div><div><strong>Fix:</strong> </div></div></th>
           <td>120</td>
           <td><span class="badge badge-bad">none</span></td>
           <td>0/120</td>
@@ -241,15 +264,15 @@
         <div class="row text-center align-items-center flex-row-reverse">
           <div class="col-lg-auto ms-lg-auto">
             <ul class="list-inline list-inline-dots mb-0">
-              <li class="list-inline-item"><a class="link-secondary" href="https://github.com/ichava/icon-sets-sync/tree/main/docs" target="_blank" rel="noreferrer noopener">Documentation</a></li>
-              <li class="list-inline-item"><a class="link-secondary" href="https://github.com/ichava/icon-sets-sync/blob/main/CHANGELOG.md" target="_blank" rel="noreferrer noopener">Changelog</a></li>
-              <li class="list-inline-item"><a class="link-secondary" href="https://github.com/ichava/icon-sets-sync" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-brand-github" aria-hidden="true"></i>Source</a></li>
-              <li class="list-inline-item"><a class="link-secondary" href="/about/licenses">Third-party licences</a></li>
+              <li class="list-inline-item"><a class="link-secondary d-inline-block py-1" href="https://github.com/ichava/icon-sets-sync/tree/main/docs" target="_blank" rel="noreferrer noopener">Documentation</a></li>
+              <li class="list-inline-item"><a class="link-secondary d-inline-block py-1" href="https://github.com/ichava/icon-sets-sync/blob/main/CHANGELOG.md" target="_blank" rel="noreferrer noopener">Changelog</a></li>
+              <li class="list-inline-item"><a class="link-secondary d-inline-block py-1" href="https://github.com/ichava/icon-sets-sync" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-brand-github" aria-hidden="true"></i>Source</a></li>
+              <li class="list-inline-item"><a class="link-secondary d-inline-block py-1" href="/about/licenses">Third-party licences</a></li>
             </ul>
           </div>
           <div class="col-12 col-lg-auto mt-3 mt-lg-0">
             <ul class="list-inline list-inline-dots mb-0 text-secondary">
-              <li class="list-inline-item">Icon Sets Sync <a class="link-secondary" href="/about">test</a></li>
+              <li class="list-inline-item">Icon Sets Sync <a class="link-secondary d-inline-block py-1" href="/about">test</a></li>
               
             </ul>
           </div>
@@ -275,6 +298,7 @@
           <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/"><i class="icon ti ti-layout-dashboard me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Packs</span><kbd>g p</kbd></a>
           <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/jobs"><i class="icon ti ti-history me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Runs</span><kbd>g r</kbd></a>
           <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/manifest-pack/audit"><i class="icon ti ti-search me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Manifest pack audit</span><kbd>g a</kbd></a>
+          <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/validate"><i class="icon ti ti-checklist me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Validate packs</span></a>
           <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/config"><i class="icon ti ti-file-code me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Config files</span><kbd>g c</kbd></a>
           <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/config/global"><i class="icon ti ti-file-code me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Global config</span></a>
           <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/settings"><i class="icon ti ti-settings me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Settings</span><kbd>g s</kbd></a>
@@ -340,6 +364,41 @@
     </div>
   </div>
 </div>
+
+<div class="modal modal-blur fade" id="real-run-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="real-run-title" aria-describedby="real-run-what" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="modal-status bg-danger"></div>
+      <div class="modal-body py-4">
+        <h3 id="real-run-title"><i class="icon ti ti-alert-triangle text-danger me-1" aria-hidden="true"></i>This is not a dry run</h3>
+        <p id="real-run-what">It will refresh the files, stamp the version, commit to a sync branch, push it and open a pull request for:</p>
+        <ul data-role="real-packs"></ul>
+        <p class="text-secondary" data-role="real-note" hidden></p>
+        <p>It uses whatever GitHub credentials this machine's <code>git</code> and <code>gh</code> already have.</p>
+        <label class="form-label" for="real-run-confirm">Type <code data-role="real-phrase"></code> to confirm</label>
+        <input class="form-control" id="real-run-confirm" autocomplete="off" spellcheck="false" aria-describedby="real-run-help">
+        <div id="real-run-help" class="form-text">Nothing has been started yet.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger ms-auto" id="real-run-start" disabled><i class="icon ti ti-player-play" aria-hidden="true"></i>Start the real sync</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
+<template id="toast-template">
+  <div class="toast" role="status" aria-live="polite" aria-atomic="true">
+    <div class="toast-header">
+      <span class="badge me-2" data-role="toast-badge"></span>
+      <strong class="me-auto" data-role="toast-title"></strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body"><span data-role="toast-body"></span> <a data-role="toast-link" hidden>Open the run</a></div>
+  </div>
+</template>
 <script src="/assets/HASH/vendor/tabler/tabler.min.js" defer></script>
 <script src="/assets/HASH/app.js" defer></script>
 </body>

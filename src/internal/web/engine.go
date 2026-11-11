@@ -15,9 +15,11 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/confighistory"
 	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
 	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
 	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
+	"github.com/ichava/icon-sets-sync/src/internal/core/packcheck"
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
@@ -65,12 +67,35 @@ type Engine interface {
 	ReadConfig(name string) (ConfigDoc, error)
 	// ValidateConfig checks bytes as the loader would, without writing.
 	ValidateConfig(name string, data []byte) []app.Finding
-	// WriteConfig validates and saves, refusing a stale base revision.
+	// WriteConfig validates and saves, refusing a stale base revision. The
+	// file's previous contents go to the history first.
 	WriteConfig(name string, data []byte, base string) error
+	// ValidatePacks checks the structure of every pack checkout, as the
+	// validate command does; parse also parses every SVG.
+	ValidatePacks(parse bool) ([]packcheck.Report, error)
+	// FixConfig proposes the safe repairs to a document; it writes nothing.
+	FixConfig(name string, data []byte) (app.Fixed, error)
+	// ConfigHistory lists a document's saved copies, newest first, and
+	// ConfigHistoryRead returns one.
+	ConfigHistory(name string) ([]confighistory.Entry, error)
+	ConfigHistoryRead(name, id string) ([]byte, error)
+
+	// AuditSets lists the manifest pack's sets, for the audit form.
+	AuditSets() ([]string, error)
+	// PrivateConfigCandidates finds pack checkouts' private config
+	// directories, offered when the manifest pack's config is not loaded.
+	PrivateConfigCandidates() []string
 
 	// AuditManifestPack surveys where each of the manifest pack's sets came
 	// from, as `manifest-pack audit` does.
 	AuditManifestPack(ctx context.Context, req AuditRequest, hooks AuditHooks) ([]manifestpack.Resolution, error)
+}
+
+// ProgressChecker is an Engine that reports a check's progress: done is
+// called with the number of packs finished after each one. The dashboard
+// uses it for "n of N"; an engine without it is checked in one call.
+type ProgressChecker interface {
+	CheckProgress(ctx context.Context, packs []*config.PackConfig, done func(int)) []checker.Result
 }
 
 // AuditRequest is the audit form: one set, optionally verified against one
@@ -126,6 +151,18 @@ type SettingsView struct {
 	// ConfigSource names the layer that chose ConfigDir: flag, env, cwd,
 	// executable or embedded (config.Source*).
 	ConfigSource string
+	// Global is where the global config was found and where it belongs.
+	Global settings.GlobalLocation
+	// PackagesDirs is the packages_dirs setting, each entry with whether it
+	// exists, and the layer that set it.
+	PackagesDirs       []DirStatus
+	PackagesDirsOrigin string
+}
+
+// DirStatus is one directory setting entry and whether it is there.
+type DirStatus struct {
+	Path   string
+	Exists bool
 }
 
 // AppEngine is the production Engine over internal/app.
@@ -139,8 +176,13 @@ type AppEngine struct {
 	// GlobalHome is $XDG_CONFIG_HOME (or ~/.config): where the editor creates
 	// a global config when none exists yet.
 	GlobalHome string
-	Stack      settings.Stack
-	Git        *gitx.Git
+	// GlobalLocation explains GlobalPath on the Settings page: the layer that
+	// chose it, the default, and whether it sits at a legacy location.
+	GlobalLocation settings.GlobalLocation
+	Stack          settings.Stack
+	// History keeps a copy of a config file before every save.
+	History confighistory.Store
+	Git     *gitx.Git
 
 	// mu guards Stack and GlobalPath, which a global-config save replaces;
 	// writeMu serialises saves.
@@ -164,9 +206,46 @@ func (e *AppEngine) Check(ctx context.Context, packs []*config.PackConfig) []che
 	return app.CheckAll(ctx, packs)
 }
 
+// CheckProgress implements ProgressChecker: one pack at a time.
+func (e *AppEngine) CheckProgress(ctx context.Context, packs []*config.PackConfig, done func(int)) []checker.Result {
+	out := make([]checker.Result, 0, len(packs))
+	for i, p := range packs {
+		out = append(out, app.CheckAll(ctx, []*config.PackConfig{p})...)
+		done(i + 1)
+	}
+	return out
+}
+
 // PackStats implements Engine.
 func (e *AppEngine) PackStats(ctx context.Context, pack *config.PackConfig) PackStats {
 	return ReadPackStats(ctx, e.Git, pack)
+}
+
+// ValidatePacks implements Engine: every pack under packages_dirs, else every
+// registered pack's checkout.
+func (e *AppEngine) ValidatePacks(parse bool) ([]packcheck.Report, error) {
+	packs, err := app.LoadPacksIn(e.configDir(), "", e.Workspace)
+	if err != nil {
+		return nil, err
+	}
+	configs := map[string]string{}
+	var roots []string
+	seen := map[string]bool{}
+	for _, p := range packs {
+		configs[p.Pack] = p.Name + ".json"
+		if info, err := os.Stat(p.PackRoot); err == nil && info.IsDir() && !seen[p.PackRoot] {
+			seen[p.PackRoot] = true
+			roots = append(roots, p.PackRoot)
+		}
+	}
+	if dirs := app.PackagesDirs(); len(dirs) > 0 {
+		roots, _ = packcheck.Discover(dirs)
+	}
+	out := make([]packcheck.Report, 0, len(roots))
+	for _, r := range roots {
+		out = append(out, packcheck.Check(r, packcheck.Options{PackConfigs: configs, ParseSVGs: parse}))
+	}
+	return out, nil
 }
 
 // Settings implements Engine.
@@ -176,7 +255,23 @@ func (e *AppEngine) Settings() SettingsView {
 	e.mu.Unlock()
 	v := BuildSettingsView(stack.Resolve(nil), e.ConfigDir, global)
 	v.ConfigSource = e.ConfigSource
+	v.Global = e.GlobalLocation
+	if v.Global.Default == "" {
+		v.Global.Default = e.globalPath()
+	}
+	if global != "" && global != e.GlobalLocation.Path {
+		// Saved from the editor since start-up: it is at the default now.
+		v.Global.Path, v.Global.Layer, v.Global.Legacy = global, "saved from this UI", false
+	}
 	return v
+}
+
+// AuditSets implements Engine.
+func (e *AppEngine) AuditSets() ([]string, error) { return app.AuditSets(e.configDir(), e.Workspace) }
+
+// PrivateConfigCandidates implements Engine.
+func (e *AppEngine) PrivateConfigCandidates() []string {
+	return app.PrivateConfigCandidates(e.Workspace)
 }
 
 // AuditManifestPack implements Engine.
@@ -349,6 +444,11 @@ func ReadPackStats(ctx context.Context, git *gitx.Git, pack *config.PackConfig) 
 // registry's order, with each key's origin and help.
 func BuildSettingsView(r settings.Resolved, configDir, globalPath string) SettingsView {
 	v := SettingsView{ConfigDir: configDir, GlobalPath: globalPath}
+	for _, d := range r.Strings("packages_dirs") {
+		info, err := os.Stat(d)
+		v.PackagesDirs = append(v.PackagesDirs, DirStatus{Path: d, Exists: err == nil && info.IsDir()})
+	}
+	v.PackagesDirsOrigin = string(r.Origin("packages_dirs"))
 	if v.ConfigDir == "" {
 		v.ConfigDir = config.DefaultConfigDir()
 	}
@@ -359,6 +459,8 @@ func BuildSettingsView(r settings.Resolved, configDir, globalPath string) Settin
 			value = boolString(r.Bool(k.Name))
 		case settings.Int:
 			value = strconv.Itoa(r.Int(k.Name))
+		case settings.List:
+			value = settings.FormatValue(r, k.Name)
 		default:
 			value = r.String(k.Name)
 		}

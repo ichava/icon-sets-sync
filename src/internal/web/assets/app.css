@@ -5,7 +5,10 @@ main:focus { outline: none; }
 .log-pane { font-family: var(--tblr-font-monospace); font-size: .8125rem; max-height: 32rem; overflow: auto; padding: .75rem 1rem; }
 .log-line { white-space: pre-wrap; word-break: break-word; }
 .log-level { display: inline-block; min-width: 3.5em; font-weight: 600; }
-.log-warn .log-level { color: var(--tblr-warning); }
+/* Warning text takes badge-warn's colour: Tabler's warning yellow is 2.1:1 on
+   white (axe, a run log with warnings, 2026-11-09). */
+.log-warn .log-level { color: #6e4700; }
+:root[data-bs-theme=dark] .log-warn .log-level { color: #f2c46e; }
 .log-error .log-level { color: var(--tblr-danger); }
 .log-attr { color: var(--tblr-secondary); }
 .log-pane[data-level="info"] .log-debug,
@@ -18,7 +21,8 @@ main:focus { outline: none; }
 .editor-text:focus { outline: 2px solid var(--tblr-primary); outline-offset: -2px; }
 .finding { white-space: pre-wrap; margin-bottom: .25rem; }
 .finding-error { color: var(--tblr-danger); }
-.finding-warn { color: var(--tblr-warning); }
+.finding-warn { color: #6e4700; }
+:root[data-bs-theme=dark] .finding-warn { color: #f2c46e; }
 
 /* Accessible status colours. Tabler's -lt badges put the base colour on a
    tint of itself, which measures 2.4-4.4:1 -- below WCAG's 4.5:1 for text this
@@ -82,3 +86,12 @@ main:focus { outline: none; }
    dark card (ui-a11y, a pack repo error in the packs table). The same red
    the dark outline-danger button uses is above 4.5:1. */
 :root[data-bs-theme=dark] .text-danger { color: #ff8f8f !important; }
+
+/* Motion: the alert bar's spinner, the run and check progress bars and the
+   saving bar animate; with reduced motion they hold still, and an
+   indeterminate bar shows as a steady half-tone fill instead of a sweep.
+   Tabler slows these but does not stop them. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner-border, .progress-bar-indeterminate::before, .progress-bar-indeterminate::after { animation: none; }
+  .progress-bar-indeterminate { width: 100%; opacity: .5; }
+}

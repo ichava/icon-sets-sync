@@ -10,6 +10,9 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
 )
 
 func stubCheck(t *testing.T, results ...checker.Result) {
@@ -159,6 +162,42 @@ func TestSyncGitHubReport(t *testing.T) {
 		t.Errorf("step summary lacks the synced row twice:\n%s", sum)
 	}
 	if !strings.Contains(read(t, output), "synced=1\nfailed=0\nsynced-packs=ichava/icon-sets-demo\nfailed-packs=\n") {
+		t.Errorf("$GITHUB_OUTPUT:\n%s", read(t, output))
+	}
+}
+
+// A dry run a guard would stop exits 3, lists every icon, and in Actions
+// writes a warning annotation and a table of every icon to the summary.
+func TestSyncNeedsReviewExitsThreeAndListsEveryIcon(t *testing.T) {
+	isolate(t)
+	tmp := t.TempDir()
+	summary, output := filepath.Join(tmp, "summary.md"), filepath.Join(tmp, "output")
+	t.Setenv("GITHUB_STEP_SUMMARY", summary)
+	t.Setenv("GITHUB_OUTPUT", output)
+	dir := fixture(t, "", "")
+	syncChecker = fakeChecker{"icon-sets-demo": {Current: "1.0.0", Latest: "2.0.0", Stale: true}}
+	syncRun = func(_ context.Context, p *config.PackConfig, v string, o recipes.Options) (pipeline.Result, error) {
+		return pipeline.Result{PipelineName: p.Name, Success: true, Metrics: map[string]any{"reviews": []sinks.Review{{
+			Target: "/pack/files", Message: "refusing to change 2 icon(s)",
+			Removals: []sinks.Removal{{Path: "uncategorised/e005.svg", RenamedTo: "animals-nature/orca.svg"}, {Path: "gone.svg"}},
+		}}}}, nil
+	}
+	t.Cleanup(func() { syncChecker, syncRun = nil, nil })
+
+	out, code := run(t, "--config-dir", dir, "sync", "--pack", "icon-sets-demo", "--dry-run", "--github")
+	if code != ExitNeedsReview {
+		t.Fatalf("exit %d, want %d:\n%s", code, ExitNeedsReview, out)
+	}
+	for _, want := range []string{"renamed  uncategorised/e005.svg -> animals-nature/orca.svg", "removed  gone.svg", "::warning title=ichava/icon-sets-demo needs review::"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output lacks %q:\n%s", want, out)
+		}
+	}
+	sum := read(t, summary)
+	if !strings.Contains(sum, "| `uncategorised/e005.svg` | `animals-nature/orca.svg` |") || !strings.Contains(sum, "| `gone.svg` | removed |") {
+		t.Errorf("summary lacks the icon table:\n%s", sum)
+	}
+	if !strings.Contains(read(t, output), "review=1\nreview-packs=ichava/icon-sets-demo\n") {
 		t.Errorf("$GITHUB_OUTPUT:\n%s", read(t, output))
 	}
 }

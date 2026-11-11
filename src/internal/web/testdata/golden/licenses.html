@@ -122,6 +122,9 @@
   <a class="nav-link" href="/manifest-pack/audit"><span class="nav-link-icon"><i class="icon ti ti-search" aria-hidden="true"></i></span><span class="nav-link-title">Manifest pack audit</span></a>
 </li>
                   <li class="nav-item">
+  <a class="nav-link" href="/validate"><span class="nav-link-icon"><i class="icon ti ti-checklist" aria-hidden="true"></i></span><span class="nav-link-title">Validate</span></a>
+</li>
+                  <li class="nav-item">
   <a class="nav-link" href="/config"><span class="nav-link-icon"><i class="icon ti ti-file-code" aria-hidden="true"></i></span><span class="nav-link-title">Config</span></a>
 </li>
                   <li class="nav-item">
@@ -315,15 +318,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</pre>
         <div class="row text-center align-items-center flex-row-reverse">
           <div class="col-lg-auto ms-lg-auto">
             <ul class="list-inline list-inline-dots mb-0">
-              <li class="list-inline-item"><a class="link-secondary" href="https://github.com/ichava/icon-sets-sync/tree/main/docs" target="_blank" rel="noreferrer noopener">Documentation</a></li>
-              <li class="list-inline-item"><a class="link-secondary" href="https://github.com/ichava/icon-sets-sync/blob/main/CHANGELOG.md" target="_blank" rel="noreferrer noopener">Changelog</a></li>
-              <li class="list-inline-item"><a class="link-secondary" href="https://github.com/ichava/icon-sets-sync" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-brand-github" aria-hidden="true"></i>Source</a></li>
-              <li class="list-inline-item"><a class="link-secondary" href="/about/licenses">Third-party licences</a></li>
+              <li class="list-inline-item"><a class="link-secondary d-inline-block py-1" href="https://github.com/ichava/icon-sets-sync/tree/main/docs" target="_blank" rel="noreferrer noopener">Documentation</a></li>
+              <li class="list-inline-item"><a class="link-secondary d-inline-block py-1" href="https://github.com/ichava/icon-sets-sync/blob/main/CHANGELOG.md" target="_blank" rel="noreferrer noopener">Changelog</a></li>
+              <li class="list-inline-item"><a class="link-secondary d-inline-block py-1" href="https://github.com/ichava/icon-sets-sync" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-brand-github" aria-hidden="true"></i>Source</a></li>
+              <li class="list-inline-item"><a class="link-secondary d-inline-block py-1" href="/about/licenses">Third-party licences</a></li>
             </ul>
           </div>
           <div class="col-12 col-lg-auto mt-3 mt-lg-0">
             <ul class="list-inline list-inline-dots mb-0 text-secondary">
-              <li class="list-inline-item">Icon Sets Sync <a class="link-secondary" href="/about">test</a></li>
+              <li class="list-inline-item">Icon Sets Sync <a class="link-secondary d-inline-block py-1" href="/about">test</a></li>
               
             </ul>
           </div>
@@ -349,6 +352,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</pre>
           <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/"><i class="icon ti ti-layout-dashboard me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Packs</span><kbd>g p</kbd></a>
           <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/jobs"><i class="icon ti ti-history me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Runs</span><kbd>g r</kbd></a>
           <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/manifest-pack/audit"><i class="icon ti ti-search me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Manifest pack audit</span><kbd>g a</kbd></a>
+          <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/validate"><i class="icon ti ti-checklist me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Validate packs</span></a>
           <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/config"><i class="icon ti ti-file-code me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Config files</span><kbd>g c</kbd></a>
           <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/config/global"><i class="icon ti ti-file-code me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Global config</span></a>
           <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/settings"><i class="icon ti ti-settings me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Settings</span><kbd>g s</kbd></a>
@@ -414,6 +418,41 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</pre>
     </div>
   </div>
 </div>
+
+<div class="modal modal-blur fade" id="real-run-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="real-run-title" aria-describedby="real-run-what" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="modal-status bg-danger"></div>
+      <div class="modal-body py-4">
+        <h3 id="real-run-title"><i class="icon ti ti-alert-triangle text-danger me-1" aria-hidden="true"></i>This is not a dry run</h3>
+        <p id="real-run-what">It will refresh the files, stamp the version, commit to a sync branch, push it and open a pull request for:</p>
+        <ul data-role="real-packs"></ul>
+        <p class="text-secondary" data-role="real-note" hidden></p>
+        <p>It uses whatever GitHub credentials this machine's <code>git</code> and <code>gh</code> already have.</p>
+        <label class="form-label" for="real-run-confirm">Type <code data-role="real-phrase"></code> to confirm</label>
+        <input class="form-control" id="real-run-confirm" autocomplete="off" spellcheck="false" aria-describedby="real-run-help">
+        <div id="real-run-help" class="form-text">Nothing has been started yet.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger ms-auto" id="real-run-start" disabled><i class="icon ti ti-player-play" aria-hidden="true"></i>Start the real sync</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
+<template id="toast-template">
+  <div class="toast" role="status" aria-live="polite" aria-atomic="true">
+    <div class="toast-header">
+      <span class="badge me-2" data-role="toast-badge"></span>
+      <strong class="me-auto" data-role="toast-title"></strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body"><span data-role="toast-body"></span> <a data-role="toast-link" hidden>Open the run</a></div>
+  </div>
+</template>
 <script src="/assets/HASH/vendor/tabler/tabler.min.js" defer></script>
 <script src="/assets/HASH/app.js" defer></script>
 </body>

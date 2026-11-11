@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
@@ -102,5 +103,17 @@ func TestBuildStackSeparatesUsageFromFailure(t *testing.T) {
 				t.Errorf("IsUsage = %v, want %v (%v)", IsUsage(err), c.usage, err)
 			}
 		})
+	}
+}
+
+// A bad global config fails every command; the error says where in the file.
+func TestABadGlobalConfigSaysWhere(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(path, []byte("{\n  \"dry_rnu\": true\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := BuildStack(StackInput{GlobalPath: path, Lookup: func(string) (string, bool) { return "", false }})
+	if err == nil || !strings.Contains(err.Error(), path+":2:3") {
+		t.Fatalf("err = %v", err)
 	}
 }

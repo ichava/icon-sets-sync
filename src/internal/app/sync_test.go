@@ -16,6 +16,7 @@ import (
 	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
 	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sinks"
 )
 
 type fakeChecker map[string]checker.Result
@@ -81,6 +82,12 @@ func TestSync(t *testing.T) {
 			pipeline.Result{}, errors.New("npm pack failed"), StatusFailed, true, "npm pack failed"},
 		{"a failed pipeline fails the pack", pack("a", "filesystem"), stale, nil,
 			pipeline.Result{Err: errors.New("boom"), FailedStage: "Sanitise"}, nil, StatusFailed, true, "Sanitise: boom"},
+		{"a guard's refusal needs review, it is not a failure", pack("a", "filesystem"), stale, nil,
+			pipeline.Result{Err: &sinks.ReviewError{Target: "t", Removals: []sinks.Removal{{Path: "x.svg"}}}, FailedStage: "Filesystem"},
+			nil, StatusNeedsReview, true, "x.svg"},
+		{"a dry run with a recorded review needs review", pack("a", "filesystem"), stale, settings.Values{"dry_run": true},
+			pipeline.Result{Success: true, Metrics: map[string]any{"reviews": []sinks.Review{{Message: "refusing to change 1 icon(s)"}}}},
+			nil, StatusNeedsReview, true, "refusing to change 1 icon(s)"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -105,6 +112,9 @@ func TestSync(t *testing.T) {
 			}
 			if got := AnyFailed(out); got != (tt.want == StatusFailed || tt.want == StatusUnresolved) {
 				t.Errorf("AnyFailed = %v", got)
+			}
+			if got := AnyNeedsReview(out); got != (tt.want == StatusNeedsReview) {
+				t.Errorf("AnyNeedsReview = %v", got)
 			}
 		})
 	}

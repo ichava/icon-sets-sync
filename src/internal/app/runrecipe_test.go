@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
 	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
 )
 
@@ -26,5 +27,18 @@ func TestRunRecipeHonoursACancelledContext(t *testing.T) {
 	}
 	if result.Success || !errors.Is(result.Err, context.Canceled) {
 		t.Fatalf("result %+v", result)
+	}
+}
+
+// A recipe runs several pipelines (openmoji: colour, then black). Each one's
+// dry-run review is carried to the result RunRecipe returns, so the second
+// pipeline's clean finish cannot hide the first one's review.
+func TestCollectReviewsKeepsEveryPipelinesReview(t *testing.T) {
+	a := pipeline.Result{PipelineName: "color", Success: true, Metrics: map[string]any{"review": map[string]any{"message": "a", "target": "ta"}}}
+	b := pipeline.Result{PipelineName: "black", Success: true, Metrics: map[string]any{"review": map[string]any{"message": "b", "target": "tb"}}}
+	c := pipeline.Result{PipelineName: "commit", Success: true, Metrics: map[string]any{}}
+	got := collectReviews([]pipeline.Result{a, b, c})
+	if len(got) != 2 || got[0].Message != "a" || got[1].Message != "b" {
+		t.Fatalf("reviews = %+v", got)
 	}
 }

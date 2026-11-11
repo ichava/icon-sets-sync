@@ -1,14 +1,37 @@
 {{define "content"}}{{with .Data}}
+{{if .MissingTools}}
+<div class="alert alert-warning" role="alert" data-role="preflight">
+  <div class="d-flex gap-2">
+    <div>{{icon "alert-triangle"}}</div>
+    <div>
+      <h2 class="alert-title h4">A real run needs {{range $i, $t := .MissingTools}}{{if $i}} and {{end}}<code>{{$t.Name}}</code>{{end}}, which this server cannot find</h2>
+      <ul class="alert-description mb-1">{{range .MissingTools}}<li><code>{{.Name}}</code> {{.Why}}.</li>{{end}}</ul>
+      <div class="alert-description">Dry runs still work. Install it, or start the server from a shell that has it on PATH; <code>icon-sets-sync doctor</code> says where it looked.</div>
+    </div>
+  </div>
+</div>
+{{end}}
+{{with .Check}}
+<div class="alert {{if .Running}}alert-info{{else if .Err}}alert-danger{{else if or .Stale .Errored}}alert-warning{{else if .CheckedAt}}alert-success{{else}}alert-secondary{{end}} alert-dismissible" id="check-status" role="status" aria-live="polite" data-status-url="/status.json" data-running="{{if .Running}}1{{end}}">
+  <div class="d-flex align-items-center gap-2">
+    {{if .Running}}<div class="spinner-border spinner-border-sm" aria-hidden="true"></div>{{else if .Err}}{{icon "alert-circle"}}{{else if or .Stale .Errored}}{{icon "alert-triangle"}}{{else}}{{icon "circle-check"}}{{end}}
+    <div class="flex-fill text-break" data-role="check-text">
+      {{if .Running}}Checking upstream registries… <span data-role="check-count">{{.Done}} of {{.Total}} packs</span>
+      {{else if .Err}}The upstream check failed: <span class="text-break">{{.Err}}</span>
+      {{else if .CheckedAt}}Upstream checked <time datetime="{{.CheckedAt}}" data-role="checked-at">{{.CheckedAgo}}</time> <span class="text-secondary">({{.CheckedAt}})</span>{{if .Stale}}: {{.Stale}} pack(s) behind upstream{{end}}{{if .Errored}}{{if .Stale}},{{else}}:{{end}} {{.Errored}} could not be checked{{end}}.
+      {{else}}Upstream not checked yet.{{end}}
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss"></button>
+  </div>
+  {{if .Running}}<progress class="progress progress-sm mt-2 w-100" data-role="check-progress" value="{{.Done}}" max="{{if .Total}}{{.Total}}{{else}}1{{end}}" aria-label="Upstream check progress">{{.Done}} of {{.Total}}</progress>{{end}}
+</div>
+{{end}}
+{{if .JustChecked}}<div hidden data-toast="{{if .Check.Err}}danger{{else if or .Check.Stale .Check.Errored}}warning{{else}}success{{end}}" data-toast-title="Upstream checked" data-toast-body="{{.Check.Stale}} pack(s) behind upstream, {{.Check.Errored}} could not be checked."></div>{{end}}
 <div class="page-header d-print-none mb-3">
   <div class="row g-2 align-items-center">
     <div class="col">
       <div class="page-pretitle">Overview</div>
       <h1 class="page-title">Packs</h1>
-      <div class="text-secondary mt-1" role="status" aria-live="polite">
-        {{if .Running}}{{iconc "refresh" "icon-inline"}} Checking upstream registries…
-        {{else if .CheckedAt.IsZero}}Upstream not checked yet.
-        {{else}}Upstream checked <time datetime="{{iso .CheckedAt}}">{{when .CheckedAt}}</time>.{{end}}
-      </div>
     </div>
     <div class="col-auto ms-auto">
       <div class="btn-list">
@@ -94,7 +117,7 @@
   </div>
   <div class="offcanvas-body">
     <p class="text-secondary">Checks each registered pack and refreshes the ones behind upstream. A real sync asks you to confirm before it starts.</p>
-    <form method="post" action="/sync-all">
+    <form method="post" action="/sync-all" data-real-phrase="all packs" data-real-packs="{{range $i, $p := .Packs}}{{if $i}} {{end}}{{$p}}{{end}}">
       <input type="hidden" name="csrf" value="{{.CSRF}}">
       {{template "run_mode"}}
       <label class="form-check mb-3"><input class="form-check-input" type="checkbox" name="force" value="1"><span class="form-check-label">Refresh even if up to date</span></label>
@@ -114,7 +137,7 @@
   </div>
   <div class="offcanvas-body">
     <p class="text-secondary">Checks upstream first and refreshes only when the pack is behind, unless forced.</p>
-    <form method="post" action="/" data-role="pack-sync-form">
+    <form method="post" action="/" data-role="pack-sync-form" data-real-phrase="" data-real-packs="">
       <input type="hidden" name="csrf" value="{{.CSRF}}">
       {{template "run_mode"}}
       <label class="form-check mb-3"><input class="form-check-input" type="checkbox" name="force" value="1"><span class="form-check-label">Refresh even if up to date</span></label>

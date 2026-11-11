@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="csrf-token" content="CSRF">
+<title>Validate packs · Icon Sets Sync</title>
+<script src="/assets/HASH/vendor/tabler/tabler-theme.min.js"></script>
+<link rel="stylesheet" href="/assets/HASH/vendor/tabler/tabler.min.css">
+<link rel="stylesheet" href="/assets/HASH/vendor/tabler-icons/tabler-icons.css">
+<link rel="stylesheet" href="/assets/HASH/app.css">
+<link rel="icon" type="image/svg+xml" href="/assets/HASH/favicon.svg">
+</head>
+<body>
+<a class="visually-hidden-focusable skip-link" href="#main">Skip to content</a>
+<div class="page">
+  <header class="navbar navbar-expand-md d-print-none">
+    <div class="container-xl">
+      
+      <button class="navbar-toggler collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu" aria-controls="navbar-menu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      
+      <div class="navbar-brand navbar-brand-autodark pe-0 pe-md-3">
+        <a href="/" class="d-inline-flex align-items-center text-reset text-decoration-none" aria-label="Icon Sets Sync, home">
+          <span class="navbar-brand-mark" aria-hidden="true"><i class="icon ti ti-packages text-white" aria-hidden="true"></i></span>
+          <span class="navbar-brand-text d-none d-sm-inline">Icon Sets Sync</span>
+        </a>
+      </div>
+      <div class="navbar-nav flex-row order-md-last align-items-center">
+        
+        <div class="nav-item d-none d-md-flex me-3">
+          <button type="button" class="btn command-trigger" data-bs-toggle="modal" data-bs-target="#command-palette">
+            <i class="icon ti ti-search" aria-hidden="true"></i><span class="text-secondary">Search or run a command</span><kbd class="ms-3">Ctrl K</kbd>
+          </button>
+        </div>
+        <div class="nav-item d-md-none">
+          <button type="button" class="nav-link nav-link-button px-2" data-bs-toggle="modal" data-bs-target="#command-palette" aria-label="Search or run a command"><i class="icon ti ti-search" aria-hidden="true"></i></button>
+        </div>
+        
+        
+        <div class="nav-item d-none d-sm-flex" role="group" aria-label="Colour theme">
+          <a href="?theme=dark" class="nav-link px-2 hide-theme-dark" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-delay='{"show":500,"hide":0}' data-bs-container="body" data-bs-title="Dark theme" aria-label="Dark theme"><i class="icon ti ti-moon" aria-hidden="true"></i><span class="visually-hidden">Dark theme</span></a>
+          <a href="?theme=light" class="nav-link px-2 hide-theme-light" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-delay='{"show":500,"hide":0}' data-bs-container="body" data-bs-title="Light theme" aria-label="Light theme"><i class="icon ti ti-sun" aria-hidden="true"></i><span class="visually-hidden">Light theme</span></a>
+        </div>
+        
+        <div class="nav-item dropdown d-none d-sm-flex">
+          <a href="/jobs" class="nav-link px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-label="Recent runs" aria-expanded="false">
+            <i class="icon ti ti-bell" aria-hidden="true"></i>
+          </a>
+          <div class="dropdown-menu dropdown-menu-arrow dropdown-menu-end dropdown-menu-card">
+            <div class="card">
+              <div class="card-header"><h2 class="card-title">Recent runs</h2></div>
+              <div class="list-group list-group-flush list-group-hoverable">
+                
+                <a class="list-group-item list-group-item-action" href="/jobs/JOBID">
+                  <div class="row align-items-center">
+                    <div class="col-auto"><span class="badge badge-ok">succeeded</span></div>
+                    <div class="col text-truncate">
+                      <div class="text-body">sync <code>icon-sets-flag</code></div>
+                      <div class="text-secondary small">dry run · <time datetime="2026-10-23T12:00:00Z">2026-10-23 12:00:00 UTC</time></div>
+                    </div>
+                  </div>
+                </a>
+                
+                <a class="list-group-item list-group-item-action" href="/jobs/JOBID">
+                  <div class="row align-items-center">
+                    <div class="col-auto"><span class="badge badge-ok">succeeded</span></div>
+                    <div class="col text-truncate">
+                      <div class="text-body">audit <code>icon-sets-bundled</code></div>
+                      <div class="text-secondary small">every set · <time datetime="2026-10-23T12:00:00Z">2026-10-23 12:00:00 UTC</time></div>
+                    </div>
+                  </div>
+                </a>
+                
+              </div>
+              <div class="card-footer"><a href="/jobs">All runs</a></div>
+            </div>
+          </div>
+        </div>
+        <div class="nav-item dropdown ms-2">
+          <a href="/about" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" data-role="server-menu" aria-expanded="false">
+            <span class="visually-hidden">Server menu</span>
+            <span class="avatar avatar-sm"><i class="icon ti ti-server" aria-hidden="true"></i></span>
+            <div class="d-none d-xl-block ps-2">
+              <div>Server</div>
+              <div class="mt-1 small text-secondary">test</div>
+            </div>
+          </a>
+          <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+            <a class="dropdown-item" href="/about"><i class="icon ti ti-info-circle dropdown-item-icon" aria-hidden="true"></i>About</a>
+            <a class="dropdown-item" href="/settings"><i class="icon ti ti-settings dropdown-item-icon" aria-hidden="true"></i>Settings</a>
+            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcuts-modal"><i class="icon ti ti-keyboard dropdown-item-icon" aria-hidden="true"></i>Shortcuts</button>
+            <div class="dropdown-divider"></div>
+            <form method="post" action="/server/stop" data-confirm="This page and every open tab stop working until you run icon-sets-sync again." data-confirm-title="Stop the server?" data-confirm-button="Stop server">
+              <input type="hidden" name="csrf" value="CSRF">
+              <button type="submit" class="dropdown-item text-danger"><i class="icon ti ti-power dropdown-item-icon" aria-hidden="true"></i>Stop server</button>
+            </form>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </header>
+  
+  <div class="navbar-expand-md d-print-none">
+    <div class="collapse navbar-collapse" id="navbar-menu">
+      <div class="navbar">
+        <div class="container-xl">
+          <div class="row flex-column flex-md-row flex-fill align-items-center">
+            <div class="col">
+              <nav aria-label="Main">
+                <ul class="navbar-nav">
+                  <li class="nav-item">
+  <a class="nav-link" href="/"><span class="nav-link-icon"><i class="icon ti ti-layout-dashboard" aria-hidden="true"></i></span><span class="nav-link-title">Packs</span></a>
+</li>
+                  <li class="nav-item">
+  <a class="nav-link" href="/jobs"><span class="nav-link-icon"><i class="icon ti ti-history" aria-hidden="true"></i></span><span class="nav-link-title">Runs</span></a>
+</li>
+                  <li class="nav-item">
+  <a class="nav-link" href="/manifest-pack/audit"><span class="nav-link-icon"><i class="icon ti ti-search" aria-hidden="true"></i></span><span class="nav-link-title">Manifest pack audit</span></a>
+</li>
+                  <li class="nav-item active">
+  <a class="nav-link" href="/validate" aria-current="page"><span class="nav-link-icon"><i class="icon ti ti-checklist" aria-hidden="true"></i></span><span class="nav-link-title">Validate</span></a>
+</li>
+                  <li class="nav-item">
+  <a class="nav-link" href="/config"><span class="nav-link-icon"><i class="icon ti ti-file-code" aria-hidden="true"></i></span><span class="nav-link-title">Config</span></a>
+</li>
+                  <li class="nav-item">
+  <a class="nav-link" href="/settings"><span class="nav-link-icon"><i class="icon ti ti-settings" aria-hidden="true"></i></span><span class="nav-link-title">Settings</span></a>
+</li>
+                  <li class="nav-item">
+  <a class="nav-link" href="/about"><span class="nav-link-icon"><i class="icon ti ti-info-circle" aria-hidden="true"></i></span><span class="nav-link-title">About</span></a>
+</li>
+                </ul>
+              </nav>
+            </div>
+            <div class="col col-md-auto">
+              <ul class="navbar-nav">
+                <li class="nav-item">
+                  <button type="button" class="nav-link nav-link-button" data-bs-toggle="modal" data-bs-target="#shortcuts-modal">
+                    <span class="nav-link-icon"><i class="icon ti ti-keyboard" aria-hidden="true"></i></span><span class="nav-link-title">Shortcuts</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="page-wrapper">
+    <main id="main" class="page-body" tabindex="-1">
+      <div class="container-xl">
+        
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <h1 class="page-title">Validate packs</h1>
+    </div>
+  </div>
+</div>
+<p class="text-secondary">Checks each pack checkout: <code>composer.json</code> (type <code>ichava-icon-set</code>), the manifest, that a pack config syncs it, its sets, licence files, empty categories, files that are not SVGs and, if you ask, every SVG against the toolkit's parser. The CLI is <code>icon-sets-sync validate</code>.</p>
+<form class="card mb-3" method="get" action="/validate">
+  <div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <input type="hidden" name="run" value="1">
+    <label class="form-check mb-0">
+      <input class="form-check-input" type="checkbox" name="parse" value="1" checked>
+      <span class="form-check-label">Parse every SVG <span class="text-secondary">(slow: a minute or more across every pack)</span></span>
+    </label>
+    <button type="submit" class="btn btn-primary ms-auto"><i class="icon ti ti-checklist" aria-hidden="true"></i>Check again</button>
+  </div>
+</form>
+
+
+<div class="alert alert-danger" role="status">
+  <strong>1 pack(s):</strong> 1 error(s), 0 warning(s).
+</div>
+<div class="row row-cards">
+  
+  <div class="col-12">
+    <div class="card" data-role="pack-report">
+      <div class="card-header">
+        <h2 class="card-title"><code>ichava/icon-sets-demo</code></h2>
+        <div class="card-actions"><span class="badge badge-bad">1 error(s)</span>  </div>
+      </div>
+      <div class="card-body py-2 text-secondary small"><code class="text-break">/work/icon-sets-demo</code> · 1 set(s) · 3 SVGs</div>
+      
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th scope="col">Level</th><th scope="col">Check</th><th scope="col">File</th><th scope="col">Problem</th></tr></thead>
+          <tbody>
+            
+            <tr><td><span class="badge badge-bad">error</span></td><td>svg</td><td><code class="text-break">resources/<wbr>assets/<wbr>svg/<wbr>files/<wbr>bad.svg</code></td><td class="text-break">bad.svg does not parse</td></tr>
+            
+          </tbody>
+        </table>
+      </div>
+      
+    </div>
+  </div>
+  
+</div>
+
+
+      </div>
+    </main>
+    <footer class="footer footer-transparent d-print-none">
+      <div class="container-xl">
+        <div class="row text-center align-items-center flex-row-reverse">
+          <div class="col-lg-auto ms-lg-auto">
+            <ul class="list-inline list-inline-dots mb-0">
+              <li class="list-inline-item"><a class="link-secondary d-inline-block py-1" href="https://github.com/ichava/icon-sets-sync/tree/main/docs" target="_blank" rel="noreferrer noopener">Documentation</a></li>
+              <li class="list-inline-item"><a class="link-secondary d-inline-block py-1" href="https://github.com/ichava/icon-sets-sync/blob/main/CHANGELOG.md" target="_blank" rel="noreferrer noopener">Changelog</a></li>
+              <li class="list-inline-item"><a class="link-secondary d-inline-block py-1" href="https://github.com/ichava/icon-sets-sync" target="_blank" rel="noreferrer noopener"><i class="icon ti ti-brand-github" aria-hidden="true"></i>Source</a></li>
+              <li class="list-inline-item"><a class="link-secondary d-inline-block py-1" href="/about/licenses">Third-party licences</a></li>
+            </ul>
+          </div>
+          <div class="col-12 col-lg-auto mt-3 mt-lg-0">
+            <ul class="list-inline list-inline-dots mb-0 text-secondary">
+              <li class="list-inline-item">Icon Sets Sync <a class="link-secondary d-inline-block py-1" href="/about">test</a></li>
+              
+            </ul>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="command-palette" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="command-palette-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable command-palette" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="visually-hidden" id="command-palette-title">Command palette</h2>
+        <div class="input-icon w-100">
+          <span class="input-icon-addon"><i class="icon ti ti-search" aria-hidden="true"></i></span>
+          <input type="search" class="form-control" id="command-palette-input" placeholder="Go to a page or pack, or run a command" autocomplete="off" spellcheck="false" aria-label="Search pages, packs and commands" aria-controls="command-palette-list" role="combobox" aria-expanded="true">
+        </div>
+      </div>
+      <div class="modal-body p-0">
+        <div class="list-group list-group-flush" id="command-palette-list" role="listbox" aria-label="Results">
+          <div class="list-group-header sticky-top">Pages</div>
+          <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/"><i class="icon ti ti-layout-dashboard me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Packs</span><kbd>g p</kbd></a>
+          <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/jobs"><i class="icon ti ti-history me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Runs</span><kbd>g r</kbd></a>
+          <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/manifest-pack/audit"><i class="icon ti ti-search me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Manifest pack audit</span><kbd>g a</kbd></a>
+          <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/validate"><i class="icon ti ti-checklist me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Validate packs</span></a>
+          <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/config"><i class="icon ti ti-file-code me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Config files</span><kbd>g c</kbd></a>
+          <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/config/global"><i class="icon ti ti-file-code me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Global config</span></a>
+          <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/settings"><i class="icon ti ti-settings me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Settings</span><kbd>g s</kbd></a>
+          <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/about"><i class="icon ti ti-info-circle me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">About</span><kbd>g i</kbd></a>
+          <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/about/licenses"><i class="icon ti ti-license me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Third-party licences</span></a>
+          <div class="list-group-header sticky-top">Commands</div>
+          <button type="button" class="list-group-item list-group-item-action d-flex align-items-center" role="option" data-command="check"><i class="icon ti ti-refresh me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Check upstream now</span></button>
+          <button type="button" class="list-group-item list-group-item-action d-flex align-items-center" role="option" data-command="sync-all-dry-run"><i class="icon ti ti-player-play me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Sync stale packs (dry run)</span></button>
+          <button type="button" class="list-group-item list-group-item-action d-flex align-items-center" role="option" data-command="theme"><i class="icon ti ti-moon me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Switch between light and dark</span><kbd>t</kbd></button>
+          <button type="button" class="list-group-item list-group-item-action d-flex align-items-center" role="option" data-command="shortcuts"><i class="icon ti ti-keyboard me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">Keyboard shortcuts</span><kbd>?</kbd></button>
+          <button type="button" class="list-group-item list-group-item-action d-flex align-items-center text-danger" role="option" data-command="stop"><i class="icon ti ti-power me-2" aria-hidden="true"></i><span class="flex-fill">Stop the server</span></button>
+          <div class="list-group-header sticky-top">Packs</div>
+          <a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/packs/icon-sets-tabler"><i class="icon ti ti-packages me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">icon-sets-tabler</span></a><a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/packs/icon-sets-flag"><i class="icon ti ti-packages me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">icon-sets-flag</span></a><a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="/packs/icon-sets-twemoji"><i class="icon ti ti-packages me-2 text-secondary" aria-hidden="true"></i><span class="flex-fill">icon-sets-twemoji</span></a>
+          <div class="list-group-item text-secondary d-none" data-role="palette-empty">Nothing matches.</div>
+        </div>
+      </div>
+      <div class="modal-footer justify-content-start text-secondary small">
+        <kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close
+      </div>
+    </div>
+  </div>
+</div>
+<form method="post" action="/check" id="palette-check" class="d-none"><input type="hidden" name="csrf" value="CSRF"></form>
+<form method="post" action="/sync-all" id="palette-sync-all" class="d-none"><input type="hidden" name="csrf" value="CSRF"><input type="hidden" name="mode" value="dry-run"></form>
+<div class="modal modal-blur fade" id="shortcuts-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="shortcuts-modal-title">Keyboard shortcuts</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <table class="table table-vcenter card-table mb-0">
+          <caption class="visually-hidden">Keys and what they do</caption>
+          <thead><tr><th scope="col">Keys</th><th scope="col">Does</th></tr></thead>
+          <tbody>
+            <tr><td class="text-nowrap"><kbd>Ctrl</kbd> then <kbd>K</kbd></td><td>Open the command palette (⌘K on a Mac)</td></tr><tr><td class="text-nowrap"><kbd>/</kbd></td><td>Open the command palette</td></tr><tr><td class="text-nowrap"><kbd>?</kbd></td><td>Show these shortcuts</td></tr><tr><td class="text-nowrap"><kbd>g</kbd> then <kbd>p</kbd></td><td>Go to Packs</td></tr><tr><td class="text-nowrap"><kbd>g</kbd> then <kbd>r</kbd></td><td>Go to Runs</td></tr><tr><td class="text-nowrap"><kbd>g</kbd> then <kbd>a</kbd></td><td>Go to the manifest pack audit</td></tr><tr><td class="text-nowrap"><kbd>g</kbd> then <kbd>c</kbd></td><td>Go to Config</td></tr><tr><td class="text-nowrap"><kbd>g</kbd> then <kbd>s</kbd></td><td>Go to Settings</td></tr><tr><td class="text-nowrap"><kbd>g</kbd> then <kbd>i</kbd></td><td>Go to About</td></tr><tr><td class="text-nowrap"><kbd>t</kbd></td><td>Switch between light and dark</td></tr><tr><td class="text-nowrap"><kbd>Esc</kbd></td><td>Close the open dialog or panel</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer"><span class="text-secondary small me-auto">Shortcuts are off while you type in a field.</span><button type="button" class="btn" data-bs-dismiss="modal">Close</button></div>
+    </div>
+  </div>
+</div>
+<div class="modal modal-blur fade" id="confirm-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title" aria-describedby="confirm-modal-body" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="modal-status bg-danger"></div>
+      <div class="modal-body text-center py-4">
+        <i class="icon ti ti-alert-triangle icon-lg text-danger mb-2" aria-hidden="true"></i>
+        <h3 id="confirm-modal-title">Are you sure?</h3>
+        <div class="text-secondary" id="confirm-modal-body"></div>
+      </div>
+      <div class="modal-footer">
+        <div class="w-100">
+          <div class="row">
+            <div class="col"><button type="button" class="btn w-100" data-bs-dismiss="modal">Cancel</button></div>
+            <div class="col"><button type="button" class="btn btn-danger w-100" id="confirm-modal-ok">Confirm</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="real-run-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="real-run-title" aria-describedby="real-run-what" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="modal-status bg-danger"></div>
+      <div class="modal-body py-4">
+        <h3 id="real-run-title"><i class="icon ti ti-alert-triangle text-danger me-1" aria-hidden="true"></i>This is not a dry run</h3>
+        <p id="real-run-what">It will refresh the files, stamp the version, commit to a sync branch, push it and open a pull request for:</p>
+        <ul data-role="real-packs"></ul>
+        <p class="text-secondary" data-role="real-note" hidden></p>
+        <p>It uses whatever GitHub credentials this machine's <code>git</code> and <code>gh</code> already have.</p>
+        <label class="form-label" for="real-run-confirm">Type <code data-role="real-phrase"></code> to confirm</label>
+        <input class="form-control" id="real-run-confirm" autocomplete="off" spellcheck="false" aria-describedby="real-run-help">
+        <div id="real-run-help" class="form-text">Nothing has been started yet.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger ms-auto" id="real-run-start" disabled><i class="icon ti ti-player-play" aria-hidden="true"></i>Start the real sync</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
+<template id="toast-template">
+  <div class="toast" role="status" aria-live="polite" aria-atomic="true">
+    <div class="toast-header">
+      <span class="badge me-2" data-role="toast-badge"></span>
+      <strong class="me-auto" data-role="toast-title"></strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body"><span data-role="toast-body"></span> <a data-role="toast-link" hidden>Open the run</a></div>
+  </div>
+</template>
+<script src="/assets/HASH/vendor/tabler/tabler.min.js" defer></script>
+<script src="/assets/HASH/app.js" defer></script>
+</body>
+</html>

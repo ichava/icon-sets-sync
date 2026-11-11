@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -12,7 +13,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/confighistory"
 	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
 	"github.com/ichava/icon-sets-sync/src/internal/version"
 	"github.com/ichava/icon-sets-sync/src/internal/web"
@@ -115,11 +118,10 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 
 	token := web.NewToken()
 	cfgDir, cfgSource := configSource()
+	eng := configEngine()
+	eng.ConfigDir, eng.ConfigSource, eng.Git = cfgDir, cfgSource, gitx.New()
 	srv, err := web.New(web.Options{
-		Engine: &web.AppEngine{
-			ConfigDir: cfgDir, ConfigSource: cfgSource, Workspace: workspace(),
-			GlobalPath: state.globalPath, GlobalHome: configHome(), Stack: state.stack, Git: gitx.New(),
-		},
+		Engine:       eng,
 		Token:        token,
 		AllowedHosts: web.AllowedHosts(host, bound, o.allowHosts),
 		AllowRemote:  o.allowRemote,
@@ -139,6 +141,12 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 		_, _ = fmt.Fprintf(out, "port %d is in use; listening on %d instead\n", pinnedPort, bound)
 	}
 	_, _ = fmt.Fprintf(out, "config: %s (%s)\n", cfgDir, cfgSource)
+	// A server started from a desktop shortcut sees a minimal PATH; say what
+	// it is, and which tools a run would miss, before a run fails on it.
+	slog.Info("PATH at startup", "path", os.Getenv("PATH"))
+	for _, t := range app.MissingTools(app.Tools()) {
+		_, _ = fmt.Fprintf(out, "warning: %s not found; it %s (run `icon-sets-sync doctor`)\n", t.Name, t.Why)
+	}
 	if cfgSource == config.SourceEmbedded {
 		_, _ = fmt.Fprintln(out, "  the configs built into this binary, read-only; pass --config-dir to use and edit a checkout's")
 	}
@@ -183,6 +191,16 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 		return failure(err)
 	}
 	return nil
+}
+
+// configEngine is the engine the web UI and the config commands share, so a
+// save from either keeps a copy in the same history and validates the same way.
+func configEngine() *web.AppEngine {
+	return &web.AppEngine{
+		ConfigDir: configDir(), Workspace: workspace(),
+		GlobalPath: state.globalPath, GlobalHome: configHome(), GlobalLocation: state.global, Stack: state.stack,
+		History: confighistory.Store{Dir: confighistory.DefaultDir(os.LookupEnv), Keep: state.run.Int("history_keep")},
+	}
 }
 
 // configHome is where a new global config is created: $XDG_CONFIG_HOME, else

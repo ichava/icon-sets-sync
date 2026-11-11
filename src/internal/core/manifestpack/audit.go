@@ -428,6 +428,20 @@ type Resolution struct {
 	Identical  int        `json:"identical"`
 	Confidence Confidence `json:"confidence"`
 	Note       string     `json:"note,omitempty"`
+	// Error is set when the set could not be read at all, so the survey
+	// never looked at it; that is a failure, apart from an unresolved set.
+	Error string `json:"error,omitempty"`
+}
+
+// CountErrors counts the sets that could not be read.
+func CountErrors(rs []Resolution) int {
+	n := 0
+	for _, r := range rs {
+		if r.Error != "" {
+			n++
+		}
+	}
+	return n
 }
 
 // CandidatePackages returns npm package names to try for a set directory.

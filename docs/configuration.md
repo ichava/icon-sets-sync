@@ -276,8 +276,27 @@ ICHAVA_ALLOWED_HOSTS=mirror.example icon-sets-sync sync --pack=<slug>
 
 (that last one in the global config). Names only: no scheme, port, path or wildcard, and a host does not
 cover its subdomains. A blocked fetch fails with the URL, the host and this setting's name. The setting
-is read when the program starts, so `serve` needs a restart to pick up a change. `npm pack` talks to the
-registry through npm and its own configuration, not through this client.
+is read when the program starts, so `serve` needs a restart to pick up a change.
+
+### npm packages need no npm
+
+A set whose source is an npm package (`@tabler/icons`, `@twemoji/svg`, the aggregator's sets) is
+fetched straight from `registry.npmjs.org` through the client above. The tarball is checked against the
+`sha512` integrity the registry publishes, and a mismatch, or a version that publishes no integrity, is
+refused. Node.js is not needed.
+
+`npm pack` is the fallback when the registry fetch fails. npm is looked for in this order, and a failure
+names every place searched:
+
+1. the `npm_path` setting (`ICHAVA_NPM_PATH`, `--set npm_path=…`)
+2. `ICHAVA_NPM`
+3. `PATH`
+4. the usual install directories: `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`, Volta, fnm,
+   asdf, `~/.local/bin` and nvm's newest node; on Windows `Program Files\nodejs`, `%APPDATA%\npm`,
+   Volta and `NVM_SYMLINK`.
+
+That order matters for `serve`. A server started from Finder, launchd or a desktop shortcut gets a PATH
+with none of Homebrew, nvm, Volta or fnm on it. `doctor` reports what was found.
 
 **`npm pack` runs with `--ignore-scripts`**, so a git or local spec in a config cannot run a package's
 `prepare` script on the runner.
@@ -401,8 +420,11 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `private_config_dir` | none | `ICHAVA_PRIVATE_CONFIG_DIR` | no | private pack configs merged over `config_dir` at run time; see [Private packs](#private-packs) |
 | `log_level` | `info` | `ICHAVA_LOG_LEVEL` | no | `debug`, `info`, `warn`, `error` |
 | `concurrency` | `1` | `ICHAVA_CONCURRENCY` | no | packs synced at once by `sync-all` |
+| `packages_dirs` (alias `packages_dir`) | none | `ICHAVA_PACKAGES_DIRS` (OS list separator) | no | directories holding the pack checkouts, searched in order; see [Where the packs live](#where-the-packs-live) |
 | `workspace` | none | `ICHAVA_WORKSPACE` | no | directory a relative `pack_root` resolves against |
+| `history_keep` | `50` | `ICHAVA_HISTORY_KEEP` | no | copies of each config file kept before a save; `0` keeps none. See [Managing the config files](#managing-the-config-files) |
 | `allowed_hosts` | none | `ICHAVA_ALLOWED_HOSTS` | no | extra upstream hosts the client may fetch from, comma separated; see [Upstream hosts and https](#upstream-hosts-and-https) |
+| `npm_path` | none | `ICHAVA_NPM_PATH` (and `ICHAVA_NPM`) | no | the npm for the `npm pack` fallback; see [npm packages need no npm](#npm-packages-need-no-npm) |
 | `dry_run` | `false` | `ICHAVA_DRY_RUN` | yes | fetch and diff, write nothing into the pack, skip stamp, commit and pull request |
 | `force` | `false` | `ICHAVA_FORCE` | yes | refresh even when current |
 | `git.author` | `ichava-sync-bot <41898282+github-actions[bot]@users.noreply.github.com>` | `ICHAVA_GIT_AUTHOR` | yes | author and committer, `Name <email>` |
@@ -422,11 +444,94 @@ The run-wide settings (the four marked "no") cannot appear in a pack config's `s
 (`dry_run=false`), `--force`, `--concurrency`. A flag counts only when it is given: an unset
 `--dry-run` does not override `ICHAVA_DRY_RUN=1`.
 
+### Managing the config files
+
+The web UI's Config page and the `config` commands manage the same files the same way: the registry,
+each pack config, the manifest-pack's set manifest and the global config. `config show` lists them by
+name. `global` is the global config.
+
+| Command | Web UI | Does |
+|---|---|---|
+| `config show [name]` | Config page | lists the files and where the global config was found, or prints one |
+| `config edit <name>` | the editor | edits in `$VISUAL`/`$EDITOR` (needs a terminal), then validates and saves |
+| `config validate [name…]` | Validate | checks with the loader the sync uses; each problem gives `name:line:col` |
+| `config fix <name>` | Fix | formats, renames deprecated keys (`packages_dir` to `packages_dirs`) and adds `$schema`; shows the diff and asks first |
+| `config history <name>` | History | the copies kept before each save, newest first |
+| `config diff <name> [id]` | Diff | how the file differs from a copy (the newest by default) |
+| `config restore <name> <id>` | Restore | writes a copy back; shows the diff and asks first |
+| `config migrate` | (Settings says when) | copies a global config from an old location to `~/.config` |
+
+Every save is validated first, refused if the file changed on disk since it was opened, and written
+atomically (a temporary file and a rename). A copy of the previous text is kept in
+`$XDG_STATE_HOME/icon-sets-sync/history/` (else `~/.local/state/icon-sets-sync/history/`). A restore
+keeps a copy too, so it can be undone. `history_keep` sets how many copies of each file are kept (50 by
+default, `0` for none).
+
+The global config validates against `config/schema/global.schema.json`, which is generated from the
+settings registry. A new one opens on its `$schema` line, so an editor that reads JSON Schema completes
+and checks every key, and the web editor lists the known settings with an Insert button. Fix leaves
+YAML alone, because re-encoding it would drop its comments, and it reports broken JSON rather than
+guessing what was meant. `--yes` answers the questions. Without a terminal and without `--yes` they are
+a usage error (exit 2), never a hang.
+
+### Checking the pack checkouts
+
+`icon-sets-sync validate` (and the web UI's Validate page) checks each ichava pack checkout under
+`packages_dirs`, or each registered pack's checkout when that is unset:
+
+- `composer.json` exists, parses and has type `ichava-icon-set`
+- the manifest `resources/assets/svg/config.json` parses and names the same package
+- a pack config in the config directory syncs it (a warning when none does)
+- `resources/assets/svg/files/` holds sets, either one directory per set or the SVGs directly for a
+  single-set pack, and no set is empty
+- a root `LICENSE` and the upstream licence texts under `resources/assets/svg/licenses/`
+- no empty category directories (a warning)
+- no file under the sets that is not an SVG
+- every SVG parses with the toolkit's own parser (`--skip-svg-parse` skips this on the CLI; the web page
+  makes it a checkbox, because the largest packs hold over 100,000)
+
+It exits 1 on an error, or on a warning with `--strict`. `--json` prints a report. In GitHub Actions
+(`GITHUB_ACTIONS=true`, or `--github`) each problem is also an annotation on its file, and a table goes
+to the step summary.
+
+### Where the packs live
+
+`packages_dirs` lists the directories holding the ichava pack checkouts. For each pack the toolkit
+looks for `<dir>/<pack>/` in each entry, in order, before `workspace`, `/work` and the checkouts beside
+this repository. That is how a shipped config's `/work/icon-sets-openmoji` becomes a path on this
+machine.
+
+```json
+{ "packages_dirs": ["~/projects/ichava/packages", "/srv/ichava"] }
+```
+
+A single string works too, and so does the singular `packages_dir`. `~` is the home directory, and a
+relative entry resolves against the config file that names it (or the working directory, for
+`--packages-dir` and the environment). `--packages-dir` repeats, and `ICHAVA_PACKAGES_DIRS` uses the OS
+list separator (`:`, or `;` on Windows). An entry that is not a directory is skipped with a warning,
+never a crash.
+
+The Settings page edits it as a list, with a found or missing mark beside each entry, and saves it into
+the global config.
+
 ### The global config
 
-Optional. `$XDG_CONFIG_HOME/icon-sets-sync/config.json`, `.yaml` or `.yml`, falling back to
-`~/.config/icon-sets-sync/` when `XDG_CONFIG_HOME` is unset (macOS included). `--global-config` or
-`ICHAVA_GLOBAL_CONFIG` names another file. It nests the dotted names:
+Optional. **`~/.config/icon-sets-sync/config.json` on every OS, Windows included** (`.yaml` and
+`.yml` work too). `$XDG_CONFIG_HOME` overrides the `~/.config` part, and `--global-config` or
+`ICHAVA_GLOBAL_CONFIG` names another file.
+
+This deliberately overrides the organisation's default of `%AppData%` on Windows (and the OS's
+`~/Library/Application Support` on macOS): one documented path, the same on every machine, that a
+person can find without looking it up.
+
+A config left at one of those old locations is still read. Every command then warns once and names
+`config migrate`, which copies the file to `~/.config/icon-sets-sync/` after asking (`--yes`
+answers). The old file is never moved or deleted for you. The Settings page says which layer chose the
+file and shows the same warning.
+
+It holds settings, the values `config print` lists, and nothing about packs. Pack configs live in the
+config directory (`--config-dir`), a different thing: the registry and one file per pack. It nests the
+dotted names:
 
 ```yaml
 concurrency: 2

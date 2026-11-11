@@ -161,6 +161,7 @@ would be scope creep without user demand.
 | Recipe script returns non-zero | Orchestrator commits nothing, exits non-zero, CI run fails red, GitHub Actions notifies the maintainer. |
 | Refreshed assets fail downstream tests on the PR | The PR sits unmerged; maintainer fixes the recipe and re-runs `workflow_dispatch`. |
 | `gh pr create` rejected (already exists) | Orchestrator detects the existing PR and skips. Idempotent. |
+| A refresh would rename or remove shipped icons | The run reads **needs review** and exits 3; it is not a failure. A rename is an icon whose bytes reappear at exactly one new path; a dropped duplicate's bytes stay at a path that ships today too (OpenMoji's black flags share one outline across hundreds of paths, so bytes alone cannot say which one moved); a removal has no copy anywhere. Both are listed in full: on the terminal, in `--json` as `reviews`, in the run page's table and, with `--github`, in the step summary plus `review-packs` in `$GITHUB_OUTPUT`. A dry run that would stop the same way reports the same list and writes nothing. Re-run with `--force`, or use the run page's "Re-run with --force" button, once the list has been checked. |
 | Upstream licence no longer matches the pack's declared `licence` | The sync stops before the licence texts are touched and exits 1. `--json` marks the pack `licence_changed: true`; `sync-pack.yml` opens an issue instead of a pull request. |
 
 ## See also

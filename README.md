@@ -148,6 +148,7 @@ The full walkthrough is in [Getting started](docs/getting-started.md), and every
 
 - [Run a sync from the browser](docs/recipes/run-a-sync-from-the-browser.md) -- dry run, review, then the real pull request
 - [Check upstream in CI](docs/recipes/check-upstream-in-ci.md) -- `--fail-on`, `--github` step summaries and outputs
+- [Run it in GitHub Actions](docs/recipes/github-actions.md) -- `doctor`, `validate`, `check-upstream` and a dry run; exit codes and outputs
 
 ## Community
 

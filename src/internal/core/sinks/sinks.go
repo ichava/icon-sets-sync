@@ -95,11 +95,20 @@ func (s Filesystem) Execute(ctx *pipeline.Context) error {
 
 	if !s.Incremental {
 		if _, err := os.Stat(target); err == nil {
-			if err := s.guardRetention(source, target, log); err != nil {
-				return err
+			err := s.guardRetention(source, target, log)
+			if err == nil {
+				err = s.guardRemovals(source, target, before, log)
 			}
-			if err := s.guardRemovals(source, target, log); err != nil {
-				return err
+			if err != nil {
+				var review *ReviewError
+				if !ctx.DryRun() || !errors.As(err, &review) {
+					return err
+				}
+				// A dry run reports, it does not fail: it records every icon a
+				// real run would refuse, and the run reads "needs review".
+				ctx.Metric("review", review.metric())
+				log.Warn("filesystem: a real run would stop for review", "target", target,
+					"renamed", review.Renamed(), "removed", review.Removed(), "reason", review.Reason)
 			}
 		}
 	}
@@ -108,7 +117,8 @@ func (s Filesystem) Execute(ctx *pipeline.Context) error {
 		// Report the diff a real run would make and write nothing: the
 		// fetched tree already sits in the pipeline's temporary working
 		// directory, and that is the only place a dry run may write. The
-		// guards above still run, so a dry run fails where a real one would.
+		// guards above still run, and what they would refuse is recorded
+		// as a review rather than failing the dry run.
 		return s.reportDryRun(ctx, source, target, before, log)
 	}
 
@@ -219,67 +229,34 @@ func (s Filesystem) guardRetention(source, target string, log *slog.Logger) erro
 		return nil
 	}
 
-	return fmt.Errorf(
+	return &ReviewError{Target: target, Reason: fmt.Sprintf(
 		"refusing to replace %d icons in %s with %d (%.0f%% of what is there, floor is %.0f%%): "+
 			"upstream has probably reorganised, so check the manifest path before letting this through",
-		existing, target, incoming, ratio*100, s.MinRetention*100)
+		existing, target, incoming, ratio*100, s.MinRetention*100)}
 }
 
 // guardRemovals refuses a wipe that would delete a shipped icon. Compared by
-// path relative to the root, which is how a pack addresses an icon.
-func (s Filesystem) guardRemovals(source, target string, log *slog.Logger) error {
+// path relative to the root, which is how a pack addresses an icon; an icon
+// whose bytes reappear at another path is reported as renamed to it.
+func (s Filesystem) guardRemovals(source, target string, before map[string][32]byte, log *slog.Logger) error {
 	if !s.RefuseRemovals {
 		return nil
 	}
-	existing, err := relSVGs(target)
+	incoming, err := hashSVGs(source)
 	if err != nil {
 		return err
 	}
-	incoming, err := relSVGs(source)
-	if err != nil {
-		return err
-	}
-	var gone []string
-	for rel := range existing {
-		if !incoming[rel] {
-			gone = append(gone, rel)
-		}
-	}
+	gone := removals(before, incoming)
 	if len(gone) == 0 {
 		return nil
 	}
-	sort.Strings(gone)
-	shown := gone
-	if len(shown) > 10 {
-		shown = shown[:10]
-	}
+	review := &ReviewError{Target: target, Removals: gone}
 	if s.Force {
 		log.Warn("filesystem: removing shipped icons because the run is forced",
-			"target", target, "removed", len(gone), "names", shown)
+			"target", target, "renamed", review.Renamed(), "removed", review.Removed())
 		return nil
 	}
-	return fmt.Errorf("refusing to remove %d icon(s) %s ships today (e.g. %s); "+
-		"upstream retired or renamed them, or a taxonomy no longer names them -- check, then pass --force",
-		len(gone), target, strings.Join(shown, ", "))
-}
-
-func relSVGs(dir string) (map[string]bool, error) {
-	out := map[string]bool{}
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() || !strings.HasSuffix(strings.ToLower(path), ".svg") {
-			return nil
-		}
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return err
-		}
-		out[filepath.ToSlash(rel)] = true
-		return nil
-	})
-	return out, err
+	return review
 }
 
 func countSVGs(dir string) (int, error) {

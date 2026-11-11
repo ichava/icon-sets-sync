@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
@@ -34,16 +35,53 @@ func PackSettings(stack settings.Stack, pack *config.PackConfig) (settings.Resol
 	return stack.Resolve(packValues), nil
 }
 
+// packagesDirs is the run-wide packages_dirs setting, applied at startup the
+// way allowed_hosts and private_config_dir are.
+var (
+	packagesMu   sync.RWMutex
+	packagesDirs []string
+)
+
+// SetPackagesDirs sets the packages_dirs setting: directories searched, in
+// order, for a pack's checkout before the workspace setting.
+func SetPackagesDirs(dirs []string) {
+	packagesMu.Lock()
+	defer packagesMu.Unlock()
+	packagesDirs = append([]string(nil), dirs...)
+}
+
+// PackagesDirs returns the packages_dirs setting.
+func PackagesDirs() []string {
+	packagesMu.RLock()
+	defer packagesMu.RUnlock()
+	return append([]string(nil), packagesDirs...)
+}
+
+// MissingPackagesDirs lists the packages_dirs entries that are not
+// directories, for a warning: a missing entry is skipped, not fatal.
+func MissingPackagesDirs(dirs []string) []string {
+	var out []string
+	for _, d := range dirs {
+		if !isDir(d) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 // ciWorkRoot is the directory sync-pack.yml links to the runner's checkouts.
 // A var so tests can stand in for it.
 var ciWorkRoot = "/work"
 
 // ApplyWorkspace resolves where a pack's checkout is.
 //
-// A relative pack_root is joined to the workspace setting, as before. Every
-// shipped config names an absolute /work/<pack>, the layout sync-pack.yml
-// makes on a CI runner; for such a root, in order:
+// A relative pack_root is joined to the first packages_dirs entry that holds
+// it, else to the workspace setting, as before. Every shipped config names an
+// absolute /work/<pack>, the layout sync-pack.yml makes on a CI runner; for
+// such a root, in order:
 //
+//  0. each packages_dirs entry (--packages-dir, ICHAVA_PACKAGES_DIRS), when
+//     <dir>/<pack> exists;
 //  1. the workspace setting (--set workspace=, ICHAVA_WORKSPACE), when
 //     <workspace>/<pack> exists;
 //  2. /work/<pack>, when it exists (CI);
@@ -57,15 +95,25 @@ var ciWorkRoot = "/work"
 // pack.PackRootOrigin records which of these applied.
 func ApplyWorkspace(pack *config.PackConfig, workspace string) {
 	cwd, _ := os.Getwd()
-	applyWorkspaceIn(pack, workspace, cwd, config.ExecutableDir(), ciWorkRoot)
+	applyPackagesIn(pack, PackagesDirs(), workspace, cwd, config.ExecutableDir(), ciWorkRoot)
 }
 
 func applyWorkspaceIn(pack *config.PackConfig, workspace, cwd, exeDir, ciRoot string) {
+	applyPackagesIn(pack, nil, workspace, cwd, exeDir, ciRoot)
+}
+
+func applyPackagesIn(pack *config.PackConfig, dirs []string, workspace, cwd, exeDir, ciRoot string) {
 	pack.PackRootOrigin = "pack config"
 	if pack.PackRoot == "" {
 		return
 	}
 	if !filepath.IsAbs(pack.PackRoot) {
+		for _, d := range dirs {
+			if c := filepath.Join(d, pack.PackRoot); isDir(c) {
+				pack.PackRoot, pack.PackRootOrigin = c, "packages_dirs ("+d+")"
+				return
+			}
+		}
 		if workspace != "" {
 			pack.PackRoot = filepath.Join(workspace, pack.PackRoot)
 			pack.PackRootOrigin = "workspace setting"
@@ -76,6 +124,12 @@ func applyWorkspaceIn(pack *config.PackConfig, workspace, cwd, exeDir, ciRoot st
 		return // an absolute root of the config's own choosing
 	}
 	name := filepath.Base(pack.PackRoot)
+	for _, d := range dirs {
+		if c := filepath.Join(d, name); isDir(c) {
+			pack.PackRoot, pack.PackRootOrigin = c, "packages_dirs ("+d+")"
+			return
+		}
+	}
 	if workspace != "" {
 		if c := filepath.Join(workspace, name); isDir(c) {
 			pack.PackRoot, pack.PackRootOrigin = c, "workspace setting"
@@ -98,7 +152,7 @@ func applyWorkspaceIn(pack *config.PackConfig, workspace, cwd, exeDir, ciRoot st
 			}
 		}
 	}
-	pack.PackRootOrigin = "pack config (" + pack.PackRoot + " does not exist; sync needs a workspace: set ICHAVA_WORKSPACE or --set workspace=<directory holding the " + name + " checkout>)"
+	pack.PackRootOrigin = "pack config (" + pack.PackRoot + " does not exist; sync needs a workspace: set packages_dirs (--packages-dir, ICHAVA_PACKAGES_DIRS) or workspace (ICHAVA_WORKSPACE) to the directory holding the " + name + " checkout)"
 }
 
 func isDir(path string) bool {
@@ -115,6 +169,10 @@ const (
 	StatusSynced     Status = "synced"
 	StatusFailed     Status = "failed"
 	StatusUnresolved Status = "unresolved"
+	// StatusNeedsReview is a run a guard stopped for a person to decide: a
+	// refresh would rename or remove shipped icons. A dry run that would hit
+	// the guard ends here too, having reported every icon, rather than failing.
+	StatusNeedsReview Status = "needs-review"
 )
 
 // Outcome is one pack's result.
@@ -136,6 +194,32 @@ func (o Outcome) Failed() bool { return o.Status == StatusFailed || o.Status == 
 // error is flattened to text, so the pipeline result's error is checked too.
 func (o Outcome) LicenceChanged() bool {
 	return errors.Is(o.Err, sinks.ErrLicenceChanged) || errors.Is(o.Result.Err, sinks.ErrLicenceChanged)
+}
+
+// NeedsReview reports whether a guard stopped the run for a person to decide.
+func (o Outcome) NeedsReview() bool { return o.Status == StatusNeedsReview }
+
+// Reviews is what a person has to look at: the dry run's recorded reviews, or
+// the real run's refusal.
+func (o Outcome) Reviews() []sinks.Review {
+	if r, ok := o.Result.Metrics["reviews"].([]sinks.Review); ok && len(r) > 0 {
+		return r
+	}
+	var re *sinks.ReviewError
+	if errors.As(o.Result.Err, &re) {
+		return []sinks.Review{{Target: re.Target, Reason: re.Reason, Message: re.Error(), Removals: re.Removals}}
+	}
+	return nil
+}
+
+// AnyNeedsReview reports whether any outcome needs review.
+func AnyNeedsReview(outcomes []Outcome) bool {
+	for _, o := range outcomes {
+		if o.NeedsReview() {
+			return true
+		}
+	}
+	return false
 }
 
 // AnyFailed reports whether any outcome failed.
@@ -285,8 +369,17 @@ func syncOne(ctx context.Context, pack *config.PackConfig, opts SyncOptions, chk
 	switch {
 	case err != nil:
 		o.Status, o.Err = StatusFailed, err
+	case !res.Success && errors.Is(res.Err, sinks.ErrNeedsReview):
+		o.Status, o.Err = StatusNeedsReview, fmt.Errorf("%s", res.Error())
 	case !res.Success:
 		o.Status, o.Err = StatusFailed, fmt.Errorf("%s", res.Error())
+	case len(o.Reviews()) > 0:
+		o.Status = StatusNeedsReview
+		msgs := make([]string, 0)
+		for _, r := range o.Reviews() {
+			msgs = append(msgs, r.Message)
+		}
+		o.Err = fmt.Errorf("a real run would stop for review: %s", strings.Join(msgs, "; "))
 	default:
 		o.Status = StatusSynced
 	}
@@ -316,15 +409,34 @@ func RunRecipe(ctx context.Context, pack *config.PackConfig, version string, opt
 	}
 
 	var last pipeline.Result
+	var all []pipeline.Result
 	for _, p := range built {
 		result, err := p.RunContext(ctx)
 		if err != nil {
 			return result, err
 		}
 		last = result
+		all = append(all, result)
 		if !result.Success {
 			return result, nil
 		}
 	}
+	if reviews := collectReviews(all); len(reviews) > 0 {
+		if last.Metrics == nil {
+			last.Metrics = map[string]any{}
+		}
+		last.Metrics["reviews"] = reviews
+	}
 	return last, nil
+}
+
+// collectReviews gathers the dry-run review each pipeline recorded, in order.
+func collectReviews(results []pipeline.Result) []sinks.Review {
+	var out []sinks.Review
+	for _, r := range results {
+		if rv, ok := sinks.ReviewOf(r.Metrics); ok {
+			out = append(out, rv)
+		}
+	}
+	return out
 }

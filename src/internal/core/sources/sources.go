@@ -26,17 +26,21 @@ type Downloader interface {
 	Download(ctx context.Context, url, dest string, force bool) (string, error)
 }
 
-// NpmTarball fetches a package with `npm pack` and extracts it.
+// NpmTarball fetches a package's npm tarball and extracts it.
 //
-// Shells out to npm rather than resolving the registry directly: npm handles
-// scoped names, auth and the tarball URL indirection, and the image already
-// ships it.
+// It fetches straight from registry.npmjs.org, checking the tarball against
+// the sha512 integrity the registry publishes, so a sync needs no Node.js.
+// npm pack is the fallback, found by FindNpm, for a registry that answers
+// something unexpected.
 type NpmTarball struct {
 	pipeline.SourceKind
 
 	Package string
 	Version string
-	Log     *slog.Logger
+	// Via is "" (the registry, then npm), "registry" or "npm".
+	Via  string
+	HTTP *httpx.Client
+	Log  *slog.Logger
 }
 
 func (NpmTarball) Name() string { return "NpmTarball" }
@@ -58,24 +62,77 @@ func (s NpmTarball) Execute(ctx *pipeline.Context) error {
 	if err := os.MkdirAll(workDir, 0o755); err != nil {
 		return err
 	}
-
 	spec := s.Package + "@" + s.Version
-	log.Info("npm pack", "spec", spec)
 
-	cmd := exec.CommandContext(ctx.Context(), "npm", NpmPackArgs(spec)...)
+	var archive, version string
+	var regErr error
+	if s.Via != "npm" {
+		client := s.HTTP
+		if client == nil {
+			client = httpx.New()
+		}
+		log.Info("npm registry", "spec", spec, "registry", NpmRegistry)
+		archive, version, regErr = fetchFromRegistry(ctx.Context(), client, s.Package, s.Version, workDir)
+		if regErr != nil {
+			if cerr := ctx.Context().Err(); cerr != nil {
+				return fmt.Errorf("fetching %s: %w", spec, cerr)
+			}
+			if s.Via == "registry" {
+				return regErr
+			}
+			log.Warn("npm registry fetch failed; trying npm pack", "spec", spec, "error", regErr)
+		}
+	}
+	if archive == "" {
+		var err error
+		archive, version, err = s.npmPack(ctx, workDir, spec, log)
+		if err != nil {
+			if regErr != nil {
+				return fmt.Errorf("%w (the registry fetch before it failed too: %v)", err, regErr)
+			}
+			return err
+		}
+	}
+
+	target := filepath.Join(workDir, "extracted")
+	if err := ExtractTarGz(archive, target); err != nil {
+		return err
+	}
+
+	// Every npm tarball wraps its contents in package/.
+	pkgDir := filepath.Join(target, "package")
+	if info, err := os.Stat(pkgDir); err != nil || !info.IsDir() {
+		return fmt.Errorf("npm tarball %s has no package/ directory", filepath.Base(archive))
+	}
+
+	ctx.SetFetchedPath(pkgDir)
+	// Record what was resolved, not what was asked for. A set tracking
+	// "latest" would otherwise stamp the literal string "latest" as its
+	// version, which is not a version and compares as one.
+	ctx.SetFetchedVersion(version)
+	return nil
+}
+
+// npmPack runs `npm pack` into workDir and returns the tarball and the
+// version npm resolved.
+func (s NpmTarball) npmPack(ctx *pipeline.Context, workDir, spec string, log *slog.Logger) (string, string, error) {
+	found, err := FindNpm()
+	if err != nil {
+		return "", "", err
+	}
+	log.Info("npm pack", "spec", spec, "npm", found.Found)
+
+	cmd := exec.CommandContext(ctx.Context(), found.Found, NpmPackArgs(spec)...)
 	cmd.Dir = workDir
 	out, err := cmd.Output()
 	if err != nil {
 		if cerr := ctx.Context().Err(); cerr != nil {
-			return fmt.Errorf("npm pack %s: %w", spec, cerr)
-		}
-		if _, lookErr := exec.LookPath("npm"); lookErr != nil {
-			return fmt.Errorf("npm not on PATH; the icon-sets-sync image installs it -- mount issue?")
+			return "", "", fmt.Errorf("npm pack %s: %w", spec, cerr)
 		}
 		if ee, ok := err.(*exec.ExitError); ok {
-			return fmt.Errorf("npm pack failed: %s", strings.TrimSpace(string(ee.Stderr)))
+			return "", "", fmt.Errorf("npm pack failed (%s): %s", found.Found, strings.TrimSpace(string(ee.Stderr)))
 		}
-		return fmt.Errorf("npm pack failed: %w", err)
+		return "", "", fmt.Errorf("npm pack failed (%s): %w", found.Found, err)
 	}
 
 	// npm prints the tarball name on stdout; --silent suppresses everything
@@ -88,31 +145,13 @@ func (s NpmTarball) Execute(ctx *pipeline.Context) error {
 		}
 	}
 	if tarball == "" {
-		return fmt.Errorf("npm pack printed no tarball name for %s", spec)
+		return "", "", fmt.Errorf("npm pack printed no tarball name for %s", spec)
 	}
-
-	target := filepath.Join(workDir, "extracted")
 	archive, err := pathguard.Join(workDir, tarball)
 	if err != nil {
-		return fmt.Errorf("npm pack printed %q: %w", tarball, err)
+		return "", "", fmt.Errorf("npm pack printed %q: %w", tarball, err)
 	}
-	if err := ExtractTarGz(archive, target); err != nil {
-		return err
-	}
-
-	// Every npm tarball wraps its contents in package/.
-	pkgDir := filepath.Join(target, "package")
-	if info, err := os.Stat(pkgDir); err != nil || !info.IsDir() {
-		return fmt.Errorf("npm tarball %s has no package/ directory", tarball)
-	}
-
-	ctx.SetFetchedPath(pkgDir)
-	// Record what npm resolved, not what was asked for. A set tracking
-	// "latest" would otherwise stamp the literal string "latest" as its
-	// version, which is not a version and compares as one.
-	ctx.SetFetchedVersion(resolvedVersion(tarball, s.Package, s.Version))
-	ctx.SetString(pipeline.KeyFetchedSource, "npm:"+spec)
-	return nil
+	return archive, resolvedVersion(tarball, s.Package, s.Version), nil
 }
 
 // resolvedVersion reads the version out of the filename npm produced.

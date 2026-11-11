@@ -24,7 +24,7 @@
       <div class="col-lg-6">
         <h2 class="h3">This build</h2>
         <dl class="row mb-0">
-          <dt class="col-5">Version</dt><dd class="col-7"><code>{{.Build.Version}}</code></dd>
+          <dt class="col-5">Version</dt><dd class="col-7"><code>{{versionLabel .Build.Version}}</code></dd>
           <dt class="col-5">Commit</dt><dd class="col-7"><code>{{version .Build.Commit}}</code></dd>
           <dt class="col-5">Built</dt><dd class="col-7">{{.Build.Date}}</dd>
           <dt class="col-5">Go</dt><dd class="col-7">{{.Build.Go}}</dd>
