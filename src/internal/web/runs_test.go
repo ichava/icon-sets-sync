@@ -315,7 +315,7 @@ func TestPackPage(t *testing.T) {
 func TestValidSlug(t *testing.T) {
 	for slug, want := range map[string]bool{
 		"icon-sets-flag": true, "a1": true,
-		// A set config of a shared pack is "<pack>.<set>" (R4).
+		// The deprecated "<pack>.<set>" spelling still passes, to be redirected.
 		"icon-sets-extras.game-icons": true, "a.b": true,
 		"": false, "../etc": false, "Icon": false, "a/b": false, strings.Repeat("a", 101): false,
 		".": false, "..": false, ".a": false, "a.": false, "a..b": false,
@@ -327,8 +327,8 @@ func TestValidSlug(t *testing.T) {
 }
 
 // R4: validSlug refused the dot, so the pages and actions of all twenty
-// icon-sets-extras.<set> configs answered 404 "No such pack" from links the
-// dashboard itself rendered. Every shipped config name must pass. Counted, so
+// set configs (then icon-sets-extras.<set>, now icon-sets-extras-<set>)
+// answered 404 "No such pack" from links the dashboard itself rendered. Every shipped config name must pass. Counted, so
 // an empty glob fails.
 func TestEveryShippedPackNameIsAValidSlug(t *testing.T) {
 	files, err := filepath.Glob(filepath.Join("..", "..", "..", "config", "*.json"))
@@ -348,5 +348,15 @@ func TestEveryShippedPackNameIsAValidSlug(t *testing.T) {
 	}
 	if n < 30 {
 		t.Fatalf("inspected %d shipped configs, want at least 30", n)
+	}
+}
+
+// An old link to a set config's page, in the deprecated dotted spelling, is
+// sent to the slug's page rather than answering 404.
+func TestDeprecatedDottedPackURLRedirectsToTheSlug(t *testing.T) {
+	s, _ := newTestServer(t)
+	rec := signIn(t, s).get("/packs/icon-sets-tabler.x?y=1")
+	if rec.Code != http.StatusMovedPermanently || rec.Header().Get("Location") != "/packs/icon-sets-tabler-x?y=1" {
+		t.Fatalf("got %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 }

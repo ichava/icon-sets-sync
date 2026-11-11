@@ -245,10 +245,11 @@ func CheckRows(results []checker.Result) []CheckRow {
 }
 
 // checkLabel names a result's row: the pack, plus the set when the result
-// came from one of several configs feeding that pack ("<pack-slug>.<set>").
+// came from one of several configs feeding that pack ("<pack-slug>-<set>":
+// a config whose name is the pack's slug plus a suffix).
 func checkLabel(r checker.Result) string {
 	slug := r.Package[strings.LastIndex(r.Package, "/")+1:]
-	if set, ok := strings.CutPrefix(r.Name, slug+"."); ok && set != "" {
+	if set, ok := strings.CutPrefix(r.Name, slug+"-"); ok && set != "" {
 		return r.Package + " (" + set + ")"
 	}
 	return r.Package

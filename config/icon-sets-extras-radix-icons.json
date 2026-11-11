@@ -1,0 +1,38 @@
+{
+  "_note": "One of the 20 sets of ichava/icon-sets-extras, each refreshed by its own config into files/<set>/ and licenses/<set>/, with its version recorded at upstream.sets.<set>.current_version in the pack's config.json. packages/radix-icons/icons/*.svg, unchanged names. The archive tag is website@0.0.17, which holds packages/radix-icons 1.3.2: the version here is the tag's, because it is what the archive URL takes. The pack's config.json records 1.3.2 at upstream.sets.radix-icons.current_version, so the first real sync stamps 0.0.17 there. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 318 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-extras-radix-icons",
+  "pack": "ichava/icon-sets-extras",
+  "pack_root": "/work/icon-sets-extras",
+  "current_version": "0.0.17",
+  "version_keys": [
+    "upstream.sets.radix-icons.current_version"
+  ],
+  "version_check_url": "https://api.github.com/repos/radix-ui/icons/tags",
+  "licence": "MIT",
+  "licence_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+  "licence_set": "radix-icons",
+  "source": {
+    "type": "github-archive",
+    "owner": "radix-ui",
+    "repo": "icons",
+    "archive_url": "https://github.com/radix-ui/icons/archive/refs/tags/website@{version}.tar.gz",
+    "source_path": "packages/radix-icons/icons",
+    "_version_note": "archive tag is website@0.0.17; the icons package inside it is 1.3.2"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files/radix-icons"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-radix-icons-{version}"
+    }
+  ]
+}

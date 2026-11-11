@@ -17,7 +17,7 @@
     "name": {
       "type": "string",
       "minLength": 1,
-      "description": "The pack slug, e.g. icon-sets-tabler."
+      "description": "The pack slug: lowercase letters a-z and digits in words joined by single hyphens, e.g. icon-sets-tabler or icon-sets-extras-feather. A dotted or capitalised name (icon-sets-extras.feather) is deprecated: it loads with a warning until 1.0.0."
     },
     "pack": {
       "type": "string",

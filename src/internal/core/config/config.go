@@ -337,8 +337,15 @@ func PackFile(slug, configDir string) (string, error) {
 	if configDir == "" {
 		configDir = DefaultConfigDir()
 	}
+	slug, err := canonicalName("pack", slug)
+	if err != nil {
+		return "", err
+	}
 	path, err := findDoc(configDir, slug)
 	if errors.Is(err, os.ErrNotExist) {
+		if old := findOldSpelling(configDir, slug); old != "" {
+			return old, nil
+		}
 		if private := PrivateConfigDir(); private != "" {
 			return "", fmt.Errorf("missing pack config: %s (nor in the private config dir %s)",
 				filepath.Join(configDir, slug+".json"), private)
@@ -425,6 +432,9 @@ func ParsePackBytes(path string, data []byte) (*PackConfig, error) {
 	if len(pack.VersionKeys) == 0 {
 		pack.VersionKeys = DefaultVersionKeys()
 	}
+	if pack.Name, err = canonicalName(path, pack.Name); err != nil {
+		return nil, err
+	}
 	pack.PackRoot = expandUser(pack.PackRoot)
 	pack.File = path
 
@@ -492,6 +502,11 @@ func ParseRegistryBytes(registryFile string, data []byte) (*PacksRegistry, error
 		if slug == "" {
 			return nil, fmt.Errorf("%s: packs[%d] is empty", registryFile, i)
 		}
+		slug, err := canonicalName(fmt.Sprintf("%s: packs[%d]", registryFile, i), slug)
+		if err != nil {
+			return nil, err
+		}
+		registry.Packs[i] = slug
 		if seen[slug] {
 			return nil, fmt.Errorf("%s: %q is listed twice", registryFile, slug)
 		}

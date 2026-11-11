@@ -1,0 +1,52 @@
+{
+  "_note": "One of the 20 sets of ichava/icon-sets-extras, each refreshed by its own config into files/<set>/ and licenses/<set>/, with its version recorded at upstream.sets.<set>.current_version in the pack's config.json. assets/<Emoji>/[<Tone>/]{Flat,High Contrast}/<file>.svg flattened and slugged. The Color style (3,145 files, 132 MB of gradients) is excluded by directory; the 3D PNGs are not SVGs. Upstream has no tags, so the version is a commit. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 4,740 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-extras-fluent-emoji",
+  "pack": "ichava/icon-sets-extras",
+  "pack_root": "/work/icon-sets-extras",
+  "current_version": "1ffb34c752ecf5d402f04cfb4b392c77f57c54bc",
+  "version_keys": [
+    "upstream.sets.fluent-emoji.current_version"
+  ],
+  "version_check_url": "https://api.github.com/repos/microsoft/fluentui-emoji/commits/main",
+  "licence": "MIT",
+  "licence_sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+  "licence_set": "fluent-emoji",
+  "source": {
+    "type": "github-archive",
+    "owner": "microsoft",
+    "repo": "fluentui-emoji",
+    "archive_url": "https://github.com/microsoft/fluentui-emoji/archive/{version}.tar.gz",
+    "source_path": "assets"
+  },
+  "transforms": [
+    {
+      "type": "exclude",
+      "directories": [
+        "Color"
+      ]
+    },
+    {
+      "type": "flatten-variants",
+      "variants": [
+        {
+          "path": "."
+        }
+      ],
+      "slug": true
+    },
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files/fluent-emoji"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-fluent-emoji-{version}"
+    }
+  ]
+}

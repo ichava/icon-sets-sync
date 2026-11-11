@@ -82,6 +82,20 @@ func (s *Server) handlePack(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) loadPack(w http.ResponseWriter, r *http.Request) (*config.PackConfig, bool) {
 	slug := r.PathValue("slug")
+	// A deprecated spelling (icon-sets-extras.feather) still reaches its pack:
+	// a page is sent to the canonical URL, so bookmarks and old links work and
+	// the address bar shows the slug; a form post is served as the slug.
+	if canon, deprecated := config.CanonicalSlug(slug); deprecated && validSlug(slug) {
+		if r.Method == http.MethodGet || r.Method == http.MethodHead {
+			to := strings.Replace(r.URL.Path, "/"+slug, "/"+canon, 1)
+			if r.URL.RawQuery != "" {
+				to += "?" + r.URL.RawQuery
+			}
+			http.Redirect(w, r, to, http.StatusMovedPermanently)
+			return nil, false
+		}
+		slug = canon
+	}
 	if !validSlug(slug) {
 		s.renderError(w, r, http.StatusNotFound, "No such pack", "There is no registered pack by that name.")
 		return nil, false
@@ -94,12 +108,12 @@ func (s *Server) loadPack(w http.ResponseWriter, r *http.Request) (*config.PackC
 	return p, true
 }
 
-// validSlug keeps a path value to the shape pack slugs have, so it can never
-// name a file outside the config directory: lowercase letters, digits and
-// hyphens, in segments joined by single dots ("icon-sets-extras.game-icons",
-// a set config of a shared pack). No segment is empty, so ".", ".." and a
-// leading or trailing dot are refused. Until R4 the dot was refused outright,
-// and every set config's page and actions answered 404.
+// validSlug keeps a path value to a shape that can never name a file outside
+// the config directory: lowercase letters, digits and hyphens, in segments
+// joined by single dots. No segment is empty, so ".", ".." and a leading or
+// trailing dot are refused. A pack slug itself has no dot (config.IsSlug); the
+// dot is admitted only so the deprecated "icon-sets-extras.<set>" spelling of
+// a set config reaches loadPack, which redirects it to the slug.
 func validSlug(s string) bool {
 	if s == "" || len(s) > 100 {
 		return false
