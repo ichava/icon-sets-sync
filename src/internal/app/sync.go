@@ -284,16 +284,23 @@ type SyncOptions struct {
 //
 // Neither stops the other packs. One dead registry must not hold back the
 // rest of the run; it makes the run exit non-zero once the rest are done.
+// MaxConcurrency is the most packs a run syncs at once, whatever asked for more: the
+// concurrency setting, a flag or an API request. The API refuses a larger value; this bounds
+// the run itself, so no caller can size the worker pool past it.
+const MaxConcurrency = 64
+
+// workerCount is how many packs a run syncs at once: what was asked for, at least 1, at most
+// MaxConcurrency, and no more than there are packs (more would only sit idle).
+func workerCount(requested, packs int) int {
+	workers := min(max(requested, 1), MaxConcurrency)
+	if workers > packs {
+		workers = max(packs, 1)
+	}
+	return workers
+}
+
 func Sync(ctx context.Context, packs []*config.PackConfig, opts SyncOptions) []Outcome {
-	workers := opts.Concurrency
-	if workers < 1 {
-		workers = 1
-	}
-	// More workers than packs would only sit idle, and the concurrency can
-	// come from an API request: bound the semaphore by the work.
-	if workers > len(packs) {
-		workers = max(len(packs), 1)
-	}
+	workers := workerCount(opts.Concurrency, len(packs))
 	run := opts.Run
 	if run == nil {
 		run = RunRecipe
