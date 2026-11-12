@@ -291,10 +291,19 @@ const MaxConcurrency = 64
 
 // workerCount is how many packs a run syncs at once: what was asked for, at least 1, at most
 // MaxConcurrency, and no more than there are packs (more would only sit idle).
+//
+// Written as plain comparisons against the constant, not min and max, so a static analyser reads
+// the bound (CodeQL go/uncontrolled-allocation-size does not see through the built-ins).
 func workerCount(requested, packs int) int {
-	workers := min(max(requested, 1), MaxConcurrency)
+	workers := requested
 	if workers > packs {
-		workers = max(packs, 1)
+		workers = packs
+	}
+	if workers > MaxConcurrency {
+		workers = MaxConcurrency
+	}
+	if workers < 1 {
+		workers = 1
 	}
 	return workers
 }
