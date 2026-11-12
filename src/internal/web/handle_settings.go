@@ -17,8 +17,12 @@ type settingsData struct {
 	BindAddr string
 	ReadOnly bool
 	Version  string
-	// Saved names what a save just changed; Problem is why it was refused.
-	Saved, Problem string
+	// Saved names what a save just changed (Reset, what a reset removed);
+	// Problem is why a save was refused.
+	Saved, Reset, Problem string
+	// Field is the setting a refused save was for, and Submitted what was
+	// typed, kept so the person does not lose it.
+	Field, Submitted string
 }
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
@@ -28,6 +32,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		ReadOnly:     s.opts.ReadOnly,
 		Version:      s.opts.Version,
 		Saved:        r.URL.Query().Get("saved"),
+		Reset:        r.URL.Query().Get("reset"),
 	}
 	s.render(w, http.StatusOK, "settings", s.newView(r, "settings", "Settings", d))
 }
@@ -70,7 +75,7 @@ func (s *Server) saveGlobalKey(key string, value any) error {
 	tree := map[string]any{}
 	if doc.Exists && len(strings.TrimSpace(string(doc.Data))) > 0 {
 		if docfile.IsYAML(doc.Path) {
-			return fmt.Errorf("%s is YAML; edit packages_dirs in the config editor so its comments are kept", doc.Path)
+			return fmt.Errorf("%s is YAML; edit %s in the config editor so its comments are kept", doc.Path, key)
 		}
 		if err := json.Unmarshal(doc.Data, &tree); err != nil {
 			return fmt.Errorf("%s is not valid JSON (%v); fix it in the config editor first", doc.Path, err)
@@ -81,11 +86,7 @@ func (s *Server) saveGlobalKey(key string, value any) error {
 			delete(tree, a)
 		}
 	}
-	if value == nil {
-		delete(tree, key)
-	} else {
-		tree[key] = value
-	}
+	setTreeKey(tree, key, value)
 	data, err := json.MarshalIndent(tree, "", "  ")
 	if err != nil {
 		return err

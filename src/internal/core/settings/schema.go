@@ -65,6 +65,9 @@ func keySchema(k Key) map[string]any {
 	case Int:
 		s["type"] = "integer"
 		s["minimum"] = k.Min
+		if k.Max > 0 {
+			s["maximum"] = k.Max
+		}
 	case List:
 		s["anyOf"] = []any{
 			map[string]any{"type": "string"},

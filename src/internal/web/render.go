@@ -147,6 +147,8 @@ func funcs(a *assetSet) template.FuncMap {
 			return s
 		},
 		"thousands": thousands,
+		"add":       func(a, b int) int { return a + b },
+		"sub":       func(a, b int) int { return a - b },
 		"clock":     func(t time.Time) string { return t.UTC().Format("15:04:05") },
 		"runClass": func(s any) string {
 			switch fmt.Sprint(s) {

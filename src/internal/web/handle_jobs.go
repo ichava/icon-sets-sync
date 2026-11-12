@@ -58,6 +58,8 @@ type jobData struct {
 	LastID   int64
 	Dropped  bool
 	Duration time.Duration
+	// PageSize is the page_size setting, for the log's pages.
+	PageSize int
 }
 
 // maxLogLines is how much of the log the page renders; the full log is the
@@ -81,7 +83,7 @@ func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
 		s.renderError(w, r, http.StatusNotFound, "No such run", "That run is not in this server's memory or its history.")
 		return
 	}
-	d := jobData{Info: info, Live: live != nil && info.Status == jobs.StatusRunning, Duration: info.Duration(s.now())}
+	d := jobData{Info: info, Live: live != nil && info.Status == jobs.StatusRunning, Duration: info.Duration(s.now()), PageSize: s.pageSize()}
 	byPack := map[string]int{}
 	for _, e := range events {
 		d.LastID = e.ID
@@ -158,6 +160,7 @@ type jobsData struct {
 	Packs          []string
 	Now            time.Time
 	HistoryEnabled bool
+	Pager          pager
 }
 
 func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
@@ -178,6 +181,8 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
 		}
 		d.Runs = append(d.Runs, info)
 	}
+	d.Pager = newPager(r, "Runs", len(d.Runs), s.pageSize())
+	d.Runs = paginate(d.Runs, d.Pager)
 	s.render(w, http.StatusOK, "jobs", s.newView(r, "jobs", "Runs", d))
 }
 

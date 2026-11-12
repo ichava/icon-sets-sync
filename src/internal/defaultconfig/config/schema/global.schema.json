@@ -139,6 +139,13 @@
       "default": [],
       "description": "directories holding the ichava pack checkouts, searched in order for \u003cpack\u003e/ (a string or a list; ~ and paths relative to the config file are resolved; ICHAVA_PACKAGES_DIRS uses the OS list separator; --packages-dir repeats). Searched before workspace (environment: ICHAVA_PACKAGES_DIRS)"
     },
+    "page_size": {
+      "default": 25,
+      "description": "rows per page in the web UI's lists (packs, runs, audit results, a run's log); 5 to 500, and a list's own page-size menu overrides it for that view (environment: ICHAVA_PAGE_SIZE)",
+      "maximum": 500,
+      "minimum": 5,
+      "type": "integer"
+    },
     "private_config_dir": {
       "default": "",
       "description": "directory of private pack configs merged over config_dir at run time (packs.json optional; none by default) (environment: ICHAVA_PRIVATE_CONFIG_DIR)",

@@ -116,6 +116,7 @@
       </tbody>
     </table>
   </div>
+  {{template "pager" .Pager}}
 </div>
 {{else if .Live}}<p class="text-secondary">Running; results appear here when it finishes.</p>{{end}}
 {{else}}

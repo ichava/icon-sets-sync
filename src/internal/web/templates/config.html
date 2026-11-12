@@ -5,8 +5,9 @@
 <div class="card">
   <div class="list-group list-group-flush">
     {{range .Files}}
-    <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="/config/{{.Name}}">
-      <span>{{icon "file-code"}} <code class="ms-1">{{.Name}}</code><span class="text-secondary small d-block">{{.Path}}</span></span>
+    <a class="list-group-item list-group-item-action config-file" href="/config/{{.Name}}">
+      {{iconc "file-code" "text-secondary"}}
+      <span class="min-w-0"><code>{{.Name}}</code><span class="text-secondary small d-block config-file-path">{{.Path}}</span></span>
       <span class="badge badge-muted">{{.Kind}}</span>
     </a>
     {{end}}

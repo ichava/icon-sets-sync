@@ -27,7 +27,7 @@
         <tr>
           <td class="text-nowrap"><a href="/jobs/{{.ID}}"><time datetime="{{iso .Started}}">{{when .Started}}</time></a></td>
           <td class="text-nowrap">{{.Kind}}</td>
-          <td>{{range $i, $p := .Packs}}{{if $i}}, {{end}}<code>{{$p}}</code>{{end}}</td>
+          <td class="cell-packs">{{template "pack_list" .Packs}}</td>
           <td class="text-nowrap">{{if .DryRun}}dry run{{else}}real{{end}}</td>
           <td><span class="badge {{runClass .Status}}">{{.Status}}</span>{{if .Err}}<div class="text-secondary small text-break">{{.Err}}</div>{{end}}</td>
           <td>{{.Duration $.Data.Now}}</td>
@@ -39,6 +39,7 @@
       </tbody>
     </table>
   </div>
+  {{template "pager" .Pager}}
   {{if not .HistoryEnabled}}<div class="card-footer text-secondary small">History is kept in memory only; it is lost when the server stops.</div>{{end}}
 </div>
 {{end}}{{end}}

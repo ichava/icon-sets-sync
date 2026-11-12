@@ -85,9 +85,11 @@ type Key struct {
 	// cannot: one pack cannot meaningfully decide them for a run of four.
 	PackScoped bool
 
-	// Enum restricts a string to these values. Min bounds an integer.
+	// Enum restricts a string to these values. Min bounds an integer, and
+	// Max, when above zero, bounds it from above.
 	Enum []string
 	Min  int
+	Max  int
 
 	// Pattern, when set, must match a string value.
 	Pattern *regexp.Regexp
@@ -137,6 +139,8 @@ var Keys = []Key{
 		Help: "directories holding the ichava pack checkouts, searched in order for <pack>/ (a string or a list; ~ and paths relative to the config file are resolved; ICHAVA_PACKAGES_DIRS uses the OS list separator; --packages-dir repeats). Searched before workspace"},
 	{Name: "history_keep", Kind: Int, Default: 50, Env: "ICHAVA_HISTORY_KEEP", Min: 0,
 		Help: "copies of each config file kept in ~/.local/state/icon-sets-sync/history/ before a save from the web UI or config edit, fix or restore; 0 keeps none"},
+	{Name: "page_size", Kind: Int, Default: 25, Env: "ICHAVA_PAGE_SIZE", Min: 5, Max: 500,
+		Help: "rows per page in the web UI's lists (packs, runs, audit results, a run's log); 5 to 500, and a list's own page-size menu overrides it for that view"},
 	{Name: "dry_run", Kind: Bool, Default: false, Env: "ICHAVA_DRY_RUN", PackScoped: true,
 		Help: "fetch and diff, but write nothing into the pack and skip the version stamp, commit, push and pull request"},
 	{Name: "force", Kind: Bool, Default: false, Env: "ICHAVA_FORCE", PackScoped: true,
@@ -234,6 +238,10 @@ func (k Key) ParseString(raw string) (any, error) {
 	}
 }
 
+// Check validates a decoded value against the key's kind and constraints and
+// returns it as the loader would store it, as Values.Set does.
+func (k Key) Check(value any) (any, error) { return k.coerce(value) }
+
 // coerce checks a decoded value against the key's kind and constraints.
 //
 // Strings must already be strings. YAML reads an unquoted 16.0 as a float, and
@@ -274,6 +282,9 @@ func (k Key) coerce(value any) (any, error) {
 		}
 		if n < k.Min {
 			return nil, fmt.Errorf("must be at least %d, got %d", k.Min, n)
+		}
+		if k.Max > 0 && n > k.Max {
+			return nil, fmt.Errorf("must be at most %d, got %d", k.Max, n)
 		}
 		return n, nil
 

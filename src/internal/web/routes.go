@@ -33,6 +33,8 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /config/{name}/history", s.handleConfigHistory)
 	mux.HandleFunc("GET /config/{name}/history/{id}", s.handleConfigHistory)
 	mux.HandleFunc("GET /schema/global.schema.json", s.handleGlobalSchema)
+	// Checking a setting writes nothing, so a read-only server keeps it.
+	mux.HandleFunc("POST /settings/value/{name}/check", s.handleSettingCheck)
 	mux.HandleFunc("GET "+HealthPath, s.handleHealth)
 	// Stopping the server changes no file, so a read-only server keeps it.
 	mux.HandleFunc("POST "+StopPath, s.handleStop)
@@ -64,6 +66,7 @@ func (s *Server) writeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /config/"+GlobalName+"/reinit", s.handleGlobalReinit)
 	mux.HandleFunc("POST /settings/packages-dirs", s.handlePackagesDirsSave)
 	mux.HandleFunc("POST /settings/private-config-dir", s.handlePrivateConfigDir)
+	mux.HandleFunc("POST /settings/value/{name}", s.handleSettingSave)
 	mux.HandleFunc("POST "+auditPath, s.handleAuditStart)
 }
 
