@@ -163,13 +163,14 @@ cross:  ## Build every release target's bare binary into build/<os>/ (needs gore
 	@command -v goreleaser >/dev/null || { echo "goreleaser v2 is required: https://goreleaser.com/install/"; exit 2; }
 	$(GORELEASER_SNAPSHOT) --skip=publish,sign,sbom,nfpm
 	go -C src run ./internal/tools/flatdist -root ..
-	go -C src run ./internal/tools/launchers -desktop ../build/linux
-	@$(CHECK_BUILD) -min 20
+	go -C src run ./internal/tools/launchers -desktop ../build/linux -windows ../build/windows
+	@$(CHECK_BUILD) -min 23
 
 # Double-click launchers, built from what cross wrote (src/internal/tools/launchers).
 # macOS opens a bare executable inside Terminal, so it gets an app bundle whose
 # binary is the universal binary itself; Linux gets a .desktop entry (cross
-# writes it); Windows needs neither. Unsigned: see docs/installation.md.
+# writes it); Windows gets icon-sets-sync-launcher_windows_<arch>.exe, a
+# GUI-subsystem program that opens no console (cross writes those too). Unsigned: see docs/installation.md.
 UNIVERSAL := build/macos/icon-sets-sync_macos_universal
 APP := build/macos/icon-sets-sync.app
 
