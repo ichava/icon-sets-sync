@@ -184,21 +184,39 @@ func (s *Server) handleSyncAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) startSync(w http.ResponseWriter, r *http.Request, kind jobs.Kind, packs []*config.PackConfig, f runForm) {
+	j, err := s.launchSync(kind, packs, RunRequest{DryRun: !f.Real, Force: f.Force, Concurrency: f.Concurrency})
+	s.started(w, r, j, err)
+}
+
+// launchSync starts a sync job over packs: the one way the UI and the API
+// start a run, so the two record, lock and finish runs identically.
+func (s *Server) launchSync(kind jobs.Kind, packs []*config.PackConfig, req RunRequest) (*jobs.Job, error) {
+	return StartSync(s.jobs, s.opts.Engine, kind, packs, req)
+}
+
+// Syncer is the part of an Engine a sync job calls.
+type Syncer interface {
+	Sync(ctx context.Context, packs []*config.PackConfig, req RunRequest, hooks RunHooks) []app.Outcome
+}
+
+// StartSync starts a sync job over packs in reg, recording each pack's
+// progress and outcome as the run page reads them. The web UI, the API and
+// the MCP server all start a sync through it.
+func StartSync(reg *jobs.Registry, eng Syncer, kind jobs.Kind, packs []*config.PackConfig, req RunRequest) (*jobs.Job, error) {
 	names := make([]string, len(packs))
 	for i, p := range packs {
 		names[i] = p.Name
 	}
-	req := RunRequest{DryRun: !f.Real, Force: f.Force, Concurrency: f.Concurrency}
 	label := "dry run"
-	if f.Real {
+	if !req.DryRun {
 		label = "real run"
 	}
-	if f.Force {
+	if req.Force {
 		label += ", forced"
 	}
-	j, err := s.jobs.Start(jobs.Spec{Kind: kind, Packs: names, DryRun: req.DryRun, Label: label},
+	return reg.Start(jobs.Spec{Kind: kind, Packs: names, DryRun: req.DryRun, Label: label},
 		func(ctx context.Context, j *jobs.Job) (jobs.Status, error) {
-			outcomes := s.opts.Engine.Sync(ctx, packs, req, s.hooks(j))
+			outcomes := eng.Sync(ctx, packs, req, RunHooksFor(j))
 			failed, review := 0, 0
 			for _, o := range outcomes {
 				switch {
@@ -216,7 +234,6 @@ func (s *Server) startSync(w http.ResponseWriter, r *http.Request, kind jobs.Kin
 			}
 			return jobs.StatusSucceeded, nil
 		})
-	s.started(w, r, j, err)
 }
 
 func (s *Server) handleRecipe(w http.ResponseWriter, r *http.Request) {
@@ -258,7 +275,11 @@ func (s *Server) handleRecipe(w http.ResponseWriter, r *http.Request) {
 }
 
 // hooks routes a run's logger, stage events and pack boundaries into a job.
-func (s *Server) hooks(j *jobs.Job) RunHooks {
+func (s *Server) hooks(j *jobs.Job) RunHooks { return RunHooksFor(j) }
+
+// RunHooksFor routes a run's logger, stage events and pack boundaries into a
+// job, as the run page reads them.
+func RunHooksFor(j *jobs.Job) RunHooks {
 	return RunHooks{
 		Logger:   slog.New(jobs.Handler(j, slog.LevelInfo)),
 		Observer: jobs.Observer(j),

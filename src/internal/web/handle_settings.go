@@ -66,9 +66,32 @@ func (s *Server) savePackagesDirs(dirs []string) error {
 }
 
 // saveGlobalKey sets one top-level key of the global config (nil removes it),
-// keeping every other key, through WriteConfig. It drops the key's aliases.
+// keeping every other key, through WriteConfig, and publishes config.changed.
 func (s *Server) saveGlobalKey(key string, value any) error {
-	doc, err := s.opts.Engine.ReadConfig(GlobalName)
+	if err := SaveGlobalSetting(s.opts.Engine, key, value); err != nil {
+		return err
+	}
+	action := "saved"
+	if value == nil {
+		action = "reset"
+	}
+	s.publishConfigChanged(GlobalName, key, action)
+	return nil
+}
+
+// ConfigStore reads and writes the config documents; an Engine is one.
+type ConfigStore interface {
+	ReadConfig(name string) (ConfigDoc, error)
+	WriteConfig(name string, data []byte, base string) error
+}
+
+// SaveGlobalSetting sets one key of the global config (nil removes it),
+// keeping every other key, through the engine's WriteConfig: validated,
+// atomic, refused on a concurrent change and kept in the history. It drops
+// the key's aliases. The web UI, the API, the MCP server and the webhooks
+// command all save a setting through it.
+func SaveGlobalSetting(eng ConfigStore, key string, value any) error {
+	doc, err := eng.ReadConfig(GlobalName)
 	if err != nil {
 		return err
 	}
@@ -91,7 +114,7 @@ func (s *Server) saveGlobalKey(key string, value any) error {
 	if err != nil {
 		return err
 	}
-	return s.opts.Engine.WriteConfig(GlobalName, append(data, '\n'), doc.Rev)
+	return eng.WriteConfig(GlobalName, append(data, '\n'), doc.Rev)
 }
 
 type licenseEntry struct {

@@ -79,6 +79,8 @@ type Job struct {
 	// Result carries a kind-specific payload (the audit's resolutions) for
 	// the page that renders the finished job. Set by the run function.
 	result any
+	// hooks are the registry's, read when the job was started.
+	hooks Hooks
 }
 
 // Info returns a snapshot of the job's metadata.
@@ -137,7 +139,22 @@ func (j *Job) PackDone(pack, status, errText, detail string) {
 	j.append(Event{Type: EventPackDone, Pack: pack, Status: status, Err: errText, Msg: detail})
 }
 
-func (j *Job) append(e Event) { j.ring.append(e, j.now()) }
+func (j *Job) append(e Event) {
+	stored, ok := j.ring.append(e, j.now())
+	if ok && j.hooks.Event != nil {
+		j.hooks.Event(j.Info(), stored)
+	}
+}
+
+// Hooks let the server publish what jobs do (the event bus). Each is called
+// on the goroutine that caused it and must not block.
+type Hooks struct {
+	// Started is called once a job holds its locks, before it runs.
+	Started func(Info)
+	// Event is called after each event is recorded; the done event comes
+	// with the job's final Info.
+	Event func(Info, Event)
+}
 
 // ErrBusy is returned when a pack the job needs is already being worked on.
 type ErrBusy struct {
@@ -164,6 +181,14 @@ type Registry struct {
 	base  context.Context
 	cap   int
 	wg    sync.WaitGroup
+	hooks Hooks
+}
+
+// SetHooks installs the publishing hooks; call it before the first Start.
+func (r *Registry) SetHooks(h Hooks) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.hooks = h
 }
 
 // NewRegistry returns a Registry. store may be nil (no history on disk); base
@@ -174,6 +199,9 @@ func NewRegistry(base context.Context, store *Store, now func() time.Time) *Regi
 	}
 	return &Registry{jobs: map[string]*Job{}, locks: map[string]string{}, store: store, now: now, base: base, cap: DefaultCapacity}
 }
+
+// Store is the history on disk, or nil.
+func (r *Registry) Store() *Store { return r.store }
 
 // SetCapacity sets the per-job event capacity; for tests.
 func (r *Registry) SetCapacity(n int) { r.cap = n }
@@ -196,7 +224,7 @@ func (r *Registry) Start(spec Spec, fn RunFunc) (*Job, error) {
 			ID: newID(r.now()), Kind: spec.Kind, Packs: append([]string(nil), spec.Packs...),
 			DryRun: spec.DryRun, Label: spec.Label, Started: r.now(), Status: StatusRunning,
 		},
-		ring: newRing(r.cap), now: r.now, cancel: cancel, done: make(chan struct{}),
+		ring: newRing(r.cap), now: r.now, cancel: cancel, done: make(chan struct{}), hooks: r.hooks,
 	}
 	for _, p := range spec.Packs {
 		r.locks[p] = j.info.ID
@@ -206,6 +234,9 @@ func (r *Registry) Start(spec Spec, fn RunFunc) (*Job, error) {
 	r.wg.Add(1)
 	r.mu.Unlock()
 
+	if j.hooks.Started != nil {
+		j.hooks.Started(j.Info())
+	}
 	go r.run(ctx, j, fn)
 	return j, nil
 }
