@@ -25,7 +25,7 @@ as you type.
 |---|---|---|
 | `--addr` | `127.0.0.1` | address to listen on, `host` or `host:port`; a port here pins it like `--port` |
 | `--port` | `7878` | port to listen on; see below |
-| `--allow-remote` | off | allow a non-loopback `--addr`; plain HTTP, so prefer an SSH tunnel |
+| `--allow-remote` | off | allow a non-loopback `--addr`, served over TLS (see below); prefer an SSH tunnel |
 | `--allow-host` | none | an extra `Host` header to accept behind a proxy (repeatable) |
 | `--read-only` | off | serve no route that runs a sync or saves a file |
 | `--no-open` | off | do not open a browser; `ICHAVA_NO_BROWSER=1` does the same |
@@ -124,6 +124,19 @@ every time `serve` starts.
   with the host named. The setting is read when `serve` starts.
 - **Credentials stay where they are.** Runs use the `git` and `gh` credentials this machine already
   has (`GH_TOKEN`); the UI never asks for, stores or shows a token.
+- **TLS beyond loopback.** On a non-loopback `--addr` (with `--allow-remote`) the server terminates
+  TLS itself: with `api.tls_cert` and `api.tls_key`, else with a self-signed certificate it generates
+  once and keeps in the state directory, printing its SHA-256 fingerprint and public-key pin at every
+  start. Plain HTTP there needs `api.tls=off-behind-proxy`, for a TLS proxy in front, and is warned
+  about. Until 2026-11-12 `--allow-remote` served plain HTTP; see the CHANGELOG.
+
+## Integrations
+
+The same listener can serve a REST API, an event stream and webhooks, each off until its setting
+turns it on: [API](api.md) (`api.enabled`), [Events](events.md) (`events.stream`) and
+[Webhooks](webhooks.md) (`webhooks.enabled`). The startup lines say which are on. A bearer token
+opens `/api/` and nothing else, and the browser session never opens `/api/`. The MCP server is a
+separate command, [`mcp`](mcp.md).
 
 ## Where things are kept
 

@@ -292,6 +292,7 @@ func (s *Server) handleConfigRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	switch err := s.opts.Engine.WriteConfig(doc.Name, data, r.PostFormValue("base")); {
 	case err == nil:
+		s.publishConfigChanged(doc.Name, "", "restored")
 		http.Redirect(w, r, "/config/"+doc.Name+"?saved=1", http.StatusSeeOther)
 	case errors.Is(err, ErrConflict):
 		s.renderErrorLink(w, r, http.StatusConflict, "Not restored", "The file changed since the history page was opened.", "/config/"+doc.Name+"/history/"+id, "Look again")
@@ -312,6 +313,7 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 	err = s.opts.Engine.WriteConfig(doc.Name, data, base)
 	if err == nil {
+		s.publishConfigChanged(doc.Name, "", "saved")
 		http.Redirect(w, r, "/config/"+doc.Name+"?saved=1", http.StatusSeeOther)
 		return
 	}

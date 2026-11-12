@@ -3,6 +3,8 @@ package settings
 import (
 	"encoding/json"
 	"strings"
+
+	"github.com/ichava/icon-sets-sync/src/internal/events"
 )
 
 // GlobalSchemaURL is the $schema a global config names, so an editor offers
@@ -67,6 +69,19 @@ func keySchema(k Key) map[string]any {
 		s["minimum"] = k.Min
 		if k.Max > 0 {
 			s["maximum"] = k.Max
+		}
+	case Webhooks:
+		s["type"] = "array"
+		s["items"] = map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"required":             []string{"name", "url", "events"},
+			"properties": map[string]any{
+				"name":       map[string]any{"type": "string", "pattern": webhookNameRE.String(), "description": "a slug naming the endpoint"},
+				"url":        map[string]any{"type": "string", "pattern": "^https?://", "description": "the receiver; https, or http to localhost with webhooks.allow_insecure_localhost"},
+				"events":     map[string]any{"type": "array", "minItems": 1, "items": map[string]any{"type": "string", "enum": events.Types()}, "description": "the event types sent to it"},
+				"secret_env": map[string]any{"type": "string", "pattern": envNameRE.String(), "description": "an environment variable holding the secret, over the one the tool generated"},
+			},
 		}
 	case List:
 		s["anyOf"] = []any{

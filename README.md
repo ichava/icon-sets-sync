@@ -143,6 +143,10 @@ The full walkthrough is in [Getting started](docs/getting-started.md), and every
 - [Maintainer sync](docs/maintainer-sync.md) -- the cron, pull request, tag and fan-out cycle
 - [Upstream tracking](docs/upstream-tracking.md) -- the end-user side of the same story
 - [`serve`](docs/tools/serve.md) -- the web UI: pages, flags, sign-in, safety, updating Tabler
+- [REST API](docs/tools/api.md) -- `/api/v1`, bearer tokens and scopes, errors, limits and the OpenAPI document
+- [Events](docs/tools/events.md) -- the CloudEvents envelope, the eleven types, their schemas and the event stream
+- [Webhooks](docs/tools/webhooks.md) -- endpoints, secrets and rotation, signature checks in Go, PHP and JS, and the delivery rules
+- [MCP](docs/tools/mcp.md) -- the stdio Model Context Protocol server, its read and write tools
 
 ### Recipes
 

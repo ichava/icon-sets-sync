@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "config.changed",
+  "description": "A config file or a setting was saved. It names the file and the key, never the value.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "file",
+    "action"
+  ],
+  "properties": {
+    "file": {
+      "type": "string",
+      "minLength": 1
+    },
+    "key": {
+      "type": "string"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "saved",
+        "reset",
+        "restored",
+        "reinitialised"
+      ]
+    }
+  }
+}

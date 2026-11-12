@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "upstream.checked",
+  "description": "An upstream check of every pack finished.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "packs",
+    "stale",
+    "errored"
+  ],
+  "properties": {
+    "packs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "stale": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "errored": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "error": {
+      "type": "string"
+    }
+  }
+}

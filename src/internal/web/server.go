@@ -15,12 +15,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ichava/icon-sets-sync/src/internal/app"
 	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
 	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/events"
 	"github.com/ichava/icon-sets-sync/src/internal/web/jobs"
 )
 
@@ -87,6 +89,17 @@ type Options struct {
 
 	// Now is the clock. Nil means time.Now.
 	Now func() time.Time
+
+	// Bus receives what the server and its runs do (see internal/events).
+	// Nil makes one; serve passes its own so webhooks can subscribe.
+	Bus *events.Bus
+
+	// TLS records that the listener terminates TLS, for server.started.
+	TLS bool
+
+	// API configures the REST API. Its zero value leaves it off, and then
+	// nothing under /api/ answers but the UI's sign-in refusal.
+	API APIOptions
 }
 
 // Server is the web UI.
@@ -106,6 +119,12 @@ type Server struct {
 	// base is cancelled on shutdown, stopping background work.
 	base   context.Context
 	cancel context.CancelFunc
+
+	// bus is where the server publishes; apiMux holds the API's routes,
+	// nil when the API is off.
+	bus    *events.Bus
+	apiMux *http.ServeMux
+	api    apiState
 }
 
 // New builds a Server. It parses every template once, so a template error is
@@ -139,10 +158,37 @@ func New(opts Options) (*Server, error) {
 	if opts.HistoryDir != "" {
 		s.history = &jobs.Store{Dir: opts.HistoryDir}
 	}
+	s.bus = opts.Bus
+	if s.bus == nil {
+		s.bus = events.NewBus(events.Source(), opts.Now)
+	}
 	s.jobs = jobs.NewRegistry(s.base, s.history, opts.Now)
-	s.handler = securityHeaders(s.hostCheck(s.auth(s.sameOrigin(s.routes()))))
+	s.jobs.SetHooks(jobs.Hooks{Started: s.publishJobStarted, Event: s.publishJobEvent})
+	ui := securityHeaders(s.hostCheck(s.auth(s.sameOrigin(s.routes()))))
+	s.handler = ui
+	if opts.API.Enabled {
+		if opts.API.Tokens == nil {
+			return nil, errors.New("web: the API needs a token store")
+		}
+		s.api = newAPIState(opts.API)
+		s.apiMux = s.apiRoutes()
+		api := apiHeaders(s.apiHostCheck(s.apiAuth(s.apiMux)))
+		// The API and the UI are two doors with two locks: a bearer token
+		// opens /api/ and nothing else, a session cookie everything else and
+		// never /api/.
+		s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, apiPrefix) {
+				api.ServeHTTP(w, r)
+				return
+			}
+			ui.ServeHTTP(w, r)
+		})
+	}
 	return s, nil
 }
+
+// Bus is the server's event bus.
+func (s *Server) Bus() *events.Bus { return s.bus }
 
 // Handler returns the full middleware chain and routes.
 func (s *Server) Handler() http.Handler { return s.handler }
@@ -160,12 +206,19 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	errc := make(chan error, 1)
 	go func() { errc <- srv.Serve(ln) }()
 
+	s.bus.Emit(events.ServerStarted, map[string]any{
+		"version": s.opts.Version, "address": s.opts.BindAddr, "tls": s.opts.TLS,
+		"read_only": s.opts.ReadOnly, "api": s.apiMux != nil,
+	})
 	select {
 	case err := <-errc:
+		s.bus.Emit(events.ServerStopping, map[string]any{"reason": "error"})
 		s.cancel()
 		return err
 	case <-ctx.Done():
+		s.bus.Emit(events.ServerStopping, map[string]any{"reason": "signal"})
 	case <-s.stop.ch:
+		s.bus.Emit(events.ServerStopping, map[string]any{"reason": "stop-action"})
 	}
 	// Cancel the runs first: an open event stream only ends when its job
 	// does, so shutting the server down before them would wait out the grace.
@@ -255,7 +308,6 @@ func (s *Server) refresh() bool {
 			}
 		}
 		c.mu.Lock()
-		defer c.mu.Unlock()
 		c.running = false
 		c.at = s.now()
 		c.packs, c.results, c.stats = packs, results, stats
@@ -263,8 +315,22 @@ func (s *Server) refresh() bool {
 		if err != nil {
 			c.err = err.Error()
 		}
+		c.mu.Unlock()
+		s.publishCheck(packs, results, err)
 	}()
 	return true
+}
+
+// DefaultStateDir is the tool's XDG state directory, the parent of the run
+// history: $XDG_STATE_HOME/icon-sets-sync, else ~/.local/state/icon-sets-sync
+// (%LocalAppData%\icon-sets-sync on Windows). It holds the API tokens, the
+// webhook secrets and the logs beside the runs.
+func DefaultStateDir(lookup func(string) (string, bool)) string {
+	runs := DefaultHistoryDir(lookup)
+	if runs == "" {
+		return ""
+	}
+	return filepath.Dir(runs)
 }
 
 // refreshIfStale starts a check when there is none or it is older than the TTL.

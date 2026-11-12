@@ -101,6 +101,7 @@ func (s *Server) handleGlobalReinit(w http.ResponseWriter, r *http.Request) {
 	q := "reinit=same"
 	if res.Changed {
 		q = "reinit=1"
+		s.publishConfigChanged(GlobalName, "", "reinitialised")
 	}
 	http.Redirect(w, r, "/config/"+GlobalName+"?"+q, http.StatusSeeOther)
 }

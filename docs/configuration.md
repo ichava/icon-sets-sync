@@ -460,8 +460,21 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `git.commit_body` | `Automated sync from upstream {pack} {old} -> {new}. ...` | `ICHAVA_GIT_COMMIT_BODY` | yes | commit and pull request body |
 | `git.open_pr` | `true` | `ICHAVA_GIT_OPEN_PR` | yes | open a pull request after pushing |
 | `emoji.unicode_version` | `16.0` | `ICHAVA_EMOJI_UNICODE_VERSION` | yes | Unicode release whose `emoji-test.txt` drives categorisation; must exist at unicode.org (up to 16.0 under `Public/emoji/<v>/`, from 17.0 under `Public/<v>.0/emoji/`). `openmoji-sets` follows its OpenMoji release instead (17.0.0 uses 17.0; never older than this default, so 15.1.0 uses 16.0) unless this is set |
+| `api.enabled` | `false` | `ICHAVA_API_ENABLED` | no | serve the REST API under `/api/v1`; see [Integrations](#integrations) |
+| `api.allow_remote` | `false` | `ICHAVA_API_ALLOW_REMOTE` | no | also serve the API on a bind beyond loopback |
+| `api.rate_limit` | `60` | `ICHAVA_API_RATE_LIMIT` | no | requests per minute per API token, 1 to 10,000 |
+| `api.tls` | `auto` | `ICHAVA_API_TLS` | no | `auto` terminates TLS beyond loopback; `off-behind-proxy` serves plain HTTP there |
+| `api.tls_cert` | none | `ICHAVA_API_TLS_CERT` | no | PEM certificate (chain) presented beyond loopback; set with `api.tls_key` |
+| `api.tls_key` | none | `ICHAVA_API_TLS_KEY` | no | PEM private key for `api.tls_cert` |
+| `events.stream` | `false` | `ICHAVA_EVENTS_STREAM` | no | serve `GET /api/v1/events`, the event stream |
+| `webhooks.enabled` | `false` | `ICHAVA_WEBHOOKS_ENABLED` | no | deliver events to `webhooks.endpoints` while `serve` runs |
+| `webhooks.endpoints` | none | `ICHAVA_WEBHOOKS_ENDPOINTS` (JSON) | no | the receivers: an array of `{name, url, events, secret_env}` |
+| `webhooks.allow_private` | `false` | `ICHAVA_WEBHOOKS_ALLOW_PRIVATE` | no | let webhooks reach private, loopback and link-local addresses |
+| `webhooks.allow_insecure_localhost` | `false` | `ICHAVA_WEBHOOKS_ALLOW_INSECURE_LOCALHOST` | no | allow `http://` to localhost only |
+| `mcp.enabled` | `false` | `ICHAVA_MCP_ENABLED` | no | let `icon-sets-sync mcp` serve |
+| `mcp.allow_writes` | `false` | `ICHAVA_MCP_ALLOW_WRITES` | no | offer the MCP write tools |
 
-The run-wide settings (the four marked "no") cannot appear in a pack config's `settings`.
+The run-wide settings (those marked "no") cannot appear in a pack config's `settings`.
 
 ### Flags
 
@@ -640,6 +653,63 @@ and 200 for that view, kept in the address (`?per_page=50&page=3`) with any filt
 bookmarked. A page number past the end shows the last page, and a size not in the menu falls back
 to `page_size`. A run's log is paged in the browser over the lines its level filter shows, and
 following the log keeps its last page open.
+
+### Integrations
+
+The REST API, its event stream, webhooks and the MCP server are **all off** until a setting turns
+each on, and a fresh install behaves exactly as before. They are edited like any other setting, and
+the Settings page shows them in their own **Integrations** card. `serve` reads them when it starts,
+so turning one on takes effect on the next start. `doctor` says which are on, and warns about each
+risky combination: a remote API, `api.tls=off-behind-proxy`, private webhooks, plain-http webhooks
+and MCP writes.
+
+| Surface | Turn it on | Reference |
+|---|---|---|
+| REST API | `api.enabled`, and a token from `icon-sets-sync api token create` | [API](tools/api.md) |
+| Event stream | `events.stream` (with the API) | [Events](tools/events.md) |
+| Webhooks | `webhooks.enabled`, and an endpoint from `icon-sets-sync webhooks add` | [Webhooks](tools/webhooks.md) |
+| MCP | `mcp.enabled`, or `icon-sets-sync mcp --enable` | [MCP](tools/mcp.md) |
+
+Secrets never sit in the global config, which is meant to be shareable: API tokens (as SHA-256
+hashes) and webhook secrets live in the state directory, `$XDG_STATE_HOME/icon-sets-sync/`
+(`~/.local/state/icon-sets-sync/`), each file mode `0600`:
+
+| File | Holds |
+|---|---|
+| `api-tokens.json` | each API token's name, scopes, expiry, last use and SHA-256 |
+| `api-audit.jsonl` | one line per API write and MCP write tool call (token name, route, status) |
+| `webhook-secrets.json` | each endpoint's generated secret, and the previous one during a rotation |
+| `webhook-deliveries.jsonl` | one line per delivery attempt, rotated at 5 MiB |
+| `webhook-state.json` | each endpoint's consecutive failures, and whether it was disabled |
+| `tls-cert.pem`, `tls-key.pem` | the self-signed certificate `serve` generates beyond loopback |
+
+`webhooks.endpoints` is a JSON array in the global config. `webhooks add` writes it, and the
+Settings page edits it as JSON:
+
+```json
+{
+  "webhooks": {
+    "enabled": true,
+    "endpoints": [
+      { "name": "ci", "url": "https://ci.example.com/hooks/icons", "events": ["job.finished", "pack.behind_upstream"] }
+    ]
+  }
+}
+```
+
+Each endpoint names the event types it receives, and there is no "all": an endpoint gets only what
+it lists. `secret_env`, when set, names an environment variable whose value signs instead of the
+generated secret, for a container or a CI runner.
+
+#### TLS beyond loopback
+
+On loopback `serve` speaks plain HTTP, as it always did: nothing leaves the machine. Bound beyond
+loopback (`--addr 0.0.0.0 --allow-remote`), it terminates TLS itself, with `api.tls_cert` and
+`api.tls_key` when both are set, and otherwise with a self-signed certificate it generates once,
+keeps as `tls-cert.pem` in the state directory, and prints the SHA-256 fingerprint and public-key
+pin of on every start. Plain HTTP beyond loopback needs `api.tls=off-behind-proxy`, for a TLS proxy
+in front, and both `serve` and `doctor` warn about it. The API itself also needs `api.allow_remote`
+on such a bind.
 
 ## Where the vendored version actually lives
 

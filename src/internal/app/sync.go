@@ -284,11 +284,32 @@ type SyncOptions struct {
 //
 // Neither stops the other packs. One dead registry must not hold back the
 // rest of the run; it makes the run exit non-zero once the rest are done.
-func Sync(ctx context.Context, packs []*config.PackConfig, opts SyncOptions) []Outcome {
-	workers := opts.Concurrency
+// MaxConcurrency is the most packs a run syncs at once, whatever asked for more: the
+// concurrency setting, a flag or an API request. The API refuses a larger value; this bounds
+// the run itself, so no caller can size the worker pool past it.
+const MaxConcurrency = 64
+
+// workerCount is how many packs a run syncs at once: what was asked for, at least 1, at most
+// MaxConcurrency, and no more than there are packs (more would only sit idle).
+//
+// Written as plain comparisons against the constant, not min and max, so a static analyser reads
+// the bound (CodeQL go/uncontrolled-allocation-size does not see through the built-ins).
+func workerCount(requested, packs int) int {
+	workers := requested
+	if workers > packs {
+		workers = packs
+	}
+	if workers > MaxConcurrency {
+		workers = MaxConcurrency
+	}
 	if workers < 1 {
 		workers = 1
 	}
+	return workers
+}
+
+func Sync(ctx context.Context, packs []*config.PackConfig, opts SyncOptions) []Outcome {
+	workers := workerCount(opts.Concurrency, len(packs))
 	run := opts.Run
 	if run == nil {
 		run = RunRecipe
@@ -306,6 +327,11 @@ func Sync(ctx context.Context, packs []*config.PackConfig, opts SyncOptions) []O
 		f()
 	}
 
+	// workerCount already caps this, but CodeQL (go/uncontrolled-allocation-size) only reads a
+	// bound that sits beside the allocation, and the size can come from an API request.
+	if workers > MaxConcurrency {
+		workers = MaxConcurrency
+	}
 	sem := make(chan struct{}, workers)
 	var wg sync.WaitGroup
 	for i, pack := range packs {
