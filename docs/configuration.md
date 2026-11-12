@@ -448,6 +448,7 @@ misspelt `dry_rnu: true` that silently did nothing would commit.
 | `packages_dirs` (alias `packages_dir`) | none | `ICHAVA_PACKAGES_DIRS` (OS list separator) | no | directories holding the pack checkouts, searched in order; see [Where the packs live](#where-the-packs-live) |
 | `workspace` | none | `ICHAVA_WORKSPACE` | no | directory a relative `pack_root` resolves against |
 | `history_keep` | `50` | `ICHAVA_HISTORY_KEEP` | no | copies of each config file kept before a save; `0` keeps none. See [Managing the config files](#managing-the-config-files) |
+| `page_size` | `25` | `ICHAVA_PAGE_SIZE` | no | rows per page in the web UI's lists (packs, runs, audit results, a run's log), 5 to 500; a list's own page-size menu overrides it for that view |
 | `allowed_hosts` | none | `ICHAVA_ALLOWED_HOSTS` | no | extra upstream hosts the client may fetch from, comma separated; see [Upstream hosts and https](#upstream-hosts-and-https) |
 | `npm_path` | none | `ICHAVA_NPM_PATH` (and `ICHAVA_NPM`) | no | the npm for the `npm pack` fallback; see [npm packages need no npm](#npm-packages-need-no-npm) |
 | `dry_run` | `false` | `ICHAVA_DRY_RUN` | yes | fetch and diff, write nothing into the pack, skip stamp, commit and pull request |
@@ -611,6 +612,34 @@ To regenerate an edited file, press **Reinitialise** on the global config's page
 
 `icon-sets-sync config print --origins [--pack <slug>] [--format yaml]` prints the merged settings
 and the layer each came from; with `--pack`, the loaded pack config and the recipe too.
+
+The web UI's Settings page shows the same list, and each value can be edited in place: a menu for a
+setting with fixed values (`log_level`), a switch for a boolean, a number field with its bounds, a
+multi-line field for a list or the commit body, and a path field for a directory or the npm
+executable. **A save writes the global config** (nested by its dots, so `git.base` lands under
+`"git": {"base": ...}`), keeping every other key, through the same validated, atomic, history-kept
+write as the config editor; **Reset** removes the key from there, so the next layer down applies. The
+environment and flags belong to the process that started the server, so the page cannot change them,
+and when one of them sets a key the page says so beside it: a saved value applies only where that
+variable or flag is unset.
+
+Each value is checked as it is typed, by the same code that checks the save (`POST
+/settings/value/<name>/check`, which writes nothing and works on a read-only server), so the page
+refuses exactly what the server would. On top of the loader's own rules, the form refuses a directory
+that is not an absolute path to an existing directory, an `npm_path` that is not an executable file,
+an `allowed_hosts` entry that is not a bare host name, a `git.base` or `git.branch` git would not
+accept as a branch, an `emoji.unicode_version` that is not a release such as `16.0`, a list that
+names an entry twice, a multi-line value where one line is expected, and anything over 4,096
+characters.
+
+### Lists and pages
+
+The web UI's lists (packs, runs, a manifest-pack audit's results and a run's log) show `page_size`
+rows at a time (25 by default, 5 to 500). Each list's own **Per page** menu offers 10, 25, 50, 100
+and 200 for that view, kept in the address (`?per_page=50&page=3`) with any filter, so a page can be
+bookmarked. A page number past the end shows the last page, and a size not in the menu falls back
+to `page_size`. A run's log is paged in the browser over the lines its level filter shows, and
+following the log keeps its last page open.
 
 ## Where the vendored version actually lives
 
