@@ -188,7 +188,7 @@
   document.addEventListener("submit", function (ev) {
     var form = ev.target;
     if (!form.hasAttribute || !form.hasAttribute("data-progress") || ev.defaultPrevented) { return; }
-    if (form.hasAttribute("data-confirm") && form.getAttribute("data-confirmed") !== "1" &&
+    if (confirmSource(form, ev.submitter).hasAttribute("data-confirm") && form.getAttribute("data-confirmed") !== "1" &&
         !(ev.submitter && ev.submitter.hasAttribute("data-confirm-skip"))) { return; }
     var btn = ev.submitter;
     busyStart(btn, form.getAttribute("data-progress"));
@@ -207,11 +207,17 @@
   // The server still requires its own typed confirmation for a real sync;
   // this is the first of the two. Without the modal script it falls back to
   // the browser's own confirm.
+  // A button may carry its own data-confirm (a form's Reset beside its Save):
+  // then only that button asks.
+  function confirmSource(form, submitter) {
+    return (submitter && submitter.hasAttribute && submitter.hasAttribute("data-confirm")) ? submitter : form;
+  }
   var modalEl = document.getElementById("confirm-modal");
   var pending = null;
   document.addEventListener("submit", function (ev) {
     var form = ev.target;
-    var msg = form.getAttribute && form.getAttribute("data-confirm");
+    var src = form.getAttribute ? confirmSource(form, ev.submitter) : form;
+    var msg = src.getAttribute && src.getAttribute("data-confirm");
     if (!msg || form.getAttribute("data-confirmed") === "1" ||
         (ev.submitter && ev.submitter.hasAttribute("data-confirm-skip"))) {
       return;
@@ -222,9 +228,9 @@
       return;
     }
     pending = { form: form, submitter: ev.submitter || null };
-    document.getElementById("confirm-modal-title").textContent = form.getAttribute("data-confirm-title") || "Are you sure?";
+    document.getElementById("confirm-modal-title").textContent = src.getAttribute("data-confirm-title") || "Are you sure?";
     document.getElementById("confirm-modal-body").textContent = msg;
-    document.getElementById("confirm-modal-ok").textContent = form.getAttribute("data-confirm-button") || "Confirm";
+    document.getElementById("confirm-modal-ok").textContent = src.getAttribute("data-confirm-button") || "Confirm";
     tb.Modal.getOrCreateInstance(modalEl).show();
   });
   if (modalEl) {
@@ -454,6 +460,58 @@
     });
   });
 
+  // Settings edited in place: each value is checked as you type, by the same
+  // code that checks a save (POST .../check writes nothing), so the page
+  // refuses exactly what the server would. The browser's own checks (a
+  // number's bounds, a required value) run first; the server's message is
+  // set as the input's validity, so an invalid value cannot be submitted.
+  document.querySelectorAll("form.setting-form").forEach(function (form) {
+    var input = form.querySelector("[name=value]:not([type=hidden])");
+    var errBox = form.querySelector("[data-role=setting-error]");
+    var url = form.getAttribute("data-check-url");
+    if (!input || !url) { return; }
+    var tok = document.querySelector("meta[name=csrf-token]");
+    var timer = null, seq = 0, live = null;
+    var show = function (msg, note) {
+      input.setCustomValidity(msg || "");
+      input.classList.toggle("is-invalid", !!msg);
+      if (errBox) { errBox.textContent = msg || ""; }
+      if (!live) { live = el("div", "form-text text-warning-emphasis"); live.setAttribute("aria-live", "polite"); errBox.parentNode.appendChild(live); }
+      live.textContent = msg ? "" : (note || "");
+    };
+    var check = function () {
+      if (!input.checkValidity() && !input.validity.customError) { show(input.validationMessage); return; }
+      var mine = ++seq;
+      var body = new URLSearchParams();
+      form.querySelectorAll("[name=value]").forEach(function (n) {
+        if (n.type === "checkbox" && !n.checked) { return; }
+        body.append("value", n.value);
+      });
+      fetch(url, { method: "POST", body: body, headers: { "X-CSRF-Token": tok ? tok.getAttribute("content") : "", "Accept": "application/json" } })
+        .then(function (r) { return r.json(); })
+        .then(function (res) { if (mine === seq) { show(res.ok ? "" : res.error, res.note); } })
+        .catch(function () { /* the save still checks */ });
+    };
+    input.addEventListener("input", function () {
+      input.setCustomValidity("");
+      window.clearTimeout(timer);
+      timer = window.setTimeout(check, 350);
+    });
+    input.addEventListener("change", check);
+    if (input.type === "checkbox") {
+      input.addEventListener("change", function () {
+        var lab = input.parentNode.querySelector(".form-check-label");
+        if (lab) { lab.textContent = input.checked ? "on" : "off"; }
+      });
+    }
+  });
+
+  // A list's page-size menu submits its own form on change.
+  document.addEventListener("change", function (ev) {
+    var sel = ev.target.closest && ev.target.closest("select[data-autosubmit]");
+    if (sel && sel.form) { sel.form.requestSubmit ? sel.form.requestSubmit() : sel.form.submit(); }
+  });
+
   // Log level filter: the CSS hides the levels below the chosen one.
   var log = document.getElementById("job-log");
   var filter = document.querySelector("[data-log-filter]");
@@ -461,9 +519,74 @@
     filter.addEventListener("change", function () { log.setAttribute("data-level", filter.value); });
   }
   var follow = document.getElementById("log-follow");
+  // The log in pages of page_size lines (the server renders every line; this
+  // folds them, so without the script the whole log still shows). Pages count
+  // the lines the level filter shows. Following the log keeps the last page
+  // open as lines arrive; turning a page stops following.
+  var logPager = document.getElementById("log-pager");
+  var logPage = 0; // 0 is "the last page"
+  var logSize = log ? parseInt(log.getAttribute("data-page-size"), 10) || 25 : 25;
+  var levelRank = { debug: 0, info: 1, warn: 2, error: 3 };
+  function logShown() {
+    var min = levelRank[log.getAttribute("data-level")] || 0;
+    return Array.prototype.filter.call(log.children, function (li) {
+      var m = /log-(debug|info|warn|error)/.exec(li.className);
+      return !m || levelRank[m[1]] >= min;
+    });
+  }
+  function pageButton(label, page, disabled, current) {
+    var li = el("li", "page-item" + (disabled ? " disabled" : "") + (current ? " active" : ""));
+    var b = el("button", "page-link", label);
+    b.type = "button";
+    if (disabled) { b.disabled = true; }
+    if (current) { b.setAttribute("aria-current", "page"); }
+    b.addEventListener("click", function () {
+      if (follow) { follow.checked = false; }
+      logPage = page;
+      paginateLog();
+    });
+    li.appendChild(b);
+    return li;
+  }
+  function paginateLog() {
+    if (!log || !logPager) { return; }
+    var shown = logShown();
+    var pages = Math.max(1, Math.ceil(shown.length / logSize));
+    var page = (logPage < 1 || logPage > pages || (follow && follow.checked)) ? pages : logPage;
+    if (logPage > pages) { logPage = pages; }
+    var lo = (page - 1) * logSize, hi = page * logSize;
+    Array.prototype.forEach.call(log.children, function (li) { li.classList.add("log-off-page"); });
+    shown.forEach(function (li, i) { li.classList.toggle("log-off-page", i < lo || i >= hi); });
+    logPager.replaceChildren();
+    if (shown.length <= logSize) { logPager.hidden = true; return; }
+    logPager.hidden = false;
+    var status = el("p", "m-0 text-secondary", (lo + 1) + "–" + Math.min(hi, shown.length) + " of " + shown.length + " lines");
+    status.setAttribute("role", "status");
+    var nav = el("nav", "ms-sm-auto");
+    nav.setAttribute("aria-label", "Log pages");
+    var ul = el("ul", "pagination m-0 flex-wrap");
+    ul.appendChild(pageButton("Previous", page - 1, page <= 1, false));
+    [1, page - 1, page, page + 1, pages].filter(function (n, i, a) { return n >= 1 && n <= pages && a.indexOf(n) === i; })
+      .sort(function (a, b) { return a - b; })
+      .forEach(function (n, i, a) {
+        if (i && n !== a[i - 1] + 1) { var gap = el("li", "page-item disabled"); gap.appendChild(el("span", "page-link", "…")); ul.appendChild(gap); }
+        ul.appendChild(pageButton(String(n), n, false, n === page));
+      });
+    ul.appendChild(pageButton("Next", page + 1, page >= pages, false));
+    nav.appendChild(ul);
+    logPager.appendChild(status);
+    logPager.appendChild(nav);
+  }
+  if (log && filter) {
+    filter.addEventListener("change", function () { logPage = 0; paginateLog(); });
+  }
+  if (follow) {
+    follow.addEventListener("change", function () { if (follow.checked) { logPage = 0; paginateLog(); scrollLog(); } });
+  }
   function scrollLog() {
     if (log && (!follow || follow.checked)) { log.scrollTop = log.scrollHeight; }
   }
+  paginateLog();
   scrollLog();
 
   // Config editor: keep the line numbers in step, and check as you type
@@ -860,6 +983,7 @@
         });
       }
       log.appendChild(li);
+      paginateLog();
       scrollLog();
     },
     "stage": function (e) {

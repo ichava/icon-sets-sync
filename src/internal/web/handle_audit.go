@@ -16,9 +16,11 @@ import (
 )
 
 type auditData struct {
-	Job      *jobs.Info
-	Live     bool
-	Results  []manifestpack.Resolution
+	Job     *jobs.Info
+	Live    bool
+	Results []manifestpack.Resolution
+	// Pager is the page of Results shown; Summary and Errors count them all.
+	Pager    pager
 	Summary  map[manifestpack.Confidence]int
 	Order    []manifestpack.Confidence
 	Set, Pkg string
@@ -146,6 +148,8 @@ func (s *Server) renderAudit(w http.ResponseWriter, r *http.Request, status int,
 			}
 		}
 		d.Summary = manifestpack.Summary(surveyed)
+		d.Pager = newPager(r, "Audit results", len(d.Results), s.pageSize())
+		d.Results = paginate(d.Results, d.Pager)
 	}
 	v := s.newView(r, "audit", "Manifest pack audit", d)
 	v.Reload = d.Live

@@ -3,7 +3,8 @@
   <div class="row g-2 align-items-center">
     <div class="col">
       <div class="page-pretitle"><a href="/jobs">{{icon "arrow-left"}} Runs</a></div>
-      <h1 class="page-title">{{.Info.Kind}}{{range .Info.Packs}} <code class="ms-1">{{.}}</code>{{end}}</h1>
+      <h1 class="page-title text-break">{{.Info.Kind}}{{if eq (len .Info.Packs) 1}} <code class="ms-1">{{index .Info.Packs 0}}</code>{{else if .Info.Packs}} <span class="text-secondary fw-normal ms-1">· {{len .Info.Packs}} packs</span>{{end}}</h1>
+      {{if gt (len .Info.Packs) 1}}<div class="mt-1">{{template "pack_list" .Info.Packs}}</div>{{end}}
       <div class="text-secondary mt-1">{{.Info.Label}} · started <time datetime="{{iso .Info.Started}}">{{when .Info.Started}}</time>{{if not .Info.Ended.IsZero}} · took {{.Duration}}{{end}}</div>
     </div>
     <div class="col-auto ms-auto btn-list">
@@ -97,9 +98,10 @@
           </div>
         </div>
         {{if .Dropped}}<div class="card-body py-2 text-secondary small">Earlier lines are not shown here; the download has everything this run kept.</div>{{end}}
-        <ol class="log-pane list-unstyled mb-0" id="job-log" data-level="info" tabindex="0" aria-label="Run log">
+        <ol class="log-pane list-unstyled mb-0" id="job-log" data-level="info" data-page-size="{{.PageSize}}" tabindex="0" aria-label="Run log">
           {{range .Log}}<li class="log-line log-{{.Level}}"><time datetime="{{iso .Time}}">{{clock .Time}}</time> <span class="log-level">{{.Level}}</span> {{breakable .Msg}}{{range $k, $v := .Attrs}} <span class="log-attr">{{$k}}={{breakable $v}}</span>{{end}}</li>{{end}}
         </ol>
+        <div class="card-footer d-flex flex-wrap align-items-center gap-2" id="log-pager" hidden></div>
       </div>
     </div>
   </div>

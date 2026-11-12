@@ -137,10 +137,36 @@ type PackStats struct {
 	Err string
 }
 
-// SettingRow is one line of the settings table.
+// SettingRow is one line of the settings table, with what the page needs
+// to offer an input for it.
 type SettingRow struct {
 	Name, Value, Origin, Help string
 	PackScoped                bool
+	// Env is the environment variable that sets it, which wins over the
+	// global config the page writes.
+	Env string
+	// Input is the control the page offers: enum, bool, int, list, dir,
+	// file, textarea or text (see settingInput).
+	Input string
+	Enum  []string
+	// Min and Max bound an int (Max 0 is unbounded).
+	Min, Max int
+	// Default is the registry default, as text.
+	Default string
+	// Items is a list setting's entries; On is a boolean's value.
+	Items []string
+	On    bool
+}
+
+// Anchor is the row's id on the settings page.
+func (r SettingRow) Anchor() string {
+	return "setting-" + strings.ReplaceAll(r.Name, ".", "-")
+}
+
+// Overridden reports whether a layer above the global config sets it, so a
+// value saved from the page would not take effect while that layer does.
+func (r SettingRow) Overridden() bool {
+	return r.Origin == string(settings.LayerEnv) || r.Origin == string(settings.LayerFlag)
 }
 
 // SettingsView is the effective settings and the paths they came from.
@@ -157,6 +183,8 @@ type SettingsView struct {
 	// exists, and the layer that set it.
 	PackagesDirs       []DirStatus
 	PackagesDirsOrigin string
+	// PageSize is the page_size setting: rows per page in the UI's lists.
+	PageSize int
 }
 
 // DirStatus is one directory setting entry and whether it is there.
@@ -455,6 +483,7 @@ func BuildSettingsView(r settings.Resolved, configDir, globalPath string) Settin
 		v.PackagesDirs = append(v.PackagesDirs, DirStatus{Path: d, Exists: err == nil && info.IsDir()})
 	}
 	v.PackagesDirsOrigin = string(r.Origin("packages_dirs"))
+	v.PageSize = r.Int("page_size")
 	if v.ConfigDir == "" {
 		v.ConfigDir = config.DefaultConfigDir()
 	}
@@ -470,9 +499,17 @@ func BuildSettingsView(r settings.Resolved, configDir, globalPath string) Settin
 		default:
 			value = r.String(k.Name)
 		}
-		v.Rows = append(v.Rows, SettingRow{
+		row := SettingRow{
 			Name: k.Name, Value: value, Origin: string(r.Origin(k.Name)), Help: k.Help, PackScoped: k.PackScoped,
-		})
+			Env: k.Env, Input: settingInput(k), Enum: k.Enum, Min: k.Min, Max: k.Max, Default: defaultText(k),
+		}
+		switch k.Kind {
+		case settings.List:
+			row.Items = r.Strings(k.Name)
+		case settings.Bool:
+			row.On = r.Bool(k.Name)
+		}
+		v.Rows = append(v.Rows, row)
 	}
 	return v
 }

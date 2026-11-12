@@ -192,129 +192,566 @@
         
       </form>
     </div>
-    <div class="card">
+    <div class="card" id="effective-settings">
       <div class="card-header"><h2 class="card-title">Effective settings</h2></div>
-      <div class="card-body pb-0">
-        <p class="text-secondary">Highest first: flags, then <code>ICHAVA_*</code> environment, then the global config, then a pack's own <code>settings</code>, then defaults. This is <code>config print --origins</code> for the run as a whole; a pack's page shows its own layer merged in.</p>
+      <div class="card-body">
+        <p class="text-secondary mb-0">Highest first: flags, then <code>ICHAVA_*</code> environment, then the global config, then a pack's own <code>settings</code>, then defaults. This is <code>config print --origins</code> for the run as a whole; a pack's page shows its own layer merged in. <strong>Saving a value here writes it to the global config</strong>, kept in its history; <em>Reset</em> removes it from there, so the next layer down applies. The environment and flags belong to the process that started this server, so the page cannot change them.</p>
       </div>
-      <div class="table-responsive">
-        <table class="table table-vcenter card-table">
-          <caption class="visually-hidden">Every setting, its value and where it came from</caption>
-          <thead><tr><th scope="col">Setting</th><th scope="col">Value</th><th scope="col">From</th></tr></thead>
-          <tbody>
+      <div class="list-group list-group-flush">
+        
+        <div class="list-group-item setting-row" id="setting-config_dir">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-config_dir-input"><code>config_dir</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
             
-            <tr>
-              <th scope="row"><code>config_dir</code><div class="text-secondary small fw-normal">directory holding packs.json and the pack configs (default: config/ beside the binary, else ./config when it holds packs.json, else the config/ of the repository around the working directory, up to 5 levels)</div></th>
-              <td><code class="text-break">–</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
             
-            <tr>
-              <th scope="row"><code>private_config_dir</code><div class="text-secondary small fw-normal">directory of private pack configs merged over config_dir at run time (packs.json optional; none by default)</div></th>
-              <td><code class="text-break">–</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
+          </div>
+          <div class="text-secondary small mt-1" id="setting-config_dir-help">directory holding packs.json and the pack configs (default: config/ beside the binary, else ./config when it holds packs.json, else the config/ of the repository around the working directory, up to 5 levels)</div>
+          
+          <form method="post" action="/settings/value/config_dir" class="setting-form mt-2" data-setting="config_dir" data-check-url="/settings/value/config_dir/check" data-progress="Saving config_dir">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
             
-            <tr>
-              <th scope="row"><code>log_level</code><div class="text-secondary small fw-normal">log verbosity; -v is debug, -q is error</div></th>
-              <td><code class="text-break">info</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
+              <input class="form-control font-monospace" type="text" id="setting-config_dir-input" name="value" value="" maxlength="4096" autocomplete="off" spellcheck="false" required placeholder="~/path/to/directory" aria-describedby="setting-config_dir-help setting-config_dir-note setting-config_dir-error">
             
-            <tr>
-              <th scope="row"><code>concurrency</code><div class="text-secondary small fw-normal">packs synced at once by sync --all / sync-all</div></th>
-              <td><code class="text-break">2</code></td>
-              <td><span class="badge badge-info">env</span></td>
-            </tr>
+              <div class="invalid-feedback" id="setting-config_dir-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-config_dir-note" data-role="setting-note">
+              An absolute directory that exists. Default: <code>–</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-private_config_dir">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-private_config_dir-input"><code>private_config_dir</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
             
-            <tr>
-              <th scope="row"><code>allowed_hosts</code><div class="text-secondary small fw-normal">extra upstream hosts, comma separated, on top of the built-in github.com, api.github.com, codeload.github.com, registry.npmjs.org and unicode.org (https only)</div></th>
-              <td><code class="text-break">–</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
             
-            <tr>
-              <th scope="row"><code>workspace</code><div class="text-secondary small fw-normal">directory holding the pack checkouts: a relative pack_root is resolved against it, and it replaces the /work/&lt;pack&gt; a shipped config names (default: /work if present, else the checkouts beside this repository)</div></th>
-              <td><code class="text-break">–</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
+          </div>
+          <div class="text-secondary small mt-1" id="setting-private_config_dir-help">directory of private pack configs merged over config_dir at run time (packs.json optional; none by default)</div>
+          
+          <form method="post" action="/settings/value/private_config_dir" class="setting-form mt-2" data-setting="private_config_dir" data-check-url="/settings/value/private_config_dir/check" data-progress="Saving private_config_dir">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
             
-            <tr>
-              <th scope="row"><code>npm_path</code><div class="text-secondary small fw-normal">the npm executable, for the npm pack fallback when the registry fetch fails (default: PATH, then Homebrew, Volta, fnm, asdf and nvm&#39;s directories; npm&#39;s own on Windows)</div></th>
-              <td><code class="text-break">–</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
+              <input class="form-control font-monospace" type="text" id="setting-private_config_dir-input" name="value" value="" maxlength="4096" autocomplete="off" spellcheck="false" required placeholder="~/path/to/directory" aria-describedby="setting-private_config_dir-help setting-private_config_dir-note setting-private_config_dir-error">
             
-            <tr>
-              <th scope="row"><code>packages_dirs</code><div class="text-secondary small fw-normal">directories holding the ichava pack checkouts, searched in order for &lt;pack&gt;/ (a string or a list; ~ and paths relative to the config file are resolved; ICHAVA_PACKAGES_DIRS uses the OS list separator; --packages-dir repeats). Searched before workspace</div></th>
-              <td><code class="text-break">–</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
+              <div class="invalid-feedback" id="setting-private_config_dir-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-private_config_dir-note" data-role="setting-note">
+              An absolute directory that exists. Default: <code>–</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-log_level">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-log_level-input"><code>log_level</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
             
-            <tr>
-              <th scope="row"><code>history_keep</code><div class="text-secondary small fw-normal">copies of each config file kept in ~/.local/state/icon-sets-sync/history/ before a save from the web UI or config edit, fix or restore; 0 keeps none</div></th>
-              <td><code class="text-break">50</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
             
-            <tr>
-              <th scope="row"><code>dry_run</code><div class="text-secondary small fw-normal">fetch and diff, but write nothing into the pack and skip the version stamp, commit, push and pull request</div></th>
-              <td><code class="text-break">false</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
+          </div>
+          <div class="text-secondary small mt-1" id="setting-log_level-help">log verbosity; -v is debug, -q is error</div>
+          
+          <form method="post" action="/settings/value/log_level" class="setting-form mt-2" data-setting="log_level" data-check-url="/settings/value/log_level/check" data-progress="Saving log_level">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
             
-            <tr>
-              <th scope="row"><code>force</code><div class="text-secondary small fw-normal">refresh even when the pack is not behind upstream</div></th>
-              <td><code class="text-break">false</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
+              <select class="form-select" id="setting-log_level-input" name="value" aria-describedby="setting-log_level-help setting-log_level-note setting-log_level-error" required>
+                <option value="debug">debug</option><option value="info" selected>info</option><option value="warn">warn</option><option value="error">error</option>
+              </select>
             
-            <tr>
-              <th scope="row"><code>git.author</code><div class="text-secondary small fw-normal">author and committer of sync commits, as `Name &lt;email&gt;`</div></th>
-              <td><code class="text-break">ichava-sync-bot &lt;41898282&#43;github-actions[bot]@users.noreply.github.com&gt;</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
+              <div class="invalid-feedback" id="setting-log_level-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-log_level-note" data-role="setting-note">
+              Default: <code>info</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-concurrency">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-concurrency-input"><code>concurrency</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-info">env</span>
             
-            <tr>
-              <th scope="row"><code>git.base</code><div class="text-secondary small fw-normal">base branch the pull request targets</div></th>
-              <td><code class="text-break">develop</code></td>
-              <td><span class="badge badge-info">global</span></td>
-            </tr>
             
-            <tr>
-              <th scope="row"><code>git.branch</code><div class="text-secondary small fw-normal">sync branch; {version} is the upstream version</div></th>
-              <td><code class="text-break">chore/sync-upstream-{version}</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
+          </div>
+          <div class="text-secondary small mt-1" id="setting-concurrency-help">packs synced at once by sync --all / sync-all</div>
+          
+          <form method="post" action="/settings/value/concurrency" class="setting-form mt-2" data-setting="concurrency" data-check-url="/settings/value/concurrency/check" data-progress="Saving concurrency">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
             
-            <tr>
-              <th scope="row"><code>git.commit_subject</code><div class="text-secondary small fw-normal">commit and PR title; {pack}, {old}, {new} are interpolated</div></th>
-              <td><code class="text-break">chore(upstream): bump {pack} to v{new}</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
+              <input class="form-control" type="number" inputmode="numeric" step="1" id="setting-concurrency-input" name="value" value="2" min="1" required aria-describedby="setting-concurrency-help setting-concurrency-note setting-concurrency-error">
             
-            <tr>
-              <th scope="row"><code>git.commit_body</code><div class="text-secondary small fw-normal">commit and PR body; same tokens as the subject</div></th>
-              <td><code class="text-break">Automated sync from upstream {pack} {old} -&gt; {new}.
+              <div class="invalid-feedback" id="setting-concurrency-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-concurrency-note" data-role="setting-note">
+              At least 1. Default: <code>1</code>.
+              <span class="text-warning-emphasis icon-line mt-1"><i class="icon ti ti-alert-triangle" aria-hidden="true"></i><span><code>ICHAVA_CONCURRENCY</code> sets this for the running server, so a saved value applies only where that is unset.</span></span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-allowed_hosts">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-allowed_hosts-input"><code>allowed_hosts</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-allowed_hosts-help">extra upstream hosts, comma separated, on top of the built-in github.com, api.github.com, codeload.github.com, registry.npmjs.org and unicode.org (https only)</div>
+          
+          <form method="post" action="/settings/value/allowed_hosts" class="setting-form mt-2" data-setting="allowed_hosts" data-check-url="/settings/value/allowed_hosts/check" data-progress="Saving allowed_hosts">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input class="form-control font-monospace" type="text" id="setting-allowed_hosts-input" name="value" value="" maxlength="4096" autocomplete="off" spellcheck="false" required aria-describedby="setting-allowed_hosts-help setting-allowed_hosts-note setting-allowed_hosts-error">
+            
+              <div class="invalid-feedback" id="setting-allowed_hosts-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-allowed_hosts-note" data-role="setting-note">
+              Default: <code>–</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-workspace">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-workspace-input"><code>workspace</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-workspace-help">directory holding the pack checkouts: a relative pack_root is resolved against it, and it replaces the /work/&lt;pack&gt; a shipped config names (default: /work if present, else the checkouts beside this repository)</div>
+          
+          <form method="post" action="/settings/value/workspace" class="setting-form mt-2" data-setting="workspace" data-check-url="/settings/value/workspace/check" data-progress="Saving workspace">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input class="form-control font-monospace" type="text" id="setting-workspace-input" name="value" value="" maxlength="4096" autocomplete="off" spellcheck="false" required placeholder="~/path/to/directory" aria-describedby="setting-workspace-help setting-workspace-note setting-workspace-error">
+            
+              <div class="invalid-feedback" id="setting-workspace-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-workspace-note" data-role="setting-note">
+              An absolute directory that exists. Default: <code>–</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-npm_path">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-npm_path-input"><code>npm_path</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-npm_path-help">the npm executable, for the npm pack fallback when the registry fetch fails (default: PATH, then Homebrew, Volta, fnm, asdf and nvm&#39;s directories; npm&#39;s own on Windows)</div>
+          
+          <form method="post" action="/settings/value/npm_path" class="setting-form mt-2" data-setting="npm_path" data-check-url="/settings/value/npm_path/check" data-progress="Saving npm_path">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input class="form-control font-monospace" type="text" id="setting-npm_path-input" name="value" value="" maxlength="4096" autocomplete="off" spellcheck="false" required placeholder="/opt/homebrew/bin/npm" aria-describedby="setting-npm_path-help setting-npm_path-note setting-npm_path-error">
+            
+              <div class="invalid-feedback" id="setting-npm_path-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-npm_path-note" data-role="setting-note">
+              An absolute path to the executable. Default: <code>–</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-packages_dirs">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-packages_dirs-input"><code>packages_dirs</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-packages_dirs-help">directories holding the ichava pack checkouts, searched in order for &lt;pack&gt;/ (a string or a list; ~ and paths relative to the config file are resolved; ICHAVA_PACKAGES_DIRS uses the OS list separator; --packages-dir repeats). Searched before workspace</div>
+          
+          <div class="mt-2"><code class="text-break">–</code> <a class="ms-1" href="#packages-dirs">Edit in the list above</a></div>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-history_keep">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-history_keep-input"><code>history_keep</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-history_keep-help">copies of each config file kept in ~/.local/state/icon-sets-sync/history/ before a save from the web UI or config edit, fix or restore; 0 keeps none</div>
+          
+          <form method="post" action="/settings/value/history_keep" class="setting-form mt-2" data-setting="history_keep" data-check-url="/settings/value/history_keep/check" data-progress="Saving history_keep">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input class="form-control" type="number" inputmode="numeric" step="1" id="setting-history_keep-input" name="value" value="50" min="0" required aria-describedby="setting-history_keep-help setting-history_keep-note setting-history_keep-error">
+            
+              <div class="invalid-feedback" id="setting-history_keep-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-history_keep-note" data-role="setting-note">
+              At least 0. Default: <code>50</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-page_size">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-page_size-input"><code>page_size</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-page_size-help">rows per page in the web UI&#39;s lists (packs, runs, audit results, a run&#39;s log); 5 to 500, and a list&#39;s own page-size menu overrides it for that view</div>
+          
+          <form method="post" action="/settings/value/page_size" class="setting-form mt-2" data-setting="page_size" data-check-url="/settings/value/page_size/check" data-progress="Saving page_size">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input class="form-control" type="number" inputmode="numeric" step="1" id="setting-page_size-input" name="value" value="25" min="5" max="500" required aria-describedby="setting-page_size-help setting-page_size-note setting-page_size-error">
+            
+              <div class="invalid-feedback" id="setting-page_size-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-page_size-note" data-role="setting-note">
+              5 to 500. Default: <code>25</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-dry_run">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-dry_run-input"><code>dry_run</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-dry_run-help">fetch and diff, but write nothing into the pack and skip the version stamp, commit, push and pull request</div>
+          
+          <form method="post" action="/settings/value/dry_run" class="setting-form mt-2" data-setting="dry_run" data-check-url="/settings/value/dry_run/check" data-progress="Saving dry_run">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input type="hidden" name="value" value="false">
+              <label class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="setting-dry_run-input" name="value" value="true" aria-describedby="setting-dry_run-help setting-dry_run-note">
+                <span class="form-check-label">off</span>
+              </label>
+            
+              <div class="invalid-feedback" id="setting-dry_run-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-dry_run-note" data-role="setting-note">
+              Default: <code>false</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-force">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-force-input"><code>force</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-force-help">refresh even when the pack is not behind upstream</div>
+          
+          <form method="post" action="/settings/value/force" class="setting-form mt-2" data-setting="force" data-check-url="/settings/value/force/check" data-progress="Saving force">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input type="hidden" name="value" value="false">
+              <label class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="setting-force-input" name="value" value="true" aria-describedby="setting-force-help setting-force-note">
+                <span class="form-check-label">off</span>
+              </label>
+            
+              <div class="invalid-feedback" id="setting-force-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-force-note" data-role="setting-note">
+              Default: <code>false</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-git-author">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-git-author-input"><code>git.author</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-git-author-help">author and committer of sync commits, as `Name &lt;email&gt;`</div>
+          
+          <form method="post" action="/settings/value/git.author" class="setting-form mt-2" data-setting="git.author" data-check-url="/settings/value/git.author/check" data-progress="Saving git.author">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input class="form-control font-monospace" type="text" id="setting-git-author-input" name="value" value="ichava-sync-bot &lt;41898282&#43;github-actions[bot]@users.noreply.github.com&gt;" maxlength="4096" autocomplete="off" spellcheck="false" required aria-describedby="setting-git-author-help setting-git-author-note setting-git-author-error">
+            
+              <div class="invalid-feedback" id="setting-git-author-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-git-author-note" data-role="setting-note">
+              Default: <code>ichava-sync-bot &lt;41898282&#43;github-actions[bot]@users.noreply.github.com&gt;</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-git-base">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-git-base-input"><code>git.base</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-info">global</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-git-base-help">base branch the pull request targets</div>
+          
+          <form method="post" action="/settings/value/git.base" class="setting-form mt-2" data-setting="git.base" data-check-url="/settings/value/git.base/check" data-progress="Saving git.base">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input class="form-control font-monospace" type="text" id="setting-git-base-input" name="value" value="develop" maxlength="4096" autocomplete="off" spellcheck="false" required aria-describedby="setting-git-base-help setting-git-base-note setting-git-base-error">
+            
+              <div class="invalid-feedback" id="setting-git-base-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-git-base-note" data-role="setting-note">
+              Default: <code>main</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              <button type="submit" class="btn btn-sm" name="action" value="reset" formnovalidate data-confirm="git.base is removed from the global config, and the next layer down applies." data-confirm-title="Reset git.base?" data-confirm-button="Reset"><i class="icon ti ti-arrow-back-up" aria-hidden="true"></i>Reset</button>
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-git-branch">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-git-branch-input"><code>git.branch</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-git-branch-help">sync branch; {version} is the upstream version</div>
+          
+          <form method="post" action="/settings/value/git.branch" class="setting-form mt-2" data-setting="git.branch" data-check-url="/settings/value/git.branch/check" data-progress="Saving git.branch">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input class="form-control font-monospace" type="text" id="setting-git-branch-input" name="value" value="chore/sync-upstream-{version}" maxlength="4096" autocomplete="off" spellcheck="false" required aria-describedby="setting-git-branch-help setting-git-branch-note setting-git-branch-error">
+            
+              <div class="invalid-feedback" id="setting-git-branch-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-git-branch-note" data-role="setting-note">
+              Default: <code>chore/sync-upstream-{version}</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-git-commit_subject">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-git-commit_subject-input"><code>git.commit_subject</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-git-commit_subject-help">commit and PR title; {pack}, {old}, {new} are interpolated</div>
+          
+          <form method="post" action="/settings/value/git.commit_subject" class="setting-form mt-2" data-setting="git.commit_subject" data-check-url="/settings/value/git.commit_subject/check" data-progress="Saving git.commit_subject">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input class="form-control font-monospace" type="text" id="setting-git-commit_subject-input" name="value" value="chore(upstream): bump {pack} to v{new}" maxlength="4096" autocomplete="off" spellcheck="false" required aria-describedby="setting-git-commit_subject-help setting-git-commit_subject-note setting-git-commit_subject-error">
+            
+              <div class="invalid-feedback" id="setting-git-commit_subject-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-git-commit_subject-note" data-role="setting-note">
+              Default: <code>chore(upstream): bump {pack} to v{new}</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-git-commit_body">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-git-commit_body-input"><code>git.commit_body</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-git-commit_body-help">commit and PR body; same tokens as the subject</div>
+          
+          <form method="post" action="/settings/value/git.commit_body" class="setting-form mt-2" data-setting="git.commit_body" data-check-url="/settings/value/git.commit_body/check" data-progress="Saving git.commit_body">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <textarea class="form-control font-monospace" id="setting-git-commit_body-input" name="value" rows="4" maxlength="4096" spellcheck="false" required aria-describedby="setting-git-commit_body-help setting-git-commit_body-note setting-git-commit_body-error">Automated sync from upstream {pack} {old} -&gt; {new}.
 
-Generated by ichava/icon-sets-sync. See docs/maintainer-sync.md in that repository.</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
+Generated by ichava/icon-sets-sync. See docs/maintainer-sync.md in that repository.</textarea>
             
-            <tr>
-              <th scope="row"><code>git.open_pr</code><div class="text-secondary small fw-normal">open a pull request after pushing</div></th>
-              <td><code class="text-break">true</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
+              <div class="invalid-feedback" id="setting-git-commit_body-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-git-commit_body-note" data-role="setting-note">
+              Default: <code>Automated sync from upstream {pack} {old} -&gt; {new}.
+
+Generated by ichava/icon-sets-sync. See docs/maintainer-sync.md in that repository.</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-git-open_pr">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-git-open_pr-input"><code>git.open_pr</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
             
-            <tr>
-              <th scope="row"><code>emoji.unicode_version</code><div class="text-secondary small fw-normal">Unicode emoji release whose emoji-test.txt drives categorisation; must exist at unicode.org/Public/emoji/</div></th>
-              <td><code class="text-break">16.0</code></td>
-              <td><span class="badge badge-muted">default</span></td>
-            </tr>
             
-          </tbody>
-        </table>
+          </div>
+          <div class="text-secondary small mt-1" id="setting-git-open_pr-help">open a pull request after pushing</div>
+          
+          <form method="post" action="/settings/value/git.open_pr" class="setting-form mt-2" data-setting="git.open_pr" data-check-url="/settings/value/git.open_pr/check" data-progress="Saving git.open_pr">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input type="hidden" name="value" value="false">
+              <label class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="setting-git-open_pr-input" name="value" value="true" checked aria-describedby="setting-git-open_pr-help setting-git-open_pr-note">
+                <span class="form-check-label">on</span>
+              </label>
+            
+              <div class="invalid-feedback" id="setting-git-open_pr-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-git-open_pr-note" data-role="setting-note">
+              Default: <code>true</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
+        <div class="list-group-item setting-row" id="setting-emoji-unicode_version">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="setting-emoji-unicode_version-input"><code>emoji.unicode_version</code></label>
+            <span class="text-secondary small">from</span> <span class="badge badge-muted">default</span>
+            
+            
+          </div>
+          <div class="text-secondary small mt-1" id="setting-emoji-unicode_version-help">Unicode emoji release whose emoji-test.txt drives categorisation; must exist at unicode.org/Public/emoji/</div>
+          
+          <form method="post" action="/settings/value/emoji.unicode_version" class="setting-form mt-2" data-setting="emoji.unicode_version" data-check-url="/settings/value/emoji.unicode_version/check" data-progress="Saving emoji.unicode_version">
+            <input type="hidden" name="csrf" value="CSRF">
+            <div class="setting-control">
+            
+              <input class="form-control font-monospace" type="text" id="setting-emoji-unicode_version-input" name="value" value="16.0" maxlength="4096" autocomplete="off" spellcheck="false" required aria-describedby="setting-emoji-unicode_version-help setting-emoji-unicode_version-note setting-emoji-unicode_version-error">
+            
+              <div class="invalid-feedback" id="setting-emoji-unicode_version-error" data-role="setting-error"></div>
+            </div>
+            <div class="form-text" id="setting-emoji-unicode_version-note" data-role="setting-note">
+              Default: <code>16.0</code>.
+              
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save"><i class="icon ti ti-device-floppy" aria-hidden="true"></i>Save</button>
+              
+            </div>
+          </form>
+          
+        </div>
+        
       </div>
     </div>
   </div>
@@ -348,7 +785,7 @@ Generated by ichava/icon-sets-sync. See docs/maintainer-sync.md in that reposito
         </div>
         <div class="list-group-item">
           <div class="fw-medium">Precedence</div>
-          <div class="text-secondary small">For each setting, the first layer that sets it wins: <code>--set</code> and flags, then <code>ICHAVA_*</code> environment, then the global config, then a pack's own <code>settings</code>, then the defaults. The "From" column names the layer.</div>
+          <div class="text-secondary small">For each setting, the first layer that sets it wins: <code>--set</code> and flags, then <code>ICHAVA_*</code> environment, then the global config, then a pack's own <code>settings</code>, then the defaults. Each setting's "from" badge names the layer.</div>
         </div>
       </div>
     </div>

@@ -160,7 +160,8 @@
   <div class="row g-2 align-items-center">
     <div class="col">
       <div class="page-pretitle"><a href="/jobs"><i class="icon ti ti-arrow-left" aria-hidden="true"></i> Runs</a></div>
-      <h1 class="page-title">sync <code class="ms-1">icon-sets-flag</code></h1>
+      <h1 class="page-title text-break">sync <code class="ms-1">icon-sets-flag</code></h1>
+      
       <div class="text-secondary mt-1">dry run · started <time datetime="2026-10-23T12:00:00Z">2026-10-23 12:00:00 UTC</time> · took 0s</div>
     </div>
     <div class="col-auto ms-auto btn-list">
@@ -216,9 +217,10 @@
           </div>
         </div>
         
-        <ol class="log-pane list-unstyled mb-0" id="job-log" data-level="info" tabindex="0" aria-label="Run log">
+        <ol class="log-pane list-unstyled mb-0" id="job-log" data-level="info" data-page-size="25" tabindex="0" aria-label="Run log">
           <li class="log-line log-info"><time datetime="2026-10-23T12:00:00Z">12:00:00</time> <span class="log-level">info</span> npm pack <span class="log-attr">spec=icon-sets-flag@9.9.9</span></li>
         </ol>
+        <div class="card-footer d-flex flex-wrap align-items-center gap-2" id="log-pager" hidden></div>
       </div>
     </div>
   </div>

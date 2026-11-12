@@ -30,10 +30,12 @@ type dashboardData struct {
 	// preflight a person sees before starting one.
 	MissingTools []app.Tool
 	Rows         []packRow
-	CheckedAt    time.Time
-	Running      bool
-	Err          string
-	Totals       struct{ Packs, OK, Stale, Failed, SVGs int }
+	// Pager is the page of Rows shown; Totals count every pack.
+	Pager     pager
+	CheckedAt time.Time
+	Running   bool
+	Err       string
+	Totals    struct{ Packs, OK, Stale, Failed, SVGs int }
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
@@ -71,6 +73,8 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		d.Rows = append(d.Rows, row)
 	}
 	d.Totals.Packs = len(d.Rows)
+	d.Pager = newPager(r, "Packs", len(d.Rows), s.pageSize())
+	d.Rows = paginate(d.Rows, d.Pager)
 
 	v := s.newView(r, "dashboard", "Packs", d)
 	v.Reload = snap.Running

@@ -129,3 +129,44 @@ main:focus { outline: none; }
 :root[data-bs-theme=dark] .tok-punc { color: #b9c0cb; }
 :root[data-bs-theme=dark] .tok-err  { color: #ffa3a3; }
 :root[data-bs-theme=dark] .editor-hl-on .editor-text::selection { background: rgba(121, 170, 231, .35); }
+
+/* A run's packs as wrapping chips (runs list, run page): a sync of every pack
+   used to run its title off the right edge of the page. */
+.pack-list { display: inline-flex; flex-wrap: wrap; gap: .25rem; vertical-align: middle; }
+.pack-list code { white-space: nowrap; }
+.pack-list-more { margin-top: .25rem; }
+.pack-list-more summary { cursor: pointer; color: var(--tblr-secondary); font-size: .875rem; }
+.pack-list-more[open] summary { margin-bottom: .25rem; }
+.cell-packs { min-width: 14rem; max-width: 28rem; }
+
+/* A table's visually hidden label is absolutely positioned; without a
+   positioned scroll box it escaped .table-responsive and widened the whole
+   page on a phone (Packs and Runs scrolled sideways at 390px). */
+.table-responsive { position: relative; }
+
+/* An icon leading text keeps a gap from it everywhere, not only in buttons
+   (the footer's Source link sat flush against its icon). Buttons, icon-only
+   controls and boxes that centre a lone icon keep Tabler's own spacing. */
+.icon.ti:not(.btn .icon, .btn-icon .icon, .btn-action .icon, .avatar .icon, .navbar-brand-mark .icon, .empty-icon .icon, .page-link .icon, .nav-link .icon, .dropdown-item .icon, .input-icon-addon .icon, .icon-line > .icon) { margin-inline-end: .3rem; }
+.page-link .icon { margin: 0 .125rem; }
+
+/* The config list: an icon column, then the name and its path, which breaks
+   anywhere rather than running off a phone's screen. */
+.config-file { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .5rem .75rem; }
+.config-file-path { overflow-wrap: anywhere; }
+
+/* A log line on another page of the log (app.js folds the log into pages). */
+.log-pane .log-off-page { display: none; }
+
+/* Settings edited in place: a control no wider than a long path needs. */
+.setting-control { max-width: 40rem; }
+.setting-row:target { background: var(--tblr-active-bg); }
+.min-w-0 { min-width: 0; }
+
+/* An icon beside text that may wrap (a long branch name, a warning): the
+   icon stays on the first line instead of floating above the block. */
+.icon-line { display: inline-flex; align-items: flex-start; gap: .3rem; max-width: 100%; }
+.icon-line > .icon.ti { flex: none; margin: .1em 0 0; }
+/* A sync branch (chore/sync-upstream-<set>-<version>) wraps onto two lines,
+   not one line per hyphen. */
+.cell-branch { min-width: 13rem; }
