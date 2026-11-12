@@ -230,9 +230,13 @@ func (s *Server) apiSyncAll(w http.ResponseWriter, r *http.Request) {
 	s.apiStartSync(w, r, jobs.KindSyncAll, packs, req)
 }
 
+// maxAPIConcurrency bounds how many packs an API run syncs at once.
+const maxAPIConcurrency = 64
+
 func (s *Server) apiStartSync(w http.ResponseWriter, r *http.Request, kind jobs.Kind, packs []*config.PackConfig, req apiSyncRequest) {
-	if req.Concurrency < 0 {
-		writeProblem(w, r, http.StatusBadRequest, "bad-body", "Bad request body", "concurrency must be 0 (the setting) or more.")
+	if req.Concurrency < 0 || req.Concurrency > maxAPIConcurrency {
+		writeProblem(w, r, http.StatusBadRequest, "bad-body", "Bad request body",
+			fmt.Sprintf("concurrency must be 0 (the setting) to %d.", maxAPIConcurrency))
 		return
 	}
 	run := RunRequest{DryRun: true, Force: req.Force, Concurrency: req.Concurrency}

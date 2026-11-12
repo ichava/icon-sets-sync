@@ -70,7 +70,7 @@ A sync's body is optional; every field defaults:
 { "dry_run": true, "force": false, "concurrency": 0, "packs": ["icon-sets-tabler"] }
 ```
 
-An unknown field is refused rather than ignored, so a misspelt `dry_rnu` cannot become a real run.
+`concurrency` is 0 (the setting) to 64. An unknown field is refused rather than ignored, so a misspelt `dry_rnu` cannot become a real run.
 An `Idempotency-Key` header (up to 255 characters) makes a retry safe: the same key from the same
 token within 24 hours answers 200 with the run it started, and starts nothing. A pack already being
 synced answers 409 with the run's `job_id`.

@@ -272,6 +272,9 @@ func TestAPISyncIsADryRunUnlessAskedOtherwise(t *testing.T) {
 	if job.Code != http.StatusOK || !strings.Contains(job.Body.String(), `"status": "synced"`) {
 		t.Fatalf("job: %d %s", job.Code, job.Body.String())
 	}
+	if rec := f.call(tok, http.MethodPost, "/api/v1/sync", map[string]any{"concurrency": 1 << 40}); rec.Code != http.StatusBadRequest {
+		t.Fatalf("an unbounded concurrency must be refused: %d", rec.Code)
+	}
 	if rec := f.call(tok, http.MethodPost, "/api/v1/packs/icon-sets-flag/sync", `{"dry_rnu": false}`); rec.Code != http.StatusBadRequest {
 		t.Fatalf("a misspelt field must be refused, not ignored: %d", rec.Code)
 	}

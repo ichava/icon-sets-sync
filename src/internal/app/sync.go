@@ -289,6 +289,11 @@ func Sync(ctx context.Context, packs []*config.PackConfig, opts SyncOptions) []O
 	if workers < 1 {
 		workers = 1
 	}
+	// More workers than packs would only sit idle, and the concurrency can
+	// come from an API request: bound the semaphore by the work.
+	if workers > len(packs) {
+		workers = max(len(packs), 1)
+	}
 	run := opts.Run
 	if run == nil {
 		run = RunRecipe
