@@ -162,9 +162,10 @@ func parseSetting(k settings.Key, raw []string) (value any, note string, err err
 	s, _ = v.(string)
 	switch settingInputs[k.Name] {
 	case "dir":
-		p := expandHome(s)
-		if !filepath.IsAbs(p) {
-			return nil, "", fmt.Errorf("%q is not an absolute path (start with / or ~)", s)
+		// Only a clean absolute path, with no "..", is looked up on disk.
+		p := filepath.Clean(expandHome(s))
+		if !filepath.IsAbs(p) || strings.Contains(p, "..") {
+			return nil, "", fmt.Errorf("%q is not an absolute path (start with / or ~, no ..)", s)
 		}
 		info, err := os.Stat(p)
 		if err != nil {
@@ -174,9 +175,10 @@ func parseSetting(k settings.Key, raw []string) (value any, note string, err err
 			return nil, "", fmt.Errorf("%s is not a directory", s)
 		}
 	case "file":
-		p := expandHome(s)
-		if !filepath.IsAbs(p) {
-			return nil, "", fmt.Errorf("%q is not an absolute path (start with / or ~)", s)
+		// Only a clean absolute path, with no "..", is looked up on disk.
+		p := filepath.Clean(expandHome(s))
+		if !filepath.IsAbs(p) || strings.Contains(p, "..") {
+			return nil, "", fmt.Errorf("%q is not an absolute path (start with / or ~, no ..)", s)
 		}
 		info, err := os.Stat(p)
 		if err != nil {
@@ -231,7 +233,15 @@ func expandHome(p string) string {
 	return p
 }
 
+// isDir reports whether a typed path is an existing directory. Only a clean
+// absolute path, with no "..", is looked up; anything else counts as not
+// found (a relative packages_dirs entry resolves against the config file at
+// run time, which a form cannot know).
 func isDir(p string) bool {
+	p = filepath.Clean(p)
+	if !filepath.IsAbs(p) || strings.Contains(p, "..") {
+		return false
+	}
 	info, err := os.Stat(p)
 	return err == nil && info.IsDir()
 }
