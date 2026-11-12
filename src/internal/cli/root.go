@@ -239,6 +239,9 @@ the interactive terminal menu.`,
 		newManifestPackCommand(),
 		newMenuCommand(),
 		newServeCommand(),
+		newAPICommand(),
+		newWebhooksCommand(),
+		newMCPCommand(),
 		newVersionCommand(),
 	)
 	return root

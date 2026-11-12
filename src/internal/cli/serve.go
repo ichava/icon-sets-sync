@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -10,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -69,7 +72,15 @@ turns it off. Running the binary with no arguments at all does the same as
 plain serve.
 
 A non-loopback --addr is refused unless --allow-remote is passed. Prefer an
-SSH tunnel: ssh -L 7878:127.0.0.1:7878 <host>.
+SSH tunnel: ssh -L 7878:127.0.0.1:7878 <host>. Beyond loopback the server
+terminates TLS itself: with api.tls_cert and api.tls_key, else with a
+self-signed certificate it generates once, keeps in the state directory and
+prints the fingerprint of. Plain HTTP there needs api.tls=off-behind-proxy,
+for a TLS proxy in front.
+
+The REST API (api.enabled), its event stream (events.stream) and webhooks
+(webhooks.enabled) are off until their settings turn them on; see
+docs/tools/api.md and docs/tools/webhooks.md.
 
 Runs from the UI are dry runs unless you turn that off and confirm twice.
 --read-only removes the run and edit actions entirely.`,
@@ -82,7 +93,7 @@ Runs from the UI are dry runs unless you turn that off and confirm twice.
 	f := cmd.Flags()
 	f.StringVar(&o.addr, "addr", o.addr, "address to listen on, host or host:port (a port here pins it, like --port)")
 	f.IntVar(&o.port, "port", o.port, "port to listen on; when not given and the default is taken, the next free port is used")
-	f.BoolVar(&o.allowRemote, "allow-remote", false, "allow a non-loopback --addr (plain HTTP; prefer an SSH tunnel)")
+	f.BoolVar(&o.allowRemote, "allow-remote", false, "allow a non-loopback --addr (served over TLS unless api.tls=off-behind-proxy; prefer an SSH tunnel)")
 	f.StringArrayVar(&o.allowHosts, "allow-host", nil, "extra Host header to accept with --allow-remote, e.g. a proxy's name (repeatable)")
 	f.BoolVar(&o.readOnly, "read-only", false, "serve no route that runs a sync or edits a file")
 	f.BoolVar(&o.noOpen, "no-open", false, "do not open a browser (also ICHAVA_NO_BROWSER=1)")
@@ -110,11 +121,29 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 			"or tunnel instead: ssh -L %d:127.0.0.1:%d <host>", host, web.DefaultPort, web.DefaultPort)
 	}
 
+	stateDir := web.DefaultStateDir(os.LookupEnv)
+	tlsPlan, err := planTLS(host, state.run)
+	if err != nil {
+		return usageErr("%s", err)
+	}
 	ln, err := web.Listen(serveListen, host, pinnedPort, pinned, web.DefaultPortAttempts)
 	if err != nil {
 		return failure(err)
 	}
 	bound := ln.Addr().(*net.TCPAddr).Port
+	tlsResult, err := tlsPlan.load(stateDir, host, time.Now())
+	if err != nil {
+		_ = ln.Close()
+		return failure(err)
+	}
+	if tlsResult.Config != nil {
+		ln = tls.NewListener(ln, tlsResult.Config)
+	}
+	integ, err := newIntegrations(stateDir, host, state.run)
+	if err != nil {
+		_ = ln.Close()
+		return failure(err)
+	}
 
 	token := web.NewToken()
 	cfgDir, cfgSource := configSource()
@@ -139,13 +168,21 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 		Version:      version.Version(),
 		BindAddr:     ln.Addr().String(),
 		HistoryDir:   web.DefaultHistoryDir(os.LookupEnv),
+		Bus:          integ.bus,
+		TLS:          tlsResult.Config != nil,
+		API:          integ.api,
 	})
 	if err != nil {
 		_ = ln.Close()
 		return failure(err)
 	}
 
-	url := fmt.Sprintf("http://%s/?token=%s", net.JoinHostPort(displayHost(host), strconv.Itoa(bound)), token)
+	scheme := "http"
+	if tlsResult.Config != nil {
+		scheme = "https"
+	}
+	origin := fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(displayHost(host), strconv.Itoa(bound)))
+	url := origin + "/?token=" + token
 	out := cmd.OutOrStdout()
 	if bound != pinnedPort && pinnedPort != 0 {
 		_, _ = fmt.Fprintf(out, "port %d is in use; listening on %d instead\n", pinnedPort, bound)
@@ -164,9 +201,8 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 		_, _ = fmt.Fprintln(out, "  the configs built into this binary, read-only; pass --config-dir to use and edit a checkout's")
 	}
 	_, _ = fmt.Fprintf(out, "icon-sets-sync web UI: %s\n", url)
-	if o.allowRemote {
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "warning: --allow-remote serves plain HTTP; put a TLS proxy in front, or use an SSH tunnel")
-	}
+	tlsPlan.describe(out, cmd.ErrOrStderr(), tlsResult)
+	integ.describe(out, origin)
 	if o.readOnly {
 		_, _ = fmt.Fprintln(out, "read-only: runs and edits are disabled")
 	}
@@ -200,6 +236,9 @@ func serveUI(cmd *cobra.Command, o serveOptions, portChanged bool) error {
 		}
 	}
 
+	ctx, stopIntegrations := context.WithCancel(cmd.Context())
+	defer stopIntegrations()
+	integ.start(ctx)
 	if err := srv.Serve(cmd.Context(), ln); err != nil {
 		return failure(err)
 	}

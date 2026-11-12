@@ -182,9 +182,18 @@ func TestServeRefusesARemoteBindWithoutAllowRemote(t *testing.T) {
 		t.Errorf("listened before refusing: %v", *tried)
 	}
 
+	// Behaviour change (owner, 2026-11-12): beyond loopback the default is
+	// TLS, with a generated certificate whose fingerprint is printed.
 	out, code = runServe(t, "--addr", "0.0.0.0", "--allow-remote")
-	if code != ExitOK || !strings.Contains(out, "plain HTTP") {
+	if code != ExitOK || !strings.Contains(out, "https://127.0.0.1:") || !strings.Contains(out, "SHA-256 fingerprint") ||
+		strings.Contains(out, "plain HTTP") {
 		t.Fatalf("--allow-remote: exit %d:\n%s", code, out)
+	}
+
+	// Plain HTTP beyond loopback needs api.tls=off-behind-proxy, and says so.
+	out, code = runServe(t, "--addr", "0.0.0.0", "--allow-remote", "--set", "api.tls=off-behind-proxy")
+	if code != ExitOK || !strings.Contains(out, "http://127.0.0.1:") || !strings.Contains(out, "plain HTTP") {
+		t.Fatalf("off-behind-proxy: exit %d:\n%s", code, out)
 	}
 }
 
