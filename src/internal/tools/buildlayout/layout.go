@@ -47,6 +47,14 @@ var osDirs = map[string]bool{
 // AppBundle is the macOS app `make app` writes into build/macos/.
 const AppBundle = Binary + ".app"
 
+// WindowsLauncherArchs are the Windows targets the launcher is built for:
+// the same as the binary's Windows builds in src/.goreleaser.yaml.
+var WindowsLauncherArchs = []string{"amd64", "arm64", "386"}
+
+// WindowsLauncher is the launcher's file name for a Windows arch, beside
+// {binary}_windows_{arch}.exe.
+func WindowsLauncher(arch string) string { return Binary + "-launcher_windows_" + arch + ".exe" }
+
 // universalBinary is the cross binary the bundle carries.
 const universalBinary = "macos/" + Binary + "_macos_universal"
 
@@ -276,13 +284,23 @@ func sha256File(path string) (string, error) {
 // exception with its reason, because the estate rule says an OS folder holds
 // binaries only, and no recorded owner decision covers these yet (measured
 // 2026-11-05: one .app bundle in macos/, one .desktop and one .png in linux/,
-// in this repository and no other). They are listed for the owner.
+// in this repository and no other). They are listed for the owner. The Windows
+// launchers joined on 2026-11-12, by the owner's choice of option A.
 var launcherFiles = map[string]map[string]string{
 	"macos": {AppBundle: "macOS opens a bare executable inside Terminal; the app bundle is the double-click launcher"},
 	"linux": {
 		Binary + ".desktop": "the desktop entry a Linux file manager double-clicks",
 		Binary + ".png":     "the icon that desktop entry names",
 	},
+	"windows": windowsLauncherFiles(),
+}
+
+func windowsLauncherFiles() map[string]string {
+	files := map[string]string{}
+	for _, arch := range WindowsLauncherArchs {
+		files[WindowsLauncher(arch)] = "the GUI-subsystem launcher Explorer double-clicks with no console window (owner, option A, 2026-11-11)"
+	}
+	return files
 }
 
 // checkFlat holds an OS folder to its binaries: {binary}_{os}_{arch}[.exe],

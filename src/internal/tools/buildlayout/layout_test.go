@@ -118,10 +118,14 @@ var good = []string{
 	"archives/checksums.txt", "archives/icon-sets-sync_linux_amd64.tar.gz",
 }
 
-// The Linux launcher files `make cross` writes are named exceptions, each with
-// its reason in launcherFiles; they pass where they belong.
+// The launcher files `make cross` writes are named exceptions, each with its
+// reason in launcherFiles; they pass where they belong.
 func TestTheLauncherFilesPass(t *testing.T) {
-	_, problems, err := Check(tree(t, append([]string{"linux/icon-sets-sync.desktop", "linux/icon-sets-sync.png"}, good...)...))
+	_, problems, err := Check(tree(t, append([]string{
+		"linux/icon-sets-sync.desktop", "linux/icon-sets-sync.png",
+		"windows/icon-sets-sync-launcher_windows_amd64.exe", "windows/icon-sets-sync-launcher_windows_arm64.exe",
+		"windows/icon-sets-sync-launcher_windows_386.exe",
+	}, good...)...))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,6 +164,8 @@ func TestEveryOtherShapeFails(t *testing.T) {
 		"another program's binary in an OS folder": "windows/other_windows_amd64.exe",
 		"a binary named for another OS":            "linux/icon-sets-sync_windows_amd64.exe",
 		"a launcher in the wrong OS folder":        "windows/icon-sets-sync.desktop",
+		"the Windows launcher outside windows/":    "linux/icon-sets-sync-launcher_windows_amd64.exe",
+		"a launcher for an arch with no build":     "windows/icon-sets-sync-launcher_windows_arm.exe",
 	}
 	for name, extra := range cases {
 		t.Run(name, func(t *testing.T) {

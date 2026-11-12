@@ -8,13 +8,20 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-// icon-sets-sync ships one binary. The short alias was the same program
+// icon-sets-sync ships one binary, plus the Windows launcher below. The short alias was the same program
 // (cli.Execute) under a second name and doubled every build; the owner
 // retired it on 2026-11-04. A second entrypoint under src/cmd, or a second
 // binary in the GoReleaser config, has to come back by changing this test on
 // purpose.
 
 const primaryBinary = "icon-sets-sync"
+
+// windowsLauncher is not an alias but a different program: a GUI-subsystem
+// launcher that opens no console and starts the CLI's `serve` (owner, option A,
+// 2026-11-11). It is built by `make cross` like the macOS .app and the Linux
+// .desktop entry, never by GoReleaser, so TestGoReleaserBuildsOneBinary still
+// holds.
+const windowsLauncher = primaryBinary + "-launcher"
 
 func TestOnlyOneEntrypoint(t *testing.T) {
 	entries, err := os.ReadDir(filepath.Join(filepath.FromSlash(repoRoot), "src", "cmd"))
@@ -27,8 +34,8 @@ func TestOnlyOneEntrypoint(t *testing.T) {
 			continue // .DS_Store and the like are not entrypoints
 		}
 		dirs++
-		if e.Name() != primaryBinary {
-			t.Errorf("src/cmd/%s: the only entrypoint is src/cmd/%s", e.Name(), primaryBinary)
+		if e.Name() != primaryBinary && e.Name() != windowsLauncher {
+			t.Errorf("src/cmd/%s: the only entrypoints are src/cmd/%s and the Windows launcher src/cmd/%s", e.Name(), primaryBinary, windowsLauncher)
 		}
 	}
 	if dirs == 0 {

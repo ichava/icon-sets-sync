@@ -29,7 +29,7 @@ build/
   macos/          icon-sets-sync (the host build)  icon-sets-sync_macos_amd64  _arm64  _universal
                   icon-sets-sync.app (after `make app`)
   linux/          icon-sets-sync_linux_<arch> …  icon-sets-sync.desktop  icon-sets-sync.png
-  windows/        icon-sets-sync_windows_<arch>.exe …
+  windows/        icon-sets-sync_windows_<arch>.exe …  icon-sets-sync-launcher_windows_<arch>.exe …
   freebsd/        icon-sets-sync_freebsd_<arch> …
   archives/       only after `make dist`
 ```
@@ -71,9 +71,24 @@ Each OS allows a different amount, measured 2026-11-04:
 
 | OS | Single binary, no console? | What ships |
 |---|---|---|
-| Windows | **Yes.** Explorer gives a double-clicked console program a console of its own (`GetConsoleProcessList` returns 1, and the parent is not a shell). The binary detects that, starts `serve` again with `DETACHED_PROCESS`, and exits, so the window closes within a second. From `cmd` or PowerShell the console is shared, the count is 2 or more, and it is the ordinary CLI. | nothing extra |
+| Windows | **Nearly.** Explorer gives a double-clicked console program a console of its own (`GetConsoleProcessList` returns 1, and the parent is not a shell). The binary detects that, starts `serve` again with `DETACHED_PROCESS`, and exits, but Windows opens that console before any code runs, so a window flashes for under a second. From `cmd` or PowerShell the console is shared, the count is 2 or more, and it is the ordinary CLI. | `build/windows/icon-sets-sync-launcher_windows_<arch>.exe`, which opens no window at all |
 | macOS | **No.** Finder hands a bare executable to Terminal, which opens a window and runs it there; the window belongs to Terminal, so nothing the process does (detaching, exiting) removes it. Only an app bundle is started by LaunchServices without Terminal. | `build/macos/icon-sets-sync.app` |
 | Linux | **No, but a launcher needs no wrapper.** A file manager runs a bare executable in a terminal or not at all, depending on the desktop; a `.desktop` entry with `Terminal=false` runs it with none. | `build/linux/icon-sets-sync.desktop` |
+
+**Windows launcher.** `make cross` also builds `icon-sets-sync-launcher_windows_<arch>.exe` for
+amd64, arm64 and 386, beside `icon-sets-sync_windows_<arch>.exe`. It is a separate, tiny program
+(`src/cmd/icon-sets-sync-launcher`) linked for the GUI subsystem (`-H=windowsgui`), so Windows opens
+no console for it. It finds the CLI beside itself (the matching `icon-sets-sync_windows_<arch>.exe`,
+else `icon-sets-sync.exe`), starts its `serve` with no console, which opens your browser, and exits.
+If the CLI is missing it shows an error box naming the paths it tried.
+
+- **Web UI:** double-click the launcher. Keep it in the same folder as the CLI.
+- **CLI:** run `icon-sets-sync.exe` (or `icon-sets-sync_windows_<arch>.exe`) in `cmd` or PowerShell.
+  The CLI stays a console program, so its output, Ctrl-C and stdin behave normally there.
+
+`TestWindowsLauncherIsAGUIProgramAndTheCLIIsNot` reads both executables' PE headers and fails if the
+launcher loses the GUI subsystem or the CLI gains it. Like the macOS app and the Linux entry, the
+launcher is built by `make cross` and is not a GoReleaser build or a release asset.
 
 **macOS app.** `make cross && make app` writes:
 

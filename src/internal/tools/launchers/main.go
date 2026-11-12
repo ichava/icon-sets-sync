@@ -3,6 +3,7 @@
 //
 //	make app      # build/macos/icon-sets-sync.app, from the universal binary
 //	make desktop  # build/linux/icon-sets-sync.desktop and icon-sets-sync.png
+//	make cross    # also build/windows/icon-sets-sync-launcher_windows_<arch>.exe
 //
 // macOS opens a bare executable inside Terminal, and nothing the process does
 // can stop it, so double-clicking needs a bundle. The bundle's binary is the
@@ -10,9 +11,14 @@
 // Contents/MacOS, and with no arguments starts the web UI with nothing on
 // screen but the browser. With arguments it is the ordinary CLI.
 //
-// Linux desktops run a .desktop entry with Terminal=false without one. Windows
-// needs neither: the binary itself detects an Explorer double-click
-// (internal/cli, desktop_windows.go).
+// Linux desktops run a .desktop entry with Terminal=false without one.
+//
+// Windows gives a console program a console window before any of its code
+// runs, so the binary's own Explorer double-click handling (internal/cli,
+// desktop_windows.go) still flashed a window. The launcher is a second,
+// GUI-subsystem program (src/cmd/icon-sets-sync-launcher, -H=windowsgui) that
+// opens no console and starts the binary's `serve` beside it. It is built here
+// for each Windows target, with the toolchain cross-compiling.
 //
 // Nothing here signs or notarises; that needs the owner's Apple Developer
 // identity (docs/installation.md gives the commands).
@@ -31,6 +37,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 
@@ -46,15 +53,17 @@ func main() {
 		universal string
 		version   string
 		desktop   string
+		windows   string
 	)
 	flag.StringVar(&app, "app", "", "write the macOS app bundle here (e.g. ../build/macos/icon-sets-sync.app)")
 	flag.StringVar(&universal, "universal", "", "the universal binary the bundle carries (with -app)")
 	flag.StringVar(&version, "version", "0.0.0", "version for Info.plist (git describe output is fine)")
 	flag.StringVar(&desktop, "desktop", "", "write icon-sets-sync.desktop and icon-sets-sync.png into this directory")
+	flag.StringVar(&windows, "windows", "", "build the Windows launcher for each Windows target into this directory")
 	flag.Parse()
 
-	if app == "" && desktop == "" {
-		fmt.Fprintln(os.Stderr, "launchers: pass -app (with -universal) or -desktop")
+	if app == "" && desktop == "" && windows == "" {
+		fmt.Fprintln(os.Stderr, "launchers: pass -app (with -universal), -desktop or -windows")
 		os.Exit(2)
 	}
 	if app != "" {
@@ -71,6 +80,58 @@ func main() {
 		}
 		fmt.Printf("launchers: %s\n", filepath.Join(desktop, buildlayout.Binary+".desktop"))
 	}
+	if windows != "" {
+		built, err := buildWindowsLaunchers(windows)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "launchers:", err)
+			os.Exit(1)
+		}
+		for _, b := range built {
+			fmt.Printf("launchers: %s\n", b)
+		}
+	}
+}
+
+// buildWindowsLaunchers cross-builds src/cmd/icon-sets-sync-launcher for each
+// of buildlayout.WindowsLauncherArchs as a GUI-subsystem program into dir,
+// named buildlayout.WindowsLauncher(arch). It runs from the module directory,
+// which is where `go run ./internal/tools/launchers` already is.
+func buildWindowsLaunchers(dir string) ([]string, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(buildlayout.WindowsLauncherArchs))
+	for _, arch := range buildlayout.WindowsLauncherArchs {
+		dest, err := filepath.Abs(filepath.Join(dir, buildlayout.WindowsLauncher(arch)))
+		if err != nil {
+			return nil, err
+		}
+		if err := goBuildGUI(arch, dest); err != nil {
+			return nil, err
+		}
+		out = append(out, dest)
+	}
+	return out, nil
+}
+
+// moduleDir is where `go build` runs: the module root, which is the working
+// directory under `go -C src run`. Tests point it there from their package.
+var moduleDir = "."
+
+// guiLDFlags links the launcher for the GUI subsystem, so Windows opens no
+// console for it.
+const guiLDFlags = "-s -w -H=windowsgui"
+
+// goBuildGUI builds the launcher for windows/arch at dest with guiLDFlags.
+func goBuildGUI(arch, dest string) error {
+	cmd := exec.Command("go", "build", "-trimpath", "-ldflags", guiLDFlags, "-o", dest, "./cmd/icon-sets-sync-launcher")
+	cmd.Dir = moduleDir
+	cmd.Env = append(os.Environ(), "GOOS=windows", "GOARCH="+arch, "CGO_ENABLED=0")
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("building %s: %w", filepath.Base(dest), err)
+	}
+	return nil
 }
 
 // buildApp writes the bundle at out, replacing any earlier one:

@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"debug/macho"
+	"debug/pe"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/xml"
 	"image/png"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -255,4 +257,59 @@ func sha(t *testing.T, path string) string {
 	}
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
+}
+
+// peSubsystem reads the Subsystem field of a Windows executable's optional header.
+func peSubsystem(t *testing.T, path string) uint16 {
+	t.Helper()
+	f, err := pe.Open(path)
+	if err != nil {
+		t.Fatalf("opening %s as a PE file: %v", path, err)
+	}
+	defer func() { _ = f.Close() }()
+	switch h := f.OptionalHeader.(type) {
+	case *pe.OptionalHeader64:
+		return h.Subsystem
+	case *pe.OptionalHeader32:
+		return h.Subsystem
+	}
+	t.Fatalf("%s has no optional header", path)
+	return 0
+}
+
+// The launcher is the whole point of being a second program: it must be
+// linked for the GUI subsystem, or Windows opens a console for it exactly as
+// it does for the CLI. And the CLI must stay a console program, or it breaks
+// in cmd and PowerShell (option B, which the owner turned down).
+func TestWindowsLauncherIsAGUIProgramAndTheCLIIsNot(t *testing.T) {
+	if testing.Short() {
+		t.Skip("cross-builds two Windows executables")
+	}
+	moduleDir = filepath.Join("..", "..", "..")
+	t.Cleanup(func() { moduleDir = "." })
+	dir := t.TempDir()
+
+	built, err := buildWindowsLaunchers(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(built) != len(buildlayout.WindowsLauncherArchs) || len(built) < 3 {
+		t.Fatalf("built %d launchers, want one per Windows arch (%v)", len(built), buildlayout.WindowsLauncherArchs)
+	}
+	for _, path := range built {
+		if got := peSubsystem(t, path); got != pe.IMAGE_SUBSYSTEM_WINDOWS_GUI {
+			t.Errorf("%s: PE subsystem %d, want %d (GUI): Windows would open a console for it", filepath.Base(path), got, pe.IMAGE_SUBSYSTEM_WINDOWS_GUI)
+		}
+	}
+
+	cli := filepath.Join(dir, buildlayout.Binary+"_windows_amd64.exe")
+	cmd := exec.Command("go", "build", "-trimpath", "-o", cli, "./cmd/"+buildlayout.Binary)
+	cmd.Dir = moduleDir
+	cmd.Env = append(os.Environ(), "GOOS=windows", "GOARCH=amd64", "CGO_ENABLED=0")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("building the CLI for windows: %v\n%s", err, out)
+	}
+	if got := peSubsystem(t, cli); got != pe.IMAGE_SUBSYSTEM_WINDOWS_CUI {
+		t.Errorf("the CLI: PE subsystem %d, want %d (console)", got, pe.IMAGE_SUBSYSTEM_WINDOWS_CUI)
+	}
 }
