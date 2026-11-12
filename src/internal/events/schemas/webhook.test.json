@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "webhook.test",
+  "description": "A test delivery asked for by `webhooks test` or the API.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "message"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "message": {
+      "type": "string"
+    }
+  }
+}

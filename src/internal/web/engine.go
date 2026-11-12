@@ -156,6 +156,10 @@ type SettingRow struct {
 	// Items is a list setting's entries; On is a boolean's value.
 	Items []string
 	On    bool
+	// Group is the page section: "" or settings.GroupIntegrations.
+	Group string
+	// Typed is the value as its own type, for the API.
+	Typed any
 }
 
 // Anchor is the row's id on the settings page.
@@ -494,7 +498,7 @@ func BuildSettingsView(r settings.Resolved, configDir, globalPath string) Settin
 			value = boolString(r.Bool(k.Name))
 		case settings.Int:
 			value = strconv.Itoa(r.Int(k.Name))
-		case settings.List:
+		case settings.List, settings.Webhooks:
 			value = settings.FormatValue(r, k.Name)
 		default:
 			value = r.String(k.Name)
@@ -502,6 +506,7 @@ func BuildSettingsView(r settings.Resolved, configDir, globalPath string) Settin
 		row := SettingRow{
 			Name: k.Name, Value: value, Origin: string(r.Origin(k.Name)), Help: k.Help, PackScoped: k.PackScoped,
 			Env: k.Env, Input: settingInput(k), Enum: k.Enum, Min: k.Min, Max: k.Max, Default: defaultText(k),
+			Group: k.Group, Typed: typedValue(r, k),
 		}
 		switch k.Kind {
 		case settings.List:
@@ -512,6 +517,46 @@ func BuildSettingsView(r settings.Resolved, configDir, globalPath string) Settin
 		v.Rows = append(v.Rows, row)
 	}
 	return v
+}
+
+// typedValue is a setting's value as its own type.
+func typedValue(r settings.Resolved, k settings.Key) any {
+	switch k.Kind {
+	case settings.Bool:
+		return r.Bool(k.Name)
+	case settings.Int:
+		return r.Int(k.Name)
+	case settings.List:
+		return r.Strings(k.Name)
+	case settings.Webhooks:
+		return r.Webhooks(k.Name)
+	}
+	return r.String(k.Name)
+}
+
+// SettingsSection is one card of settings on the Settings page.
+type SettingsSection struct {
+	ID, Title string
+	Rows      []SettingRow
+}
+
+// Sections splits the settings between the page's cards: the run settings,
+// then the integrations (API, events, webhooks, MCP).
+func (v SettingsView) Sections() []SettingsSection {
+	return []SettingsSection{
+		{ID: "effective-settings", Title: "Effective settings", Rows: v.rowsIn("")},
+		{ID: "integrations", Title: "Integrations", Rows: v.rowsIn(settings.GroupIntegrations)},
+	}
+}
+
+func (v SettingsView) rowsIn(group string) []SettingRow {
+	var out []SettingRow
+	for _, r := range v.Rows {
+		if r.Group == group {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // RecipeName names the recipe a pack runs, for display.

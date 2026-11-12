@@ -53,6 +53,9 @@ const (
 	// List is a list of strings, written as a string or an array in a config
 	// file and with the OS list separator (: or ;) in the environment.
 	List
+	// Webhooks is a list of webhook endpoints: an array of objects in a
+	// config file, and the same array as JSON in the environment.
+	Webhooks
 )
 
 func (k Kind) String() string {
@@ -63,6 +66,8 @@ func (k Kind) String() string {
 		return "integer"
 	case List:
 		return "string or array of strings"
+	case Webhooks:
+		return "array of webhook endpoints"
 	default:
 		return "string"
 	}
@@ -103,8 +108,22 @@ type Key struct {
 	// directory).
 	Paths bool
 
+	// Group is the section of the Settings page a key is shown in: empty for
+	// the main list, GroupIntegrations for the API, events, webhooks and MCP.
+	Group string
+
 	Help string
 }
+
+// GroupIntegrations is the Settings page section of the integration keys.
+const GroupIntegrations = "integrations"
+
+// TLS modes for api.tls. Auto terminates TLS whenever serve binds beyond
+// loopback; OffBehindProxy serves plain HTTP there, for a TLS proxy in front.
+const (
+	TLSAuto           = "auto"
+	TLSOffBehindProxy = "off-behind-proxy"
+)
 
 // Defaults that other packages also declare. They are duplicated rather than
 // imported to keep this package free of the pipeline layer; settings_test
@@ -160,6 +179,34 @@ var Keys = []Key{
 		Help: "open a pull request after pushing"},
 	{Name: "emoji.unicode_version", Kind: String, Default: DefaultUnicodeVersion, Env: "ICHAVA_EMOJI_UNICODE_VERSION", PackScoped: true,
 		Help: "Unicode emoji release whose emoji-test.txt drives categorisation; must exist at unicode.org/Public/emoji/"},
+
+	// Integrations: every surface is off until one of these turns it on.
+	{Name: "api.enabled", Kind: Bool, Default: false, Env: "ICHAVA_API_ENABLED", Group: GroupIntegrations,
+		Help: "serve the REST API under /api/v1 on the serve listener, for bearer tokens made with `api token create`"},
+	{Name: "api.allow_remote", Kind: Bool, Default: false, Env: "ICHAVA_API_ALLOW_REMOTE", Group: GroupIntegrations,
+		Help: "also serve the API when serve binds beyond loopback (--allow-remote); without it a remote server has no API"},
+	{Name: "api.rate_limit", Kind: Int, Default: 60, Env: "ICHAVA_API_RATE_LIMIT", Min: 1, Max: 10000, Group: GroupIntegrations,
+		Help: "requests per minute each API token may make; more are answered 429"},
+	{Name: "api.tls", Kind: String, Default: TLSAuto, Env: "ICHAVA_API_TLS", Enum: []string{TLSAuto, TLSOffBehindProxy}, Group: GroupIntegrations,
+		Help: "auto terminates TLS whenever serve binds beyond loopback (with api.tls_cert and api.tls_key, else a generated self-signed certificate); off-behind-proxy serves plain HTTP there, for a TLS proxy in front"},
+	{Name: "api.tls_cert", Kind: String, Default: "", Env: "ICHAVA_API_TLS_CERT", Group: GroupIntegrations,
+		Help: "PEM certificate (chain) serve presents beyond loopback; set with api.tls_key"},
+	{Name: "api.tls_key", Kind: String, Default: "", Env: "ICHAVA_API_TLS_KEY", Group: GroupIntegrations,
+		Help: "PEM private key for api.tls_cert"},
+	{Name: "events.stream", Kind: Bool, Default: false, Env: "ICHAVA_EVENTS_STREAM", Group: GroupIntegrations,
+		Help: "serve GET /api/v1/events, a Server-Sent Events stream of every event (needs api.enabled)"},
+	{Name: "webhooks.enabled", Kind: Bool, Default: false, Env: "ICHAVA_WEBHOOKS_ENABLED", Group: GroupIntegrations,
+		Help: "deliver events to webhooks.endpoints while serve runs, signed with each endpoint's secret"},
+	{Name: "webhooks.endpoints", Kind: Webhooks, Default: []Webhook{}, Env: "ICHAVA_WEBHOOKS_ENDPOINTS", Group: GroupIntegrations,
+		Help: "webhook receivers: a JSON array of {name, url, events, secret_env}; events is required and lists the event types sent. `webhooks add` writes it and makes the secret"},
+	{Name: "webhooks.allow_private", Kind: Bool, Default: false, Env: "ICHAVA_WEBHOOKS_ALLOW_PRIVATE", Group: GroupIntegrations,
+		Help: "let webhooks reach private, loopback, link-local and other internal addresses (a receiver on the LAN); off refuses them at connect time"},
+	{Name: "webhooks.allow_insecure_localhost", Kind: Bool, Default: false, Env: "ICHAVA_WEBHOOKS_ALLOW_INSECURE_LOCALHOST", Group: GroupIntegrations,
+		Help: "allow a plain-http webhook URL whose host is localhost, 127.0.0.1 or ::1; every other URL must be https"},
+	{Name: "mcp.enabled", Kind: Bool, Default: false, Env: "ICHAVA_MCP_ENABLED", Group: GroupIntegrations,
+		Help: "let `icon-sets-sync mcp` serve the Model Context Protocol on stdio (its --enable does the same for one run)"},
+	{Name: "mcp.allow_writes", Kind: Bool, Default: false, Env: "ICHAVA_MCP_ALLOW_WRITES", Group: GroupIntegrations,
+		Help: "offer the MCP write tools (sync_pack, cancel_job, set_setting); never with --read-only, and a real sync still needs confirm set to the pack's slug"},
 }
 
 // Lookup returns the key with this name.
@@ -185,6 +232,16 @@ func Names() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// Webhook is one webhook endpoint, as webhooks.endpoints holds it. Its secret
+// is never here: the tool keeps it in the state directory, or SecretEnv names
+// the environment variable holding it.
+type Webhook struct {
+	Name      string   `json:"name"`
+	URL       string   `json:"url"`
+	Events    []string `json:"events"`
+	SecretEnv string   `json:"secret_env,omitempty"`
 }
 
 // Values is a partial layer: only the keys that layer sets.
@@ -222,6 +279,12 @@ func (k Key) ParseString(raw string) (any, error) {
 			return nil, fmt.Errorf("%q is not an integer", raw)
 		}
 		return k.coerce(n)
+	case Webhooks:
+		var v any
+		if err := json.Unmarshal([]byte(raw), &v); err != nil {
+			return nil, fmt.Errorf("want a JSON array of endpoints: %v", err)
+		}
+		return k.coerce(v)
 	case List:
 		var parts []string
 		for _, p := range filepath.SplitList(raw) {
@@ -287,6 +350,9 @@ func (k Key) coerce(value any) (any, error) {
 			return nil, fmt.Errorf("must be at most %d, got %d", k.Max, n)
 		}
 		return n, nil
+
+	case Webhooks:
+		return coerceWebhooks(value)
 
 	case List:
 		var out []string
@@ -492,12 +558,18 @@ func (r Resolved) Int(name string) int { return r.get(name).(int) }
 // Strings returns a list setting.
 func (r Resolved) Strings(name string) []string { return r.get(name).([]string) }
 
+// Webhooks returns a webhook endpoints setting.
+func (r Resolved) Webhooks(name string) []Webhook { return r.get(name).([]Webhook) }
+
 // FormatValue renders any setting as text, for tables: a list joined with
 // the OS list separator.
 func FormatValue(r Resolved, name string) string {
 	switch v := r.get(name).(type) {
 	case []string:
 		return strings.Join(v, string(filepath.ListSeparator))
+	case []Webhook:
+		data, _ := json.Marshal(v)
+		return string(data)
 	case bool:
 		return strconv.FormatBool(v)
 	case int:

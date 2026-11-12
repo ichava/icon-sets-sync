@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "webhook.disabled",
+  "description": "A webhook endpoint was turned off after too many consecutive failed deliveries. `webhooks test` turns it back on.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "consecutive_failures"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "consecutive_failures": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

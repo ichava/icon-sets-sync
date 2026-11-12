@@ -30,6 +30,8 @@ var settingInputs = map[string]string{
 	"workspace":          "dir",
 	"npm_path":           "file",
 	"git.commit_body":    "textarea",
+	"api.tls_cert":       "pem",
+	"api.tls_key":        "pem",
 }
 
 // settingInput names the control the page offers for a key.
@@ -44,6 +46,8 @@ func settingInput(k settings.Key) string {
 		return "int"
 	case k.Kind == settings.List:
 		return "list"
+	case k.Kind == settings.Webhooks:
+		return "json"
 	case len(k.Enum) > 0:
 		return "enum"
 	}
@@ -54,6 +58,9 @@ func defaultText(k settings.Key) string {
 	switch v := k.Default.(type) {
 	case []string:
 		return strings.Join(v, ", ")
+	case []settings.Webhook:
+		data, _ := json.Marshal(v)
+		return string(data)
 	case nil:
 		return ""
 	default:
@@ -106,6 +113,13 @@ func parseSetting(k settings.Key, raw []string) (value any, note string, err err
 			return nil, "", fmt.Errorf("%q is not a whole number", strings.TrimSpace(last))
 		}
 		v, err := k.Check(n)
+		return v, "", err
+	case settings.Webhooks:
+		text := strings.TrimSpace(strings.Join(raw, "\n"))
+		if text == "" {
+			return nil, "", errors.New("is empty; use Reset to remove it from the global config, or write []")
+		}
+		v, err := k.ParseString(text)
 		return v, "", err
 	case settings.List:
 		var items []string
@@ -173,6 +187,19 @@ func parseSetting(k settings.Key, raw []string) (value any, note string, err err
 		}
 		if !info.IsDir() {
 			return nil, "", fmt.Errorf("%s is not a directory", s)
+		}
+	case "pem":
+		// Only a clean absolute path, with no "..", is looked up on disk.
+		p := filepath.Clean(expandHome(s))
+		if !filepath.IsAbs(p) || strings.Contains(p, "..") {
+			return nil, "", fmt.Errorf("%q is not an absolute path (start with / or ~, no ..)", s)
+		}
+		info, err := os.Stat(p)
+		if err != nil {
+			return nil, "", fmt.Errorf("%s does not exist", s)
+		}
+		if info.IsDir() {
+			return nil, "", fmt.Errorf("%s is a directory, not a PEM file", s)
 		}
 	case "file":
 		// Only a clean absolute path, with no "..", is looked up on disk.
@@ -286,6 +313,9 @@ func displayValue(v any) string {
 	switch x := v.(type) {
 	case []string:
 		return strings.Join(x, "\n")
+	case []settings.Webhook:
+		data, _ := json.MarshalIndent(x, "", "  ")
+		return string(data)
 	default:
 		return fmt.Sprint(x)
 	}

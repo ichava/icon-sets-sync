@@ -35,13 +35,18 @@
         {{end}}
       </form>
     </div>
-    <div class="card" id="effective-settings">
-      <div class="card-header"><h2 class="card-title">Effective settings</h2></div>
+    {{range $sec := .Sections}}
+    <div class="card{{if eq $sec.ID "integrations"}} mt-3{{end}}" id="{{$sec.ID}}">
+      <div class="card-header"><h2 class="card-title">{{$sec.Title}}</h2></div>
       <div class="card-body">
-        <p class="text-secondary mb-0">Highest first: flags, then <code>ICHAVA_*</code> environment, then the global config, then a pack's own <code>settings</code>, then defaults. This is <code>config print --origins</code> for the run as a whole; a pack's page shows its own layer merged in.{{if not $.ReadOnly}} <strong>Saving a value here writes it to the global config</strong>{{if .Global.Path}} (<code class="text-break">{{.Global.Path}}</code>){{end}}, kept in its history; <em>Reset</em> removes it from there, so the next layer down applies. The environment and flags belong to the process that started this server, so the page cannot change them.{{end}}</p>
+        {{if eq $sec.ID "integrations"}}
+        <p class="text-secondary mb-0">The REST API, the event stream, webhooks and the MCP server. <strong>Each is off until its switch here is on</strong>, and turning one on takes effect when the server next starts. API tokens and webhook secrets never live in the global config: <code>icon-sets-sync api token create</code> and <code>icon-sets-sync webhooks add</code> make them, show them once and keep them in the state directory. See docs/tools/api.md, webhooks.md and mcp.md.</p>
+        {{else}}
+        <p class="text-secondary mb-0">Highest first: flags, then <code>ICHAVA_*</code> environment, then the global config, then a pack's own <code>settings</code>, then defaults. This is <code>config print --origins</code> for the run as a whole; a pack's page shows its own layer merged in.{{if not $.ReadOnly}} <strong>Saving a value here writes it to the global config</strong>{{if $.Data.Global.Path}} (<code class="text-break">{{$.Data.Global.Path}}</code>){{end}}, kept in its history; <em>Reset</em> removes it from there, so the next layer down applies. The environment and flags belong to the process that started this server, so the page cannot change them.{{end}}</p>
+        {{end}}
       </div>
       <div class="list-group list-group-flush">
-        {{range .Rows}}{{$err := and (eq $.Data.Field .Name) $.Data.Problem}}{{$id := .Anchor}}
+        {{range $sec.Rows}}{{$err := and (eq $.Data.Field .Name) $.Data.Problem}}{{$id := .Anchor}}
         <div class="list-group-item setting-row" id="{{$id}}">
           <div class="d-flex flex-wrap align-items-center gap-2">
             <label class="fw-medium mb-0" for="{{$id}}-input"><code>{{.Name}}</code></label>
@@ -70,11 +75,11 @@
               </label>
             {{else if eq .Input "int"}}
               <input class="form-control{{if $err}} is-invalid{{end}}" type="number" inputmode="numeric" step="1" id="{{$id}}-input" name="value" value="{{if $err}}{{$.Data.Submitted}}{{else}}{{.Value}}{{end}}" min="{{.Min}}"{{if .Max}} max="{{.Max}}"{{end}} required aria-describedby="{{$id}}-help {{$id}}-note {{$id}}-error">
-            {{else if or (eq .Input "list") (eq .Input "textarea")}}
-              <textarea class="form-control font-monospace{{if $err}} is-invalid{{end}}" id="{{$id}}-input" name="value" rows="{{if eq .Input "list"}}3{{else}}4{{end}}" maxlength="4096" spellcheck="false" required aria-describedby="{{$id}}-help {{$id}}-note {{$id}}-error">{{if $err}}{{$.Data.Submitted}}{{else if eq .Input "list"}}{{range .Items}}{{.}}
+            {{else if or (eq .Input "list") (eq .Input "textarea") (eq .Input "json")}}
+              <textarea class="form-control font-monospace{{if $err}} is-invalid{{end}}" id="{{$id}}-input" name="value" rows="{{if eq .Input "list"}}3{{else if eq .Input "json"}}6{{else}}4{{end}}" maxlength="4096" spellcheck="false" required aria-describedby="{{$id}}-help {{$id}}-note {{$id}}-error">{{if $err}}{{$.Data.Submitted}}{{else if eq .Input "list"}}{{range .Items}}{{.}}
 {{end}}{{else}}{{.Value}}{{end}}</textarea>
             {{else}}
-              <input class="form-control font-monospace{{if $err}} is-invalid{{end}}" type="text" id="{{$id}}-input" name="value" value="{{if $err}}{{$.Data.Submitted}}{{else}}{{.Value}}{{end}}" maxlength="4096" autocomplete="off" spellcheck="false" required{{if eq .Input "dir"}} placeholder="~/path/to/directory"{{else if eq .Input "file"}} placeholder="/opt/homebrew/bin/npm"{{end}} aria-describedby="{{$id}}-help {{$id}}-note {{$id}}-error">
+              <input class="form-control font-monospace{{if $err}} is-invalid{{end}}" type="text" id="{{$id}}-input" name="value" value="{{if $err}}{{$.Data.Submitted}}{{else}}{{.Value}}{{end}}" maxlength="4096" autocomplete="off" spellcheck="false" required{{if eq .Input "dir"}} placeholder="~/path/to/directory"{{else if eq .Input "file"}} placeholder="/opt/homebrew/bin/npm"{{else if eq .Input "pem"}} placeholder="/etc/ssl/icon-sets-sync/cert.pem"{{end}} aria-describedby="{{$id}}-help {{$id}}-note {{$id}}-error">
             {{end}}
               <div class="invalid-feedback" id="{{$id}}-error" data-role="setting-error">{{if $err}}{{$.Data.Problem}}{{end}}</div>
             </div>
@@ -92,6 +97,7 @@
         {{end}}
       </div>
     </div>
+    {{end}}
   </div>
   <div class="col-lg-4">
     <div class="card mb-3">
