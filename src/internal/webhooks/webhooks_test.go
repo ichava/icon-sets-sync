@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -58,15 +59,27 @@ func TestSignatureVerifiesAndRejectsTampering(t *testing.T) {
 	}
 }
 
-// The Standard Webhooks reference vector: the key is the base64 after
-// whsec_, the signed content id.timestamp.body.
+// standardWebhooksVectorKey is the bare base64 key of the Standard Webhooks
+// specification's published example (what follows its secret prefix).
+// @credential-literal-exempt: the specification's published test vector, not a secret
+const standardWebhooksVectorKey = "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+
+// The Standard Webhooks reference vector: the HMAC key is the decoded
+// base64, the signed content id.timestamp.body.
 func TestSignMatchesTheStandardWebhooksVector(t *testing.T) {
-	// From the Standard Webhooks specification's examples.
-	// @credential-literal-exempt: the specification's published test vector
-	secret := "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
-	got := Sign(secret, "msg_p5jXN8AQM9LWM0D4loKWxJek", time.Unix(1614265330, 0), []byte(`{"test": 2432232314}`))
+	key, err := base64.StdEncoding.DecodeString(standardWebhooksVectorKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := signWithKey(key, "msg_p5jXN8AQM9LWM0D4loKWxJek", time.Unix(1614265330, 0), []byte(`{"test": 2432232314}`))
 	if got != "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE=" {
 		t.Fatalf("got %s", got)
+	}
+	// Sign decodes a generated secret to the same key path.
+	secret := NewSecret()
+	raw, _ := base64.StdEncoding.DecodeString(strings.TrimPrefix(secret, SecretPrefix))
+	if Sign(secret, "id", time.Unix(1, 0), nil) != signWithKey(raw, "id", time.Unix(1, 0), nil) {
+		t.Fatal("Sign does not delegate to signWithKey with the decoded key")
 	}
 }
 

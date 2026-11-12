@@ -42,7 +42,12 @@ func secretKey(secret string) []byte {
 
 // Sign returns one signature, "v1,<base64 HMAC-SHA256(id.timestamp.body)>".
 func Sign(secret, id string, ts time.Time, body []byte) string {
-	mac := hmac.New(sha256.New, secretKey(secret))
+	return signWithKey(secretKey(secret), id, ts, body)
+}
+
+// signWithKey is Sign with the HMAC key already decoded.
+func signWithKey(key []byte, id string, ts time.Time, body []byte) string {
+	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(id + "." + strconv.FormatInt(ts.Unix(), 10) + "."))
 	mac.Write(body)
 	return "v1," + base64.StdEncoding.EncodeToString(mac.Sum(nil))
