@@ -327,6 +327,11 @@ func Sync(ctx context.Context, packs []*config.PackConfig, opts SyncOptions) []O
 		f()
 	}
 
+	// workerCount already caps this, but CodeQL (go/uncontrolled-allocation-size) only reads a
+	// bound that sits beside the allocation, and the size can come from an API request.
+	if workers > MaxConcurrency {
+		workers = MaxConcurrency
+	}
 	sem := make(chan struct{}, workers)
 	var wg sync.WaitGroup
 	for i, pack := range packs {
