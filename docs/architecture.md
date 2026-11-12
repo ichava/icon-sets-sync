@@ -55,15 +55,24 @@ src/
 ├── cmd/icon-sets-sync/   the binary, the only entrypoint; calls cli.Execute and nothing else
 └── internal/
     ├── cli/              the cobra tree: list-packs, check, sync, sync-all, recipe,
-    │                     config validate|print, manifest-pack audit, menu, version
+    │                     config validate|print, manifest-pack audit, menu, serve,
+    │                     api token, webhooks, mcp, version
     ├── tui/              the Bubble Tea menu
     ├── app/              orchestration both front-ends share: loading, checking, syncing
     ├── ui/               TTY detection, colour, status lines, the check table
     ├── version/          build metadata
+    ├── events/           the event bus: CloudEvents envelopes, the v1 types and their JSON Schemas
+    ├── webhooks/         signed delivery to webhooks.endpoints, the connect-time address guard
+    ├── mcpserver/        the stdio MCP server, on the official Go SDK
+    ├── web/              serve: the web UI, the REST API under /api/v1, and the job registry
     ├── tools/            repository tooling run by make, never shipped: flatdist (GoReleaser's
     │                     output into build/{os}/), buildlayout + checkbuild (the build/ guard), …
     └── core/
         ├── settings/     the five-layer settings resolution and its key registry
+        ├── apitoken/     the API's bearer tokens: hashed, scoped, expiring, revocable
+        ├── tlscert/      serve's certificate beyond loopback: the operator's, or a kept self-signed one
+        ├── statefile/    private (0600) JSON files in the state directory
+        ├── jsonlog/      rotating JSON Lines logs: the API audit, the webhook deliveries
         ├── config/       pack configs, the registry, the embedded JSON Schema
         ├── docfile/      JSON and YAML reading, one value model for both
         ├── checker/      upstream version polling, in parity with ichava/core's PHP
@@ -81,6 +90,26 @@ src/
 
 The CLI and the TUI are two front-ends over `internal/app`, so they cannot sync differently: a sync
 chosen in the menu exits the menu and runs through the same `app.Sync` the `sync` command calls.
+
+## Why the integrations are off by default
+
+The REST API, the event stream, webhooks and the MCP server (owner, 2026-11-12) each let something
+other than a person at the browser act on the tool, so each is a setting that starts off, and a
+fresh install behaves exactly as before. They share one event bus (`internal/events`): the job
+registry, the upstream check, config saves and the server lifecycle publish to it, and the API
+stream and the webhook dispatcher read from it, so the two cannot disagree about what happened. The
+per-run stream the run page reads stays the job's own ring, which can replay a run from any point.
+
+Each surface keeps the UI's guarantees rather than adding its own: the API sits behind the same Host
+allowlist, registers no write route under `--read-only`, starts runs through the same `StartSync`
+(a dry run unless asked otherwise), and saves settings through the same `SaveGlobalSetting` and the
+Settings page's own checks. The MCP server registers no write tool without `mcp.allow_writes` or
+with `--read-only`, because a tool that does not exist cannot be talked into running. Secrets never
+reach the global config, which people share: tokens are stored as hashes and webhook secrets in
+`0600` files in the state directory.
+
+Beyond loopback the default is TLS (owner, 2026-11-12: "support both, but always default to the
+secure one"): plain HTTP there is a setting said in so many words, `api.tls=off-behind-proxy`.
 
 ## Why `build/` has one folder per OS
 
