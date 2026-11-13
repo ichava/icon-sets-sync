@@ -2,8 +2,8 @@
 #
 # The CI mode of icon-sets-sync: one reusable workflow every pack repository
 # calls, instead of each carrying its own copy of the sync logic. It builds the
-# binary from source at a pinned toolkit tag or commit (there is no release
-# asset to download, because Go releases are on hold), runs the sync headless,
+# binary from source at a pinned toolkit tag or commit (a commit has no release
+# asset, and building keeps the pin exact), runs the sync headless,
 # and opens the update pull request with a Refresh Bot token so that pull
 # request's own CI runs.
 #

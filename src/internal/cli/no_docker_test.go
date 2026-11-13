@@ -194,3 +194,27 @@ func TestNoWorkflowOrScriptInvokesPython(t *testing.T) {
 		t.Fatalf("read %d files under .github, want at least %d", read, minGitHubFiles)
 	}
 }
+
+// otherChannels are the GoReleaser blocks that publish somewhere other than the
+// GitHub release: package managers, images and arbitrary publishers. The GitHub
+// release is the only channel (owner, 2026-11-13).
+var otherChannels = []string{"brews", "homebrew_casks", "scoops", "dockers", "docker_manifests", "kos", "snapcrafts", "winget", "aurs", "nix", "publishers", "blobs", "uploads", "artifactories", "chocolateys", "npms"}
+
+func TestGoReleaserPublishesNowhereElse(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(filepath.FromSlash(repoRoot), "src", ".goreleaser.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg map[string]any
+	if err := yaml.Unmarshal(raw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := cfg["release"]; !ok {
+		t.Fatal("src/.goreleaser.yaml has no release block; the GitHub release is the channel")
+	}
+	for _, k := range otherChannels {
+		if _, ok := cfg[k]; ok {
+			t.Errorf("src/.goreleaser.yaml publishes through %q; binaries go to the GitHub release only", k)
+		}
+	}
+}

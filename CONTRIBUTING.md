@@ -53,11 +53,11 @@ there is how this tool spent weeks re-opening a pull request it had already open
 
 ## Releases and versioning
 
-- **No binary release until the maintainers say so.** A version is git only for now: a `vX.Y.Z` tag
-  starts no workflow, and no GitHub release, binary or package is published. Users build
-  from source. `release.yml` stays in the repository but is manual and refuses to run without
+- **Binaries are published on the GitHub release only, and only when the maintainers say so.** A
+  `vX.Y.Z` tag starts no workflow. `release.yml` is manual and refuses to run without
   `-f confirm=release-go`; do not dispatch it, or restore a `push: tags` trigger, without an explicit
-  maintainer decision. See [Release](docs/release.md#binary-releases-are-off).
+  maintainer decision for that version. Never add a `go install` path, tap, bucket or image. See
+  [Release](docs/release.md#binaries-are-published-on-the-github-release).
 - **A version tag is pushed only for final code.** `vX.Y.Z` marks a release, nothing else. Test a
   change on a branch; a pre-release tag (`vX.Y.Z-rc.N`) is for the day binary releases are on.
 - **A public tag is never moved, deleted or reused.** Once a tag has been fetched, moving it makes

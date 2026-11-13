@@ -1,6 +1,27 @@
 # Installation
 
-`icon-sets-sync` is built from source: releases are on hold, so there is no binary to download.
+Download a release binary from GitHub, or build `icon-sets-sync` from source.
+
+## Download a release
+
+Each release on the [releases page](https://github.com/ichava/icon-sets-sync/releases) carries:
+
+| Asset | What it is |
+|---|---|
+| `icon-sets-sync_<os>_<arch>[.exe]` | the bare binary, ready to run (`macos`, not `darwin`; `macos_universal` runs on both Mac architectures) |
+| `icon-sets-sync_<os>_<arch>.tar.gz` / `.zip` | the same binary with `LICENSE`, `README.md`, `CHANGELOG.md` and the third-party notices |
+| `.deb`, `.rpm`, `.apk` | Linux packages |
+| `icon-sets-sync_macos_universal.app.zip` | the macOS app: unzip and open it (unsigned; see below) |
+| `icon-sets-sync-launcher_windows_<arch>.exe` | the Windows launcher, which opens the web UI without a console |
+| `checksums.txt`, `checksums-launchers.txt` | SHA-256 of every asset above |
+
+```bash
+shasum -a 256 -c checksums.txt --ignore-missing   # sha256sum on Linux
+```
+
+The GitHub release is the only download channel: there is no `go install` path, Homebrew tap, Scoop
+bucket or image. [Release](release.md#verifying-a-release) shows how to check the signature and the
+build provenance.
 
 ## Build from source
 
@@ -158,9 +179,8 @@ the repository root finds no packages.
 taken from commits before the single-commit publication, so it would serve older code. See
 [Release](release.md#where-this-package-is).
 
-Releases are on hold until the maintainers decide on one. Archives, Linux packages and checksums
-from a release would come from `release.yml`, dispatched by hand; none has been published. See
-[Release](release.md#binary-releases-are-off).
+Release binaries come from `release.yml`, dispatched by hand for each version; see
+[Release](release.md#binaries-are-published-on-the-github-release).
 
 ## What a sync needs
 

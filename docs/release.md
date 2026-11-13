@@ -17,11 +17,12 @@ older code, and that is why the docs never offer `go install`. `TestDocsOfferNoG
 There is no container image. The pack workflows call `sync-pack.yml`, which builds the binary from
 source at a pinned tag or commit; see [Maintainer sync](maintainer-sync.md#3-workflow-template).
 
-## Binary releases are off
+## Binaries are published on the GitHub release
 
-**No binary release is published until the maintainers decide on one.** A `vX.Y.Z` tag is git only:
-it records the version and starts nothing. Users build from source (`make build-local`, see the
-README). `release.yml` is manual: its only trigger is `workflow_dispatch`, and its first step
+**The GitHub release is the only channel for binaries** (owner, 2026-11-13): no `go install` path,
+Homebrew tap, Scoop bucket, Winget manifest or image, and `TestGoReleaserPublishesNowhereElse` fails if
+`src/.goreleaser.yaml` gains one. A `vX.Y.Z` tag on its own records the version and starts nothing;
+the release is cut when the maintainers dispatch it for that version. `release.yml` is manual: its only trigger is `workflow_dispatch`, and its first step
 refuses to run unless `confirm` is `release-go` and the run was dispatched against a tag.
 `TestReleaseRunsOnlyOnAConfirmedDispatch` fails if it gains another trigger or loses the
 confirmation. When a binary release is decided on, dispatch it against a tag that already exists on
@@ -114,8 +115,11 @@ cosign verify-blob --bundle checksums.txt.sigstore.json \
 sha256sum -c checksums.txt --ignore-missing      # shasum -a 256 -c on macOS
 ```
 
-No Homebrew tap, Scoop bucket or Winget manifest is published: ichava has none of those
-repositories yet.
+The macOS app and the Windows launchers are listed in `checksums-launchers.txt` and attested with the
+rest; check them the same way (`shasum -a 256 -c checksums-launchers.txt`).
+
+No Homebrew tap, Scoop bucket or Winget manifest is published, by rule: the GitHub release is the
+only channel.
 
 ## What a release affects
 
