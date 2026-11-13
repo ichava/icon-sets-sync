@@ -1,10 +1,9 @@
-# Manual only. icon-sets-sync is published as git source for now: no release binaries,
-# packages or GitHub releases are cut from a tag. Pushing a `vX.Y.Z` tag
-# records the version and starts nothing. Users clone the repository and build the
-# binary themselves (`make build-local`, see the README).
+# Manual only. icon-sets-sync's binaries are published on the GitHub release, and
+# nowhere else: no `go install` path, Homebrew tap, Scoop bucket or image (owner,
+# 2026-11-13). Pushing a `vX.Y.Z` tag records the version and starts nothing; a
+# release is cut when the maintainers dispatch this workflow for that version.
 #
-# This workflow is kept for the day a binary release is decided on. It runs only when
-# dispatched against a tag with the explicit confirmation input:
+# It runs only when dispatched against a tag with the explicit confirmation input:
 #
 #   gh workflow run release.yml --repo ichava/icon-sets-sync --ref vX.Y.Z -f confirm=release-go
 #
@@ -15,8 +14,11 @@
 #     deb/rpm/apk packages and a reproducible source tarball, an SPDX SBOM per
 #     archive, and checksums.txt over all of it (config: src/.goreleaser.yaml);
 #   - cosign signs checksums.txt keylessly through Sigstore;
+#   - the double-click launchers (the macOS app bundle, zipped, and the Windows
+#     GUI launchers) are built from the same binaries and attached, with their
+#     own checksums-launchers.txt;
 #   - attest-build-provenance signs a build-provenance attestation for every
-#     artifact listed in checksums.txt.
+#     artifact listed in either checksums file.
 #
 # The release body is the tagged version's CHANGELOG section, never generated
 # notes alone.
@@ -57,8 +59,8 @@ jobs:
       attestations: write  # store the build-provenance attestation
 
     steps:
-      # Binary releases are off until the maintainers decide otherwise. Refuse
-      # without the explicit confirmation, and refuse on anything but a tag.
+      # A release is cut only when the maintainers dispatch it for a version.
+      # Refuse without the explicit confirmation, and refuse on anything but a tag.
       - name: Require the explicit release confirmation
         env:
           CONFIRM: ${{ inputs.confirm }}
@@ -66,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$CONFIRM" != "release-go" ]; then
-            echo "::error::Binary releases are off. Dispatch with -f confirm=release-go only when a release has been decided on."
+            echo "::error::Dispatch with -f confirm=release-go, for a version the maintainers have decided to release."
             exit 1
           fi
           if [ "$REF_TYPE" != "tag" ]; then
@@ -171,7 +173,41 @@ jobs:
             exit 1
           fi
 
+      # GoReleaser does not build the double-click launchers: the macOS app bundle
+      # around the universal binary it just built, and the Windows GUI launchers
+      # (src/internal/tools/launchers, as `make app` and `make cross` run it). The
+      # .app is a folder, so it ships zipped. They get their own checksums file,
+      # written outside the folder so it does not list itself, and are attested
+      # below with everything else.
+      - name: Build and attach the launchers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/launchers"
+          mkdir -p "$out"
+          # The published icon-sets-sync_macos_universal asset, at the build path
+          # GoReleaser recorded for it (flatdist reads artifacts.json the same way).
+          universal=$(jq -r '.[] | select(.name=="icon-sets-sync_macos_universal") | .path' .cache/goreleaser/artifacts.json)
+          [ -f "$universal" ] || { echo "::error::no universal binary in .cache/goreleaser/artifacts.json"; exit 1; }
+          go -C src run ./internal/tools/launchers \
+            -app "$out/icon-sets-sync.app" \
+            -universal "../$universal" \
+            -version "${GITHUB_REF_NAME#v}" \
+            -windows "$out"
+          (cd "$out" && zip -qry icon-sets-sync_macos_universal.app.zip icon-sets-sync.app && rm -rf icon-sets-sync.app)
+          (cd "$out" && sha256sum -- * > "$RUNNER_TEMP/checksums-launchers.txt")
+          mv "$RUNNER_TEMP/checksums-launchers.txt" "$out/"
+          ls -l "$out"
+          [ "$(find "$out" -name '*.exe' | wc -l)" -ge 3 ] || { echo "::error::expected at least 3 Windows launchers"; exit 1; }
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" "$out"/*
+
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v4
         with:
           subject-checksums: .cache/goreleaser/checksums.txt
+
+      - name: Attest the launchers
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-checksums: ${{ runner.temp }}/launchers/checksums-launchers.txt

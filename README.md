@@ -16,9 +16,16 @@ was `ichava/maintainer-toolkit` until 2026-10-21; GitHub redirects the old URL.
 
 ## Install
 
-**Build from source.** icon-sets-sync is published as git source for now: no release binaries,
-packages or GitHub releases are cut, and a version tag starts nothing. Clone the repository and build
-the binary with Go 1.26 or later:
+**Download a release.** Each release on the
+[releases page](https://github.com/ichava/icon-sets-sync/releases) carries a binary for every
+platform (`icon-sets-sync_<os>_<arch>`, `macos` rather than `darwin`), `.tar.gz`/`.zip` archives,
+`.deb`/`.rpm`/`.apk` packages, the macOS app (`icon-sets-sync_macos_universal.app.zip`) and the
+Windows launchers. Check a download against the release's `checksums.txt`
+(`checksums-launchers.txt` for the app and launchers); [Release](docs/release.md#verifying-a-release)
+shows the signature check. The GitHub release is the only download channel: there is no `go install`
+path, Homebrew tap, Scoop bucket or image.
+
+**Or build from source**, with Go 1.26 or later:
 
 ```bash
 git clone https://github.com/ichava/icon-sets-sync.git
@@ -43,9 +50,9 @@ ICHAVA_ICON_SETS_SYNC_BIN=/path/to/icon-sets-sync/build/macos/icon-sets-sync ven
 ```
 
 The Composer package carries no Go code. With `ICHAVA_ICON_SETS_SYNC_BIN` set it runs that binary.
-Without it, it stops and says how to build one. It downloads a published release binary only when
-`ICHAVA_ICON_SETS_SYNC_DOWNLOAD=1` opts in, because releases are on hold and the download is never
-the default.
+Without it, it stops and says how to build one. It downloads the release binary for the host, checked against the release's
+`checksums.txt`, only when `ICHAVA_ICON_SETS_SYNC_DOWNLOAD=1` opts in; the download is never the
+default.
 
 `go install` is not an install path. The Go module proxy fetched `src/v0.1.0` to `src/v0.1.2` from
 commits that predate the single-commit publication, and it keeps the first copy of a tag for good,
