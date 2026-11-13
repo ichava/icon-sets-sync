@@ -148,6 +148,18 @@ func TestTheLayoutPasses(t *testing.T) {
 	}
 }
 
+// The tracked Composer launcher may sit at the root of build/; a compiled binary
+// of the same name may not ("a binary at the root of build/" below).
+func TestTheComposerLauncherPasses(t *testing.T) {
+	dir := tree(t, good...)
+	if err := os.WriteFile(filepath.Join(dir, ComposerLauncher), []byte("#!/usr/bin/env php\n<?php\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, problems, err := Check(dir); err != nil || len(problems) != 0 {
+		t.Fatalf("the Composer launcher failed: %v %v", problems, err)
+	}
+}
+
 // Every shape the old layouts left behind, and the ones the rule names.
 func TestEveryOtherShapeFails(t *testing.T) {
 	cases := map[string]string{

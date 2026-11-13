@@ -48,8 +48,8 @@ scratch directory, `.cache/goreleaser/`, and only the bare binaries are copied o
 `build/{os}/`; the scratch directory is then removed. `make check-build` (run by all three targets)
 fails if `build/` holds anything else or an OS folder holds a folder. Measured 2026-11-04,
 `make cross` leaves 19 binaries and `checksums.txt`; it left 38 (568 MB) while it also built a short
-alias, and 86 items (1.0 GB) before it was trimmed, most of them GoReleaser's per-target folders. `bin/icon-sets-sync` is the tracked Composer
-launcher (PHP), not a build output.
+alias, and 86 items (1.0 GB) before it was trimmed, most of them GoReleaser's per-target folders. `build/icon-sets-sync` is the tracked Composer
+launcher (PHP), not a build output: `make clean` keeps it and `make check-build` allows it.
 
 `build/checksums.txt` names each cross binary by its path inside `build/`
 (`macos/icon-sets-sync_macos_arm64`), so it verifies as-is (`sha256sum -c` on Linux):

@@ -6,6 +6,7 @@
 //	  checksums.txt            SHA-256 over every cross binary, as macos/{binary}_macos_arm64
 //	  macos/ linux/ windows/ freebsd/ …   the binaries, flat
 //	  archives/                only after `make dist`, flat
+//	  icon-sets-sync           the tracked Composer launcher (PHP), not a build output
 //
 // No build/dist/, no binary at the root of build/, and no folder inside an OS
 // folder or inside archives/. `make build-local`, `make cross` and `make dist`
@@ -27,7 +28,32 @@ import (
 // Binary is the one program this repository builds.
 const Binary = "icon-sets-sync"
 
-// rootFiles are the only plain files build/ may hold.
+// ComposerLauncher is the PHP script composer.json registers as the package's
+// command, so Composer installs it as vendor/bin/icon-sets-sync. It is tracked
+// in build/ rather than in a bin/ folder (owner, 2026-11-13: one folder, and it
+// is build/). It is allowed at the root only while it is that script, so a
+// compiled binary written there by mistake still fails.
+const ComposerLauncher = Binary
+
+// composerShebang is the first line the Composer launcher starts with.
+const composerShebang = "#!/usr/bin/env php\n"
+
+// isComposerLauncher reports whether path is the PHP launcher: it starts with
+// the php shebang, which no compiled binary does.
+func isComposerLauncher(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	head := make([]byte, len(composerShebang))
+	if _, err := io.ReadFull(f, head); err != nil {
+		return false
+	}
+	return string(head) == composerShebang
+}
+
+// rootFiles are the only other plain files build/ may hold.
 var rootFiles = map[string]bool{"targets.txt": true, "nfpm.yaml": true, "checksums.txt": true}
 
 // osMetadata is what a file browser writes into any folder it opens: Finder's
@@ -121,8 +147,9 @@ func Check(dir string) (int, []string, error) {
 		case e.IsDir():
 			problems = append(problems, fmt.Sprintf("build/%s/: not an OS folder or archives/ (allowed: %s)", name, allowedDirs()))
 		case rootFiles[name], !e.IsDir() && osMetadata[name]:
+		case !e.IsDir() && name == ComposerLauncher && isComposerLauncher(filepath.Join(dir, name)):
 		default:
-			problems = append(problems, fmt.Sprintf("build/%s: only targets.txt, nfpm.yaml and checksums.txt may sit at the root of build/", name))
+			problems = append(problems, fmt.Sprintf("build/%s: only targets.txt, nfpm.yaml, checksums.txt and the Composer launcher (a PHP script) may sit at the root of build/", name))
 		}
 	}
 	sums, listed, err := checkChecksums(dir, bins)
