@@ -35,7 +35,7 @@ jobs:
       contents: write
       id-token: write
       attestations: write
-    uses: simtabi/.github/.github/workflows/go-release.yml@a1dca588d5c64798085a5fad57c872f6ce02e9aa  # simtabi/.github#27
+    uses: simtabi/.github/.github/workflows/go-release.yml@d648d8998f95a351001979f9c4527badca588bf1  # simtabi/.github#30
     with:
       tag: ${{ inputs.tag || github.ref_name }}
       post-release: bash .scripts/release-launchers.sh
