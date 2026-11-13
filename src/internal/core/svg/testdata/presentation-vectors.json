@@ -1,0 +1,379 @@
+{
+  "_comment": "Presentation-attribute and marker vectors shared by every SVG sanitiser in the ecosystem. The cases rows started as TestPresentationAttributeValueGuards in ichava/icon-sets-sync (src/internal/core/svg/presentation_test.go, #85); the marker rows and the documents section were added when <marker> was allowed, after the US and UM flags shipped without their stars. Every sanitiser asserts the same keep or strip decision for each case, and runs each document through its full sanitiser: a document with clean true must come out with nothing removed, one with clean false must lose something (a stripper removes it, a rejecting generator refuses the document), and every expect row holds of the output wherever the output exists. This file is byte-identical in icon-sets-sync (src/internal/core/svg/testdata), core, react-icon-browser and js-icon-components. Change it in all four together.",
+  "source": "ichava/icon-sets-sync#85",
+  "cases": [
+    {
+      "name": "display",
+      "value": "none",
+      "keep": true
+    },
+    {
+      "name": "display",
+      "value": "inline",
+      "keep": true
+    },
+    {
+      "name": "display",
+      "value": "block",
+      "keep": true
+    },
+    {
+      "name": "display",
+      "value": " None ",
+      "keep": true
+    },
+    {
+      "name": "display",
+      "value": "inline flow-root",
+      "keep": true
+    },
+    {
+      "name": "display",
+      "value": "url(x)",
+      "keep": false
+    },
+    {
+      "name": "display",
+      "value": "url(#a)",
+      "keep": false
+    },
+    {
+      "name": "display",
+      "value": "\\75rl(x)",
+      "keep": false
+    },
+    {
+      "name": "display",
+      "value": "var(--d)",
+      "keep": false
+    },
+    {
+      "name": "display",
+      "value": "none;fill:url(https://e)",
+      "keep": false
+    },
+    {
+      "name": "display",
+      "value": "",
+      "keep": false
+    },
+    {
+      "name": "color",
+      "value": "#000",
+      "keep": true
+    },
+    {
+      "name": "color",
+      "value": "currentColor",
+      "keep": true
+    },
+    {
+      "name": "color",
+      "value": "rgb(0 0 0)",
+      "keep": true
+    },
+    {
+      "name": "color",
+      "value": "url(https://e/x)",
+      "keep": false
+    },
+    {
+      "name": "color",
+      "value": "image-set(\"https://e/x\" 1x)",
+      "keep": false
+    },
+    {
+      "name": "marker-start",
+      "value": "none",
+      "keep": true
+    },
+    {
+      "name": "marker-mid",
+      "value": "url(#m)",
+      "keep": true
+    },
+    {
+      "name": "marker-end",
+      "value": "url(#arrow)",
+      "keep": true
+    },
+    {
+      "name": "marker-end",
+      "value": "url(\"#arrow\")",
+      "keep": true
+    },
+    {
+      "name": "marker-end",
+      "value": "url(https://e)",
+      "keep": false
+    },
+    {
+      "name": "marker-end",
+      "value": "\\75rl(https://e)",
+      "keep": false
+    },
+    {
+      "name": "marker-end",
+      "value": "#arrow",
+      "keep": false
+    },
+    {
+      "name": "marker-end",
+      "value": "inherit",
+      "keep": false
+    },
+    {
+      "name": "marker-end",
+      "value": "url(#a) url(#b)",
+      "keep": false
+    },
+    {
+      "name": "docname",
+      "value": "x.svg",
+      "keep": false
+    },
+    {
+      "name": "sodipodi:docname",
+      "value": "x.svg",
+      "keep": false
+    },
+    {
+      "name": "marker-start",
+      "value": "url(https://e/x#m)",
+      "keep": false
+    },
+    {
+      "name": "marker-end",
+      "value": "url(//e/x#m)",
+      "keep": false
+    },
+    {
+      "name": "refX",
+      "value": "5",
+      "keep": true
+    },
+    {
+      "name": "refY",
+      "value": "5",
+      "keep": true
+    },
+    {
+      "name": "markerWidth",
+      "value": "30",
+      "keep": true
+    },
+    {
+      "name": "markerHeight",
+      "value": "30",
+      "keep": true
+    },
+    {
+      "name": "orient",
+      "value": "auto",
+      "keep": true
+    },
+    {
+      "name": "markerUnits",
+      "value": "strokeWidth",
+      "keep": true
+    }
+  ],
+  "documents": [
+    {
+      "label": "the US flag canton: a marker drawn by marker-mid survives intact",
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 480\"><path fill=\"#192f5d\" d=\"M0 0h364.8v258.5H0\"/><marker id=\"us-a\" markerHeight=\"30\" markerWidth=\"30\"><path fill=\"#fff\" d=\"m14 0 9 27L0 10h28L5 27z\"/></marker><path fill=\"none\" marker-mid=\"url(#us-a)\" d=\"m0 0 16 11h61 61 61 61 60\"/></svg>",
+      "clean": true,
+      "expect": [
+        {
+          "element": "marker",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "id",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "markerHeight",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "markerWidth",
+          "present": true
+        },
+        {
+          "element": "path",
+          "attribute": "marker-mid",
+          "present": true
+        },
+        {
+          "element": "path",
+          "attribute": "fill",
+          "present": true
+        }
+      ]
+    },
+    {
+      "label": "a marker keeps every attribute the policy allows on it",
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><defs><marker id=\"m\" viewBox=\"0 0 10 10\" refX=\"5\" refY=\"5\" markerWidth=\"6\" markerHeight=\"6\" orient=\"auto-start-reverse\" markerUnits=\"strokeWidth\" preserveAspectRatio=\"xMidYMid meet\" fill=\"currentColor\"><path d=\"M0 0L10 5L0 10z\"/></marker></defs><path marker-start=\"url(#m)\" marker-end=\"url(#m)\" d=\"M2 12h20\"/></svg>",
+      "clean": true,
+      "expect": [
+        {
+          "element": "marker",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "id",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "viewBox",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "refX",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "refY",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "markerWidth",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "markerHeight",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "orient",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "markerUnits",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "preserveAspectRatio",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "fill",
+          "present": true
+        },
+        {
+          "element": "path",
+          "attribute": "marker-start",
+          "present": true
+        },
+        {
+          "element": "path",
+          "attribute": "marker-end",
+          "present": true
+        }
+      ]
+    },
+    {
+      "label": "a script inside a marker is stripped",
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"><marker id=\"m\"><script>alert(1)</script><path d=\"M0 0\"/></marker></svg>",
+      "clean": false,
+      "expect": [
+        {
+          "element": "marker",
+          "present": true
+        },
+        {
+          "element": "script",
+          "present": false
+        }
+      ]
+    },
+    {
+      "label": "event handlers on a marker and inside it are stripped",
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"><marker id=\"m\" onload=\"alert(1)\"><path onclick=\"alert(1)\" d=\"M0 0\"/></marker></svg>",
+      "clean": false,
+      "expect": [
+        {
+          "element": "marker",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "onload",
+          "present": false
+        },
+        {
+          "element": "path",
+          "attribute": "onclick",
+          "present": false
+        },
+        {
+          "element": "path",
+          "attribute": "d",
+          "present": true
+        }
+      ]
+    },
+    {
+      "label": "external references on and inside a marker are stripped",
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"><marker id=\"m\" href=\"https://e/x\"><use href=\"https://e/x#a\"/><use xlink:href=\"javascript:alert(1)\"/></marker></svg>",
+      "clean": false,
+      "expect": [
+        {
+          "element": "marker",
+          "present": true
+        },
+        {
+          "element": "marker",
+          "attribute": "href",
+          "present": false
+        },
+        {
+          "element": "use",
+          "attribute": "href",
+          "present": false
+        },
+        {
+          "element": "use",
+          "attribute": "xlink:href",
+          "present": false
+        }
+      ]
+    },
+    {
+      "label": "marker-start and marker-end aimed at an external url are stripped",
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"><path marker-start=\"url(https://e/x#m)\" marker-end=\"url(//e/x#m)\" d=\"M0 0\"/></svg>",
+      "clean": false,
+      "expect": [
+        {
+          "element": "path",
+          "attribute": "marker-start",
+          "present": false
+        },
+        {
+          "element": "path",
+          "attribute": "marker-end",
+          "present": false
+        },
+        {
+          "element": "path",
+          "attribute": "d",
+          "present": true
+        }
+      ]
+    }
+  ]
+}

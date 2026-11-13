@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "server.stopping",
+  "description": "serve is shutting down.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reason"
+  ],
+  "properties": {
+    "reason": {
+      "type": "string",
+      "enum": [
+        "signal",
+        "stop-action",
+        "error"
+      ]
+    }
+  }
+}

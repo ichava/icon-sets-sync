@@ -1,0 +1,23 @@
+{{define "pager"}}{{if .Many}}
+<div class="card-footer d-flex flex-wrap align-items-center gap-2" data-role="pager">
+  <p class="m-0 text-secondary" role="status">{{if .Total}}{{.From}}–{{.To}} of {{thousands .Total}}{{else}}None{{end}}</p>
+  {{if gt .Pages 1}}
+  <nav class="ms-sm-auto" aria-label="{{.Label}} pages">
+    <ul class="pagination m-0 flex-wrap">
+      <li class="page-item{{if le .Page 1}} disabled{{end}}">{{if le .Page 1}}<span class="page-link" aria-hidden="true">{{icon "chevron-left"}}<span class="d-none d-sm-inline">Previous</span></span>{{else}}<a class="page-link" href="{{.URL (sub .Page 1)}}" rel="prev">{{icon "chevron-left"}}<span class="d-none d-sm-inline">Previous</span><span class="visually-hidden d-sm-none">Previous page</span></a>{{end}}</li>
+      {{$cur := .Page}}{{$p := .}}
+      {{range .Window}}{{if eq . 0}}<li class="page-item disabled"><span class="page-link" aria-hidden="true">…</span></li>{{else if eq . $cur}}<li class="page-item active"><span class="page-link" aria-current="page">{{.}}</span></li>{{else}}<li class="page-item"><a class="page-link" href="{{$p.URL .}}" aria-label="Page {{.}}">{{.}}</a></li>{{end}}{{end}}
+      <li class="page-item{{if ge .Page .Pages}} disabled{{end}}">{{if ge .Page .Pages}}<span class="page-link" aria-hidden="true"><span class="d-none d-sm-inline">Next</span>{{icon "chevron-right"}}</span>{{else}}<a class="page-link" href="{{.URL (add .Page 1)}}" rel="next"><span class="d-none d-sm-inline">Next</span><span class="visually-hidden d-sm-none">Next page</span>{{icon "chevron-right"}}</a>{{end}}</li>
+    </ul>
+  </nav>
+  {{end}}
+  <form method="get" class="d-flex align-items-center gap-2{{if le .Pages 1}} ms-sm-auto{{end}}" data-role="page-size">
+    {{range .Hidden}}<input type="hidden" name="{{.Key}}" value="{{.Value}}">{{end}}
+    <label class="text-secondary text-nowrap mb-0" for="page-size">Per page</label>
+    <select class="form-select form-select-sm w-auto" id="page-size" name="{{.SizeParam}}" data-autosubmit>
+      {{$size := .Size}}{{$def := .Default}}{{range .Sizes}}<option value="{{.}}"{{if eq . $size}} selected{{end}}>{{.}}{{if eq . $def}} (default){{end}}</option>{{end}}
+    </select>
+    <noscript><button type="submit" class="btn btn-sm">Show</button></noscript>
+  </form>
+</div>
+{{end}}{{end}}

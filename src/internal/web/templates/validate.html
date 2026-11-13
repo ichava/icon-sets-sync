@@ -1,0 +1,47 @@
+{{define "content"}}{{with .Data}}
+{{template "page_header" "Validate packs"}}
+<p class="text-secondary">Checks each pack checkout: <code>composer.json</code> (type <code>ichava-icon-set</code>), the manifest, that a pack config syncs it, its sets, licence files, empty categories, files that are not SVGs and, if you ask, every SVG against the toolkit's parser. The CLI is <code>icon-sets-sync validate</code>.</p>
+<form class="card mb-3" method="get" action="/validate">
+  <div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <input type="hidden" name="run" value="1">
+    <label class="form-check mb-0">
+      <input class="form-check-input" type="checkbox" name="parse" value="1"{{if .Parse}} checked{{end}}>
+      <span class="form-check-label">Parse every SVG <span class="text-secondary">(slow: a minute or more across every pack)</span></span>
+    </label>
+    <button type="submit" class="btn btn-primary ms-auto">{{icon "checklist"}}{{if .Ran}}Check again{{else}}Check the packs{{end}}</button>
+  </div>
+</form>
+{{if .Err}}<div class="alert alert-danger text-break" role="alert">{{icon "alert-circle"}} {{.Err}}</div>{{end}}
+{{if .Ran}}
+<div class="alert {{if .Errors}}alert-danger{{else if .Warnings}}alert-warning{{else}}alert-success{{end}}" role="status">
+  <strong>{{len .Reports}} pack(s):</strong> {{.Errors}} error(s), {{.Warnings}} warning(s){{if not .Parse}}; SVGs were counted, not parsed{{end}}.
+</div>
+<div class="row row-cards">
+  {{range .Reports}}
+  <div class="col-12">
+    <div class="card" data-role="pack-report">
+      <div class="card-header">
+        <h2 class="card-title"><code>{{if .Name}}{{.Name}}{{else}}{{.Root}}{{end}}</code></h2>
+        <div class="card-actions">{{if .Errors}}<span class="badge badge-bad">{{.Errors}} error(s)</span>{{end}} {{if .Warnings}}<span class="badge badge-warn">{{.Warnings}} warning(s)</span>{{end}} {{if not (or .Errors .Warnings)}}<span class="badge badge-ok">{{icon "circle-check"}}ok</span>{{end}}</div>
+      </div>
+      <div class="card-body py-2 text-secondary small"><code class="text-break">{{.Root}}</code> · {{.Sets}} set(s) · {{thousands .SVGs}} SVGs{{with .Config}} · synced by <a href="/config/{{.}}">{{.}}</a>{{end}}</div>
+      {{if .Findings}}
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead><tr><th scope="col">Level</th><th scope="col">Check</th><th scope="col">File</th><th scope="col">Problem</th></tr></thead>
+          <tbody>
+            {{range .Findings}}
+            <tr><td><span class="badge {{if eq .Level "error"}}badge-bad{{else}}badge-warn{{end}}">{{.Level}}</span></td><td>{{.Check}}</td><td><code class="text-break">{{breakable .Path}}</code></td><td class="text-break">{{.Text}}</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{end}}
+    </div>
+  </div>
+  {{else}}
+  <div class="col-12"><div class="card"><div class="card-body text-secondary">No pack checkout found: set packages_dirs on the Settings page.</div></div></div>
+  {{end}}
+</div>
+{{end}}
+{{end}}{{end}}

@@ -1,0 +1,233 @@
+package svg
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
+
+// PolicyViolationError reports a document that broke the policy, for strict mode.
+type PolicyViolationError struct{ Violations []string }
+
+func (e *PolicyViolationError) Error() string {
+	shown := e.Violations
+	// The first twenty only. A corpus-wide run can produce thousands, and an
+	// error message that scrolls past the terminal buffer tells you less than
+	// one that fits on a screen.
+	if len(shown) > 20 {
+		shown = shown[:20]
+	}
+	return fmt.Sprintf("%d file(s) violate the SVG policy:\n  %s",
+		len(e.Violations), strings.Join(shown, "\n  "))
+}
+
+// SanitiseBytes filters a document to what the policy permits.
+//
+// Returns the serialised result and the names of everything removed, so a
+// caller can report *what* was wrong rather than only that something was.
+func SanitiseBytes(raw []byte, alsoStripClass bool) ([]byte, []string, error) {
+	p, err := Load()
+	if err != nil {
+		return nil, nil, err
+	}
+	return p.Sanitise(raw, alsoStripClass)
+}
+
+// Sanitise is SanitiseBytes against this policy, honouring its MaxBytes and
+// MaxNodes. A document over either cap is an error, like an unparseable one.
+func (p *Policy) Sanitise(raw []byte, alsoStripClass bool) ([]byte, []string, error) {
+	maxBytes := p.MaxBytes
+	if maxBytes <= 0 {
+		maxBytes = DefaultMaxBytes
+	}
+	if len(raw) > maxBytes {
+		return nil, nil, fmt.Errorf("parsing svg: document is %d bytes, over the %d byte limit", len(raw), maxBytes)
+	}
+
+	maxNodes := p.MaxNodes
+	if maxNodes <= 0 {
+		maxNodes = DefaultMaxNodes
+	}
+	root, err := parse(raw, p.StripComments, maxNodes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var removed []string
+	filterElement(p, root, &removed, alsoStripClass)
+	dropUnusedNamespaceDeclarations(root)
+
+	return Serialise(root), removed, nil
+}
+
+// dropUnusedNamespaceDeclarations removes every xmlns:<prefix> declaration
+// whose namespace no element or attribute left in the tree uses.
+//
+// Run after the policy has filtered the tree, because that is what strands
+// them: OpenMoji's Cornwall flag declares xmlns:sodipodi for the
+// sodipodi:docname the policy strips, and js-icon-components' generator
+// refuses the declaration left behind. The default xmlns stays whatever it
+// says, and a prefix that anything still uses -- xlink on an href, a prefixed
+// element -- stays. It is tidying rather than a policy decision, so it is not
+// reported as removed.
+func dropUnusedNamespaceDeclarations(root *Node) {
+	used := map[string]bool{}
+	var collect func(n *Node)
+	collect = func(n *Node) {
+		if n.Kind != ElementNode {
+			return
+		}
+		if n.Space != "" {
+			used[n.Space] = true
+		}
+		for _, a := range n.Attrs {
+			if !a.IsNamespaceDecl && a.Space != "" {
+				used[a.Space] = true
+			}
+		}
+		for _, c := range n.Children {
+			collect(c)
+		}
+	}
+	collect(root)
+
+	var prune func(n *Node)
+	prune = func(n *Node) {
+		if n.Kind != ElementNode {
+			return
+		}
+		kept := n.Attrs[:0]
+		for _, a := range n.Attrs {
+			if a.IsNamespaceDecl && a.Prefix == "xmlns" && !used[a.Value] {
+				continue
+			}
+			kept = append(kept, a)
+		}
+		n.Attrs = kept
+		for _, c := range n.Children {
+			prune(c)
+		}
+	}
+	prune(root)
+}
+
+// filterElement removes disallowed children, then filters this element's own
+// attributes.
+//
+// Children first, then attributes -- and the root element's own *tag* is never
+// checked, only its attributes. That is what the Python does, and it matters:
+// checking the root would delete the <svg> element itself and leave nothing to
+// serialise.
+func filterElement(p *Policy, el *Node, removed *[]string, alsoStripClass bool) {
+	kept := el.Children[:0]
+	for i := 0; i < len(el.Children); i++ {
+		child := el.Children[i]
+
+		if child.Kind == TextNode && strayTextParent[el.Local] {
+			if ws, stray := stripStrayText(child.Text); stray {
+				*removed = append(*removed, StrayText)
+				if ws != "" {
+					kept = append(kept, &Node{Kind: TextNode, Text: ws})
+				}
+				continue
+			}
+		}
+
+		if child.Kind != ElementNode {
+			kept = append(kept, child)
+			continue
+		}
+
+		if !p.TagAllowed(child.Local) {
+			*removed = append(*removed, "<"+child.Local+">")
+
+			// Drop the text that followed it too. lxml models trailing text as
+			// the element's own .tail, so el.remove(child) takes both; a tree
+			// built from Go's decoder holds it as a separate sibling node, and
+			// leaving it behind means every removed element deposits its
+			// indentation in the output.
+			//
+			// Found by diffing a real sync against what a previous Python run
+			// committed -- 538 of flag's 542 icons matched byte for byte and
+			// four did not, each by exactly one orphaned newline-and-indent.
+			// The corpus differential could not see it: that compares surviving
+			// structure, and whitespace is not structure.
+			if i+1 < len(el.Children) && el.Children[i+1].Kind == TextNode {
+				i++
+			}
+			continue
+		}
+
+		filterElement(p, child, removed, alsoStripClass)
+		kept = append(kept, child)
+	}
+	el.Children = kept
+
+	attrs := el.Attrs[:0]
+	for _, a := range el.Attrs {
+		// Namespace declarations are not attributes as far as the policy is
+		// concerned; lxml never surfaces them at all. See Attr.IsNamespaceDecl.
+		if a.IsNamespaceDecl {
+			attrs = append(attrs, a)
+			continue
+		}
+
+		name := a.Name()
+		if !p.AttributeAllowed(name, a.Value, alsoStripClass) {
+			*removed = append(*removed, name)
+			continue
+		}
+		attrs = append(attrs, a)
+	}
+	el.Attrs = attrs
+}
+
+// strayTextParent are the containers whose character data never renders as
+// intended: text there is an upstream defect, not content. <title>, <desc>,
+// <text> and <tspan> are not on it; their text is the point.
+var strayTextParent = map[string]bool{"svg": true, "g": true}
+
+// stripStrayText reports whether a text run holds anything but XML whitespace
+// and, if so, returns the whitespace to keep in its place: the run's trailing
+// whitespace (the indentation before the next element), or else its leading
+// whitespace. That is the shape of a line deleted by hand.
+func stripStrayText(text string) (string, bool) {
+	const xmlSpace = " \t\r\n"
+	if strings.Trim(text, xmlSpace) == "" {
+		return "", false
+	}
+	if trailing := text[len(strings.TrimRight(text, xmlSpace)):]; trailing != "" {
+		return trailing, true
+	}
+	return text[:len(text)-len(strings.TrimLeft(text, xmlSpace))], true
+}
+
+// StrayText is the entry the removal list carries for each non-whitespace text
+// or CDATA run dropped from directly under <svg> or <g>.
+const StrayText = "#text"
+
+// StrayTextCount is how many stray text runs a removal list records.
+func StrayTextCount(removed []string) int {
+	n := 0
+	for _, r := range removed {
+		if r == StrayText {
+			n++
+		}
+	}
+	return n
+}
+
+// SummariseRemoved collapses a removal list into one sorted, deduplicated line,
+// which is what the per-file violation report shows.
+func SummariseRemoved(removed []string) string {
+	seen := map[string]bool{}
+	unique := make([]string, 0, len(removed))
+	for _, r := range removed {
+		if !seen[r] {
+			seen[r] = true
+			unique = append(unique, r)
+		}
+	}
+	sort.Strings(unique)
+	return strings.Join(unique, ", ")
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "job.finished",
+  "description": "A run ended.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "kind",
+    "packs",
+    "dry_run",
+    "status",
+    "duration_ms"
+  ],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$",
+      "description": "the run's id, as /jobs/{id} and /api/v1/jobs/{id} take it"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "sync",
+        "sync-all",
+        "recipe",
+        "audit"
+      ]
+    },
+    "packs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "dry_run": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "succeeded",
+        "failed",
+        "cancelled",
+        "needs-review"
+      ]
+    },
+    "error": {
+      "type": "string"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

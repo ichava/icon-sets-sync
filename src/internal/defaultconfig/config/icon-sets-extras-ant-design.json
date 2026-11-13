@@ -1,0 +1,51 @@
+{
+  "_note": "One of the 20 sets of ichava/icon-sets-extras, each refreshed by its own config into files/<set>/ and licenses/<set>/, with its version recorded at upstream.sets.<set>.current_version in the pack's config.json. inline-svg/{outlined,filled,twotone} flattened to <name>-outlined/-filled/-twotone. The npm package ships no licence file (licence_missing): licenses/ant-design/ needs a source.md before the first real sync, or the sink removes the hand-supplied text. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 848 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-extras-ant-design",
+  "pack": "ichava/icon-sets-extras",
+  "pack_root": "/work/icon-sets-extras",
+  "current_version": "4.6.0",
+  "version_keys": [
+    "upstream.sets.ant-design.current_version"
+  ],
+  "version_check_url": "https://registry.npmjs.org/@ant-design/icons-svg/latest",
+  "licence_set": "ant-design",
+  "licence_missing": "@ant-design/icons-svg 4.6.0 on npm ships no licence file; the pack carries LICENSE from the ant-design/ant-design-icons repository at commit 7f2516ac91 (MIT), SHA-256 5d367fb0a07340571542eb4ee8eb1add62d37b71bad6786a57c2e9a86bf76c70.",
+  "source": {
+    "type": "npm",
+    "package": "@ant-design/icons-svg",
+    "source_path": "inline-svg"
+  },
+  "transforms": [
+    {
+      "type": "flatten-variants",
+      "variants": [
+        {
+          "path": "outlined",
+          "suffix": "-outlined"
+        },
+        {
+          "path": "filled",
+          "suffix": "-filled"
+        },
+        {
+          "path": "twotone",
+          "suffix": "-twotone"
+        }
+      ]
+    },
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files/ant-design"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-ant-design-{version}"
+    }
+  ]
+}

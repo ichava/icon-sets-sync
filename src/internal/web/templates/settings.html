@@ -1,0 +1,138 @@
+{{define "content"}}{{with .Data}}
+{{template "page_header" "Settings"}}
+<div class="row row-cards">
+  <div class="col-lg-8">
+    {{if .Problem}}<div class="alert alert-danger" role="alert"><strong>Not saved:</strong> <span class="text-break">{{.Problem}}</span></div><div hidden data-toast="danger" data-toast-title="Not saved" data-toast-body="{{.Problem}}"></div>{{end}}
+    <div class="card mb-3" id="packages-dirs">
+      <div class="card-header"><h2 class="card-title">Where the ichava packs live</h2>{{if eq .Saved "packages_dirs"}}<span class="badge badge-ok ms-auto" role="status">{{icon "circle-check"}}saved</span><div hidden data-toast="success" data-toast-title="Saved packages_dirs" data-toast-body="Written to the global config."></div>{{end}}</div>
+      <form method="post" action="/settings/packages-dirs" data-progress="Saving packages_dirs">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <div class="card-body">
+          <p class="text-secondary">Directories holding the pack checkouts (<code>icon-sets-tabler/</code>, <code>icon-sets-openmoji/</code>…), searched in order. <code>packages_dirs</code> in the global config; <code>--packages-dir</code> and <code>ICHAVA_PACKAGES_DIRS</code> override it{{if ne .PackagesDirsOrigin "default"}}, and right now the value comes from: <span class="badge badge-info">{{.PackagesDirsOrigin}}</span>{{end}}.</p>
+          <div data-list="packages-dirs">
+            {{range .PackagesDirs}}
+            <div class="input-group mb-2" data-list-row>
+              <input class="form-control font-monospace" name="dir" value="{{.Path}}" aria-label="Packs directory"{{if $.ReadOnly}} readonly{{end}}>
+              <span class="input-group-text">{{if .Exists}}<span class="badge badge-ok">{{icon "circle-check"}}found</span>{{else}}<span class="badge badge-bad">{{icon "alert-circle"}}missing</span>{{end}}</span>
+              {{if not $.ReadOnly}}<button type="button" class="btn btn-icon" data-list-remove aria-label="Remove {{.Path}}">{{icon "trash"}}</button>{{end}}
+            </div>
+            {{else}}
+            <p class="text-secondary" data-list-empty>None set: packs are found through <code>workspace</code>, <code>/work</code>, or beside this checkout.</p>
+            {{end}}
+          </div>
+          <template data-list-template>
+            <div class="input-group mb-2" data-list-row>
+              <input class="form-control font-monospace" name="dir" placeholder="~/projects/ichava/packages" aria-label="Packs directory">
+              <button type="button" class="btn btn-icon" data-list-remove aria-label="Remove this directory">{{icon "trash"}}</button>
+            </div>
+          </template>
+        </div>
+        {{if not $.ReadOnly}}
+        <div class="card-footer d-flex gap-2">
+          <button type="button" class="btn" data-list-add="packages-dirs">{{icon "plus"}}Add a directory</button>
+          <button type="submit" class="btn btn-primary ms-auto">{{icon "device-floppy"}}Save to the global config</button>
+        </div>
+        {{end}}
+      </form>
+    </div>
+    {{range $sec := .Sections}}
+    <div class="card{{if eq $sec.ID "integrations"}} mt-3{{end}}" id="{{$sec.ID}}">
+      <div class="card-header"><h2 class="card-title">{{$sec.Title}}</h2></div>
+      <div class="card-body">
+        {{if eq $sec.ID "integrations"}}
+        <p class="text-secondary mb-0">The REST API, the event stream, webhooks and the MCP server. <strong>Each is off until its switch here is on</strong>, and turning one on takes effect when the server next starts. API tokens and webhook secrets never live in the global config: <code>icon-sets-sync api token create</code> and <code>icon-sets-sync webhooks add</code> make them, show them once and keep them in the state directory. See docs/tools/api.md, webhooks.md and mcp.md.</p>
+        {{else}}
+        <p class="text-secondary mb-0">Highest first: flags, then <code>ICHAVA_*</code> environment, then the global config, then a pack's own <code>settings</code>, then defaults. This is <code>config print --origins</code> for the run as a whole; a pack's page shows its own layer merged in.{{if not $.ReadOnly}} <strong>Saving a value here writes it to the global config</strong>{{if $.Data.Global.Path}} (<code class="text-break">{{$.Data.Global.Path}}</code>){{end}}, kept in its history; <em>Reset</em> removes it from there, so the next layer down applies. The environment and flags belong to the process that started this server, so the page cannot change them.{{end}}</p>
+        {{end}}
+      </div>
+      <div class="list-group list-group-flush">
+        {{range $sec.Rows}}{{$err := and (eq $.Data.Field .Name) $.Data.Problem}}{{$id := .Anchor}}
+        <div class="list-group-item setting-row" id="{{$id}}">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="fw-medium mb-0" for="{{$id}}-input"><code>{{.Name}}</code></label>
+            <span class="text-secondary small">from</span> <span class="badge {{if eq .Origin "default"}}badge-muted{{else}}badge-info{{end}}">{{.Origin}}</span>
+            {{if eq $.Data.Saved .Name}}<span class="badge badge-ok" role="status">{{icon "circle-check"}}saved to the global config</span><div hidden data-toast="success" data-toast-title="Saved {{.Name}}" data-toast-body="Written to the global config."></div>{{end}}
+            {{if eq $.Data.Reset .Name}}<span class="badge badge-ok" role="status">{{icon "circle-check"}}removed from the global config</span><div hidden data-toast="success" data-toast-title="Reset {{.Name}}" data-toast-body="Removed from the global config; the next layer down applies."></div>{{end}}
+          </div>
+          <div class="text-secondary small mt-1" id="{{$id}}-help">{{.Help}}</div>
+          {{if $.ReadOnly}}
+          <div class="mt-2"><code class="text-break">{{orDash .Value}}</code></div>
+          {{else if eq .Name "packages_dirs"}}
+          <div class="mt-2"><code class="text-break">{{orDash .Value}}</code> <a class="ms-1" href="#packages-dirs">Edit in the list above</a></div>
+          {{else}}
+          <form method="post" action="/settings/value/{{.Name}}" class="setting-form mt-2" data-setting="{{.Name}}" data-check-url="/settings/value/{{.Name}}/check" data-progress="Saving {{.Name}}">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <div class="setting-control">
+            {{if eq .Input "enum"}}{{$v := .Value}}
+              <select class="form-select{{if $err}} is-invalid{{end}}" id="{{$id}}-input" name="value" aria-describedby="{{$id}}-help {{$id}}-note {{$id}}-error" required>
+                {{range .Enum}}<option value="{{.}}"{{if eq . $v}} selected{{end}}>{{.}}</option>{{end}}
+              </select>
+            {{else if eq .Input "bool"}}
+              <input type="hidden" name="value" value="false">
+              <label class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="{{$id}}-input" name="value" value="true"{{if .On}} checked{{end}} aria-describedby="{{$id}}-help {{$id}}-note">
+                <span class="form-check-label">{{if .On}}on{{else}}off{{end}}</span>
+              </label>
+            {{else if eq .Input "int"}}
+              <input class="form-control{{if $err}} is-invalid{{end}}" type="number" inputmode="numeric" step="1" id="{{$id}}-input" name="value" value="{{if $err}}{{$.Data.Submitted}}{{else}}{{.Value}}{{end}}" min="{{.Min}}"{{if .Max}} max="{{.Max}}"{{end}} required aria-describedby="{{$id}}-help {{$id}}-note {{$id}}-error">
+            {{else if or (eq .Input "list") (eq .Input "textarea") (eq .Input "json")}}
+              <textarea class="form-control font-monospace{{if $err}} is-invalid{{end}}" id="{{$id}}-input" name="value" rows="{{if eq .Input "list"}}3{{else if eq .Input "json"}}6{{else}}4{{end}}" maxlength="4096" spellcheck="false" required aria-describedby="{{$id}}-help {{$id}}-note {{$id}}-error">{{if $err}}{{$.Data.Submitted}}{{else if eq .Input "list"}}{{range .Items}}{{.}}
+{{end}}{{else}}{{.Value}}{{end}}</textarea>
+            {{else}}
+              <input class="form-control font-monospace{{if $err}} is-invalid{{end}}" type="text" id="{{$id}}-input" name="value" value="{{if $err}}{{$.Data.Submitted}}{{else}}{{.Value}}{{end}}" maxlength="4096" autocomplete="off" spellcheck="false" required{{if eq .Input "dir"}} placeholder="~/path/to/directory"{{else if eq .Input "file"}} placeholder="/opt/homebrew/bin/npm"{{else if eq .Input "pem"}} placeholder="/etc/ssl/icon-sets-sync/cert.pem"{{end}} aria-describedby="{{$id}}-help {{$id}}-note {{$id}}-error">
+            {{end}}
+              <div class="invalid-feedback" id="{{$id}}-error" data-role="setting-error">{{if $err}}{{$.Data.Problem}}{{end}}</div>
+            </div>
+            <div class="form-text" id="{{$id}}-note" data-role="setting-note">
+              {{if eq .Input "list"}}One entry per line. {{else if eq .Input "dir"}}An absolute directory that exists. {{else if eq .Input "file"}}An absolute path to the executable. {{end}}{{if .Max}}{{.Min}} to {{.Max}}. {{else if eq .Input "int"}}At least {{.Min}}. {{end}}Default: <code>{{orDash .Default}}</code>.
+              {{if .Overridden}}<span class="text-warning-emphasis icon-line mt-1">{{icon "alert-triangle"}}<span><code>{{.Env}}</code>{{if eq .Origin "flag"}} or a flag{{end}} sets this for the running server, so a saved value applies only where that is unset.</span></span>{{end}}
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="submit" class="btn btn-sm btn-primary" name="action" value="save">{{icon "device-floppy"}}Save</button>
+              {{if eq .Origin "global"}}<button type="submit" class="btn btn-sm" name="action" value="reset" formnovalidate data-confirm="{{.Name}} is removed from the global config, and the next layer down applies." data-confirm-title="Reset {{.Name}}?" data-confirm-button="Reset">{{icon "arrow-back-up"}}Reset</button>{{end}}
+            </div>
+          </form>
+          {{end}}
+        </div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title">This server</h2></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5">Version</dt><dd class="col-7">{{versionLabel .Version}}</dd>
+          <dt class="col-5">Listening on</dt><dd class="col-7"><code>{{.BindAddr}}</code></dd>
+          <dt class="col-5">Mode</dt><dd class="col-7">{{if .ReadOnly}}{{icon "lock"}} read-only{{else}}runs and edits allowed{{end}}</dd>
+        </dl>
+      </div>
+    </div>
+    <div class="card" data-role="config-locations">
+      <div class="card-header"><h2 class="card-title">Where the configs live</h2></div>
+      <div class="list-group list-group-flush">
+        <div class="list-group-item">
+          <div class="fw-medium">Pack configs</div>
+          <div class="text-secondary small mb-1">The registry (<code>packs.json</code>) and one config per pack: its upstream, its recipe and where its checkout is. Not settings.</div>
+          <code class="text-break">{{.ConfigDir}}</code>{{with .ConfigSource}} <span class="badge badge-muted">chosen by: {{.}}</span>{{end}}
+          <div class="text-secondary small mt-1">Order: <code>--config-dir</code>, <code>ICHAVA_CONFIG_DIR</code>, <code>config/</code> beside the binary, the checkout around the working directory, then the configs built into the binary.</div>
+        </div>
+        <div class="list-group-item">
+          <div class="fw-medium">Global config</div>
+          <div class="text-secondary small mb-1">Your settings for every run on this machine: the values in the table, and nothing about packs.</div>
+          {{if .Global.Path}}<code class="text-break">{{.Global.Path}}</code> <span class="badge {{if .Global.Legacy}}badge-warn{{else}}badge-muted{{end}}">chosen by: {{.Global.Layer}}</span>{{else}}<span>none yet</span>{{end}}
+          {{if .Global.Legacy}}<div class="alert alert-warning mt-2 mb-0" role="status">This file is at an old location. It belongs at <code class="text-break">{{.Global.Default}}</code>; run <code>icon-sets-sync config migrate</code> to copy it there.</div>{{end}}
+          {{if not .Global.Path}}<div class="text-secondary small mt-1">It would be created at <code class="text-break">{{.Global.Default}}</code>.</div>{{end}}
+          <div class="mt-2"><a class="btn btn-sm" href="/config/global">{{icon "file-code"}}{{if $.ReadOnly}}View{{else if .Global.Path}}Edit{{else}}Create{{end}}</a></div>
+        </div>
+        <div class="list-group-item">
+          <div class="fw-medium">Precedence</div>
+          <div class="text-secondary small">For each setting, the first layer that sets it wins: <code>--set</code> and flags, then <code>ICHAVA_*</code> environment, then the global config, then a pack's own <code>settings</code>, then the defaults. Each setting's "from" badge names the layer.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}{{end}}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pack.behind_upstream",
+  "description": "An upstream check found a pack behind its upstream.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pack",
+    "latest"
+  ],
+  "properties": {
+    "pack": {
+      "type": "string",
+      "minLength": 1
+    },
+    "current": {
+      "type": "string"
+    },
+    "latest": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
