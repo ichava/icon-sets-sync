@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "server.started",
+  "description": "serve began answering.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "address",
+    "tls",
+    "read_only",
+    "api"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tls": {
+      "type": "boolean"
+    },
+    "read_only": {
+      "type": "boolean"
+    },
+    "api": {
+      "type": "boolean"
+    }
+  }
+}

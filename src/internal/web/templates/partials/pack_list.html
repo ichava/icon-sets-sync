@@ -1,0 +1,7 @@
+{{/* A run's packs: the first three as chips, the rest folded away, so a
+     sync of every pack neither floods a table cell nor a page title. */}}
+{{define "pack_list"}}{{$n := len .}}<span class="pack-list">{{range $i, $p := .}}{{if lt $i 3}}<code>{{$p}}</code>{{end}}{{end}}</span>{{if gt $n 3}}
+<details class="pack-list-more">
+  <summary>and {{sub $n 3}} more</summary>
+  <span class="pack-list">{{range $i, $p := .}}{{if ge $i 3}}<code>{{$p}}</code>{{end}}{{end}}</span>
+</details>{{end}}{{end}}

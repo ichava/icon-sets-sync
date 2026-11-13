@@ -1,0 +1,97 @@
+{{define "content"}}{{with .Data}}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col">
+      <div class="page-pretitle"><a href="/config">{{icon "arrow-left"}} Config</a></div>
+      <h1 class="page-title"><code>{{.Doc.Name}}</code></h1>
+      <div class="text-secondary mt-1"><code class="text-break">{{.Doc.Path}}</code> · {{.Doc.Kind}}{{if not .Doc.Exists}} · does not exist yet; saving creates it{{end}}</div>
+    </div>
+    {{if and .Init .Editable}}
+    <div class="col-auto">
+      <form method="post" action="/config/{{.Doc.Name}}/reinit" data-progress="Reinitialising the global config" data-confirm="The file is replaced with one generated from this machine: {{range $i, $n := .Init.Notes}}{{if $i}}; {{end}}{{$n}}{{end}}. The current copy is kept in its history, so it can be restored." data-confirm-title="Reinitialise the global config?" data-confirm-button="Reinitialise">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <button type="submit" class="btn">{{icon "refresh"}}Reinitialise</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+</div>
+
+{{with .Init}}
+<div class="card mb-3" data-role="init">
+  <div class="card-body py-2">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      {{if eq (print .State) "generated"}}<span class="badge badge-info">generated</span><span>Generated from this machine{{if not .Generated.IsZero}} on <time datetime="{{iso .Generated}}">{{when .Generated}}</time>{{end}}. Each start refreshes it until you edit it.</span>
+      {{else if eq (print .State) "edited"}}<span class="badge badge-muted">edited</span><span>You have edited this file, so a start leaves it alone. Reinitialise replaces it with what this machine has now.</span>
+      {{else}}<span class="badge badge-warn">{{.State}}</span><span>Nothing is set yet. The next start fills it in, or press Reinitialise now.</span>{{end}}
+    </div>
+    {{if .Notes}}<details class="mt-2"><summary class="text-secondary small">What a generated config holds on this machine</summary><ul class="small mb-0 mt-1">{{range .Notes}}<li>{{.}}</li>{{end}}</ul></details>{{end}}
+  </div>
+</div>
+{{end}}
+{{if eq .Reinit "1"}}<div hidden data-toast="success" data-toast-title="Global config reinitialised" data-toast-body="Generated from this machine. The previous copy is in the history."></div>{{else if eq .Reinit "same"}}<div hidden data-toast="info" data-toast-title="Already up to date" data-toast-body="A config generated from this machine is the same as the file, so nothing was written."></div>{{end}}
+
+{{if .Saved}}<div class="alert alert-success" role="status">{{icon "circle-check"}} Saved. The next run reads it.</div><div hidden data-toast="success" data-toast-title="Saved {{.Doc.Name}}" data-toast-body="The previous copy is in the history."></div>{{end}}
+{{if .Conflict}}<div class="alert alert-warning" role="alert">{{icon "alert-triangle"}} This file changed on disk after you opened it, so nothing was saved. Your text is below; <a href="/config/{{.Doc.Name}}">reload the file</a> to see the current version, then apply your change again.</div>{{end}}
+{{if .Doc.ReadOnly}}<div class="alert alert-info" role="status">{{icon "lock"}} Read-only: {{.Doc.Why}}</div>{{else if $.ReadOnly}}<div class="alert alert-info" role="status">{{icon "lock"}} This server was started with --read-only.</div>{{end}}
+
+<form method="post" action="/config/{{.Doc.Name}}" id="editor-form" data-progress="Saving {{.Doc.Name}}" data-validate-url="/config/{{.Doc.Name}}/validate" data-confirm="The file on disk is replaced with the contents of the editor." data-confirm-title="Save {{.Doc.Name}}?" data-confirm-button="Save">
+  <input type="hidden" name="csrf" value="{{$.CSRF}}">
+  <input type="hidden" name="base" value="{{.Base}}">
+  <div class="card mb-3">
+    <div class="editor">
+      <ol class="editor-gutter" aria-hidden="true" id="editor-gutter">{{range $i, $_ := .Lines}}<li{{if index $.Data.ErrorLines (inc $i)}} class="badge-bad fw-bold"{{end}}></li>{{end}}</ol>
+      <div class="editor-body">
+        <pre class="editor-hl" id="editor-hl" aria-hidden="true"><code></code></pre>
+        <label class="visually-hidden" for="editor-text">Contents of {{.Doc.Name}}</label>
+        <textarea class="editor-text" id="editor-text" name="content" data-lang="{{.Lang}}" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-describedby="editor-findings"{{if not .Editable}} readonly{{end}}>{{.Text}}</textarea>
+      </div>
+    </div>
+  </div>
+  <div class="btn-list mb-2 align-items-center">
+    <button type="submit" class="btn btn-outline-primary" formaction="/config/{{.Doc.Name}}/validate" data-confirm-skip data-editor-action="validate">{{icon "shield-check"}}Validate</button>
+    <button type="submit" class="btn" formaction="/config/{{.Doc.Name}}/fix" data-confirm-skip data-editor-action="fix" data-fix-url="/config/{{.Doc.Name}}/fix">{{icon "wand"}}Fix</button>
+    <a class="btn" href="/config/{{.Doc.Name}}/history">{{icon "history"}}History</a>
+    <span class="ms-auto d-inline-flex align-items-center gap-2" id="editor-status" role="status" aria-live="polite">{{if .Checked}}{{if .Problems}}<span class="badge badge-bad">{{icon "circle-x"}}{{.Problems}} problem(s)</span>{{else}}<span class="badge badge-ok">{{icon "circle-check"}}Valid</span>{{end}}{{else}}<span class="badge badge-muted">Not checked</span>{{end}}</span>
+    {{if .Editable}}<button type="submit" class="btn btn-primary" id="editor-save"{{if .Problems}} disabled{{end}}>{{icon "device-floppy"}}Save</button>{{end}}
+  </div>
+</form>
+
+<section class="mb-3" id="editor-findings" aria-labelledby="findings-title">
+  <h2 class="visually-hidden" id="findings-title">{{if .Checked}}{{if .Problems}}{{.Problems}} problem(s){{else}}Valid{{end}}{{else}}Not validated yet{{end}}</h2>
+  <ul class="list-unstyled mb-0" id="editor-findings-list">
+    {{range .Findings}}<li class="finding finding-{{.Level}}">{{if eq .Level "error"}}{{icon "circle-x"}}{{else if eq .Level "warn"}}{{icon "alert-triangle"}}{{else}}{{icon "circle-check"}}{{end}} {{if .Line}}<a href="#editor-text" data-editor-line="{{.Line}}" data-editor-col="{{.Col}}">line {{.Line}}, column {{.Col}}</a>: {{end}}<span class="finding-text">{{.Text}}</span></li>{{end}}
+  </ul>
+</section>
+
+<div class="card mb-3" data-role="fix" id="editor-fix"{{if not .Fixed}} hidden{{end}}>
+  <div class="card-header"><h2 class="card-title">{{icon "wand"}}Fix changed the text</h2><div class="card-subtitle ms-2">review it in the editor; nothing is saved until you press Save</div></div>
+  <div class="card-body">
+    <ul class="mb-0" id="editor-fix-list">{{range .Fixed}}<li>{{.}}</li>{{end}}</ul>
+  </div>
+  <pre class="mb-0 border-top px-3 py-2" id="editor-fix-diff"{{if not .FixDiff}} hidden{{end}}><code>{{.FixDiff}}</code></pre>
+</div>
+{{if .Fixed}}<div hidden data-toast="info" data-toast-title="Fix changed the text" data-toast-body="Review the change, then Save."></div>{{else if .FixNone}}<div hidden data-toast="info" data-toast-title="Nothing to fix" data-toast-body="Fix found nothing it can repair safely."></div>{{end}}
+
+{{if .Keys}}
+<details class="card mb-3" data-role="key-picker">
+  <summary class="card-header">{{icon "list-details"}}<span class="ms-1">Known settings: insert one at the cursor</span></summary>
+  <div class="card-body">
+    <label class="form-label" for="key-filter">Filter</label>
+    <input class="form-control mb-2" id="key-filter" data-key-filter placeholder="git, packages, dry…" autocomplete="off">
+    <div class="list-group" data-key-list>
+      {{range .Keys}}
+      <div class="list-group-item" data-key-name="{{.Name}}">
+        <div class="d-flex align-items-start gap-2">
+          <div class="flex-fill"><code>{{.Name}}</code> <span class="badge badge-muted">{{.Type}}</span><div class="text-secondary small">{{.Help}}</div></div>
+          {{if $.Data.Editable}}<button type="button" class="btn btn-sm" data-insert="{{.Insert}}" aria-label="Insert {{.Name}}">{{icon "plus"}}Insert</button>{{end}}
+        </div>
+      </div>
+      {{end}}
+    </div>
+    <p class="text-secondary small mt-2 mb-0">The full schema is <a href="/schema/global.schema.json">global.schema.json</a>; the <code>$schema</code> line makes an editor complete and check every key.</p>
+  </div>
+</details>
+{{end}}
+
+{{end}}{{end}}

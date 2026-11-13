@@ -1,0 +1,7 @@
+{{define "cli_snippet"}}<div class="mb-3">
+  <div class="d-flex align-items-center mb-1">
+    <span class="form-label mb-0">{{.Label}}</span>
+    <button type="button" class="btn btn-sm btn-ghost-secondary ms-auto" data-copy-target="{{.ID}}">{{icon "copy"}}<span data-role="copy-label">Copy</span></button>
+  </div>
+  <pre class="cli-snippet mb-0"><code id="{{.ID}}">{{.Text}}</code></pre>
+</div>{{end}}

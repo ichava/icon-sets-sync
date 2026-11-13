@@ -1,0 +1,13 @@
+{
+  "_note": "Fixture for the ui-a11y CI job. Its upstream is a local file server the job starts.",
+  "name": "icon-sets-a11y",
+  "pack": "ichava/icon-sets-a11y",
+  "pack_root": "icon-sets-a11y",
+  "current_version": "1.0.0",
+  "version_check_url": "http://127.0.0.1:8765/latest.json",
+  "source": {"type": "npm", "package": "icon-sets-a11y-fixture"},
+  "sinks": [
+    {"type": "filesystem", "root": "{pack_root}/resources/assets/svg/files"},
+    {"type": "git-branch", "repo_root": "{pack_root}"}
+  ]
+}

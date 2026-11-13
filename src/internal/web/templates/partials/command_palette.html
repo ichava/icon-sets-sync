@@ -1,0 +1,43 @@
+{{define "command_palette"}}<div class="modal modal-blur fade" id="command-palette" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="command-palette-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable command-palette" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="visually-hidden" id="command-palette-title">Command palette</h2>
+        <div class="input-icon w-100">
+          <span class="input-icon-addon">{{icon "search"}}</span>
+          <input type="search" class="form-control" id="command-palette-input" placeholder="Go to a page or pack, or run a command" autocomplete="off" spellcheck="false" aria-label="Search pages, packs and commands" aria-controls="command-palette-list" role="combobox" aria-expanded="true">
+        </div>
+      </div>
+      <div class="modal-body p-0">
+        <div class="list-group list-group-flush" id="command-palette-list" role="listbox" aria-label="Results">
+          <div class="list-group-header sticky-top">Pages</div>
+          {{template "palette_link" (paletteItem "/" "layout-dashboard" "Packs" "g p")}}
+          {{template "palette_link" (paletteItem "/jobs" "history" "Runs" "g r")}}
+          {{template "palette_link" (paletteItem "/manifest-pack/audit" "search" "Manifest pack audit" "g a")}}
+          {{template "palette_link" (paletteItem "/validate" "checklist" "Validate packs" "")}}
+          {{template "palette_link" (paletteItem "/config" "file-code" "Config files" "g c")}}
+          {{template "palette_link" (paletteItem "/config/global" "file-code" "Global config" "")}}
+          {{template "palette_link" (paletteItem "/settings" "settings" "Settings" "g s")}}
+          {{template "palette_link" (paletteItem "/about" "info-circle" "About" "g i")}}
+          {{template "palette_link" (paletteItem "/about/licenses" "license" "Third-party licences" "")}}
+          <div class="list-group-header sticky-top">Commands</div>
+          <button type="button" class="list-group-item list-group-item-action d-flex align-items-center" role="option" data-command="check">{{iconc "refresh" "me-2 text-secondary"}}<span class="flex-fill">Check upstream now</span></button>
+          {{if not .ReadOnly}}<button type="button" class="list-group-item list-group-item-action d-flex align-items-center" role="option" data-command="sync-all-dry-run">{{iconc "player-play" "me-2 text-secondary"}}<span class="flex-fill">Sync stale packs (dry run)</span></button>{{end}}
+          <button type="button" class="list-group-item list-group-item-action d-flex align-items-center" role="option" data-command="theme">{{iconc "moon" "me-2 text-secondary"}}<span class="flex-fill">Switch between light and dark</span><kbd>t</kbd></button>
+          <button type="button" class="list-group-item list-group-item-action d-flex align-items-center" role="option" data-command="shortcuts">{{iconc "keyboard" "me-2 text-secondary"}}<span class="flex-fill">Keyboard shortcuts</span><kbd>?</kbd></button>
+          <button type="button" class="list-group-item list-group-item-action d-flex align-items-center text-danger" role="option" data-command="stop">{{iconc "power" "me-2"}}<span class="flex-fill">Stop the server</span></button>
+          {{if .Packs}}<div class="list-group-header sticky-top">Packs</div>{{end}}
+          {{range .Packs}}{{template "palette_link" (paletteItem (printf "/packs/%s" .) "packages" . "")}}{{end}}
+          <div class="list-group-item text-secondary d-none" data-role="palette-empty">Nothing matches.</div>
+        </div>
+      </div>
+      <div class="modal-footer justify-content-start text-secondary small">
+        <kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close
+      </div>
+    </div>
+  </div>
+</div>
+<form method="post" action="/check" id="palette-check" class="d-none"><input type="hidden" name="csrf" value="{{.CSRF}}"></form>
+{{if not .ReadOnly}}<form method="post" action="/sync-all" id="palette-sync-all" class="d-none"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="mode" value="dry-run"></form>{{end}}
+{{end}}
+{{define "palette_link"}}<a class="list-group-item list-group-item-action d-flex align-items-center" role="option" href="{{.Href}}">{{iconc .Icon "me-2 text-secondary"}}<span class="flex-fill">{{.Label}}</span>{{if .Keys}}<kbd>{{.Keys}}</kbd>{{end}}</a>{{end}}

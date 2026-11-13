@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "job.started",
+  "description": "A run began, from the web UI or the API.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "kind",
+    "packs",
+    "dry_run"
+  ],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$",
+      "description": "the run's id, as /jobs/{id} and /api/v1/jobs/{id} take it"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "sync",
+        "sync-all",
+        "recipe",
+        "audit"
+      ]
+    },
+    "packs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "dry_run": {
+      "type": "boolean"
+    },
+    "label": {
+      "type": "string"
+    }
+  }
+}

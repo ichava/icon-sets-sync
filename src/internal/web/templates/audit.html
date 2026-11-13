@@ -1,0 +1,125 @@
+{{define "content"}}{{with .Data}}
+{{template "page_header" "Manifest pack audit"}}
+<p class="text-secondary">For every set in the aggregator pack, fetches candidate npm packages and scores them against the committed icons. Nothing is accepted on a name: a candidate is believed only when the bytes it ships match the bytes already committed. A survey, not a gate: unresolved sets are work for a person. It reads the pack tree and writes only temporary downloads.</p>
+
+{{if .Enabled}}<div hidden data-toast="success" data-toast-title="Aggregator config loaded" data-toast-body="The private config directory is in the global config and applies now."></div>{{end}}
+{{if .SaveErr}}<div class="alert alert-danger" role="alert">{{icon "alert-circle"}} <strong>Not loaded:</strong> <span class="text-break">{{.SaveErr}}</span> Fix the global config on the Config page, then try again.</div>{{end}}
+{{if .Unavailable}}
+<div class="card mb-3" data-role="audit-unavailable">
+  <div class="card-header"><h2 class="card-title">{{icon "alert-triangle"}}The aggregator pack's config is not loaded</h2></div>
+  <div class="card-body">
+    <h3 class="h4">Cause</h3>
+    {{if .PrivateDir}}
+    <p>This server reads private configs from <code class="text-break">{{.PrivateDir}}</code>, but there is no aggregator pack config in it.</p>
+    {{else}}
+    <p>The aggregator pack's config is private: it lives in that pack's checkout, under <code>.dev/icon-sets-sync/</code>, not in the shipped <code>config/</code>. This server has no private config directory, so the pack is not registered and nothing can be audited.</p>
+    {{end}}
+    <h3 class="h4">Fix</h3>
+    {{if .Candidates}}
+    <p>Found on this machine. Loading one writes <code>private_config_dir</code> into the global config and applies it at once:</p>
+    <div class="list-group mb-3">
+      {{range .Candidates}}
+      <div class="list-group-item d-flex flex-wrap align-items-center gap-2">
+        <code class="text-break flex-fill">{{.}}</code>
+        <form method="post" action="/settings/private-config-dir" class="ms-auto">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <input type="hidden" name="dir" value="{{.}}">
+          <button type="submit" class="btn btn-primary btn-sm">{{icon "folder"}}Use this directory</button>
+        </form>
+      </div>
+      {{end}}
+    </div>
+    {{else if not $.ReadOnly}}
+    <p>No pack checkout with a <code>.dev/icon-sets-sync/</code> directory was found under <code>packages_dirs</code>, the workspace or beside this checkout. Check out the aggregator pack, or set where the packs live on the <a class="text-decoration-underline" href="/settings#packages-dirs">Settings</a> page.</p>
+    {{end}}
+    <p class="mb-1">Or set it yourself, any of these:</p>
+    <ul class="mb-0">
+      <li>start with <code>--private-config-dir &lt;pack&gt;/.dev/icon-sets-sync</code></li>
+      <li>export <code>ICHAVA_PRIVATE_CONFIG_DIR</code></li>
+      <li>add <code>"private_config_dir"</code> to the <a class="text-decoration-underline" href="/config/global">global config</a></li>
+    </ul>
+  </div>
+</div>
+{{end}}
+{{if .Unknown}}
+<div class="alert alert-warning" role="alert" data-role="unknown-set">
+  <h2 class="alert-heading h4">{{icon "alert-triangle"}}Nothing was started: there is no set <code>{{.Unknown.Set}}</code></h2>
+  <div class="alert-description">
+    <p class="mb-2">Sets are named after their directory under <code>resources/assets/svg/files/</code>{{if .Unknown.Suggestions}}; the closest:{{else}}, and none is close to that name. Leave the set empty to audit every set.{{end}}</p>
+    {{if .Unknown.Suggestions}}
+    <div class="btn-list">
+      {{range .Unknown.Suggestions}}
+      <form method="post" action="/manifest-pack/audit">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="set" value="{{.}}">
+        {{if $.Data.Pkg}}<input type="hidden" name="package" value="{{$.Data.Pkg}}">{{end}}
+        <button type="submit" class="btn btn-sm">{{icon "player-play"}}Audit <code class="ms-1">{{.}}</code></button>
+      </form>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+{{if not $.ReadOnly}}
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="post" action="/manifest-pack/audit" class="row g-2 align-items-end">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <div class="col-sm-4">
+        <label class="form-label" for="audit-set">Set <span class="text-secondary">(optional)</span></label>
+        <input class="form-control" id="audit-set" name="set" placeholder="every set" autocomplete="off" spellcheck="false" value="{{.Set}}"{{if .Sets}} list="audit-sets"{{end}}>
+        {{if .Sets}}<datalist id="audit-sets">{{range .Sets}}<option value="{{.}}"></option>{{end}}</datalist>{{end}}
+      </div>
+      <div class="col-sm-5">
+        <label class="form-label" for="audit-package">Verify this npm package <span class="text-secondary">(needs a set)</span></label>
+        <input class="form-control" id="audit-package" name="package" autocomplete="off" spellcheck="false" value="{{.Pkg}}">
+      </div>
+      <div class="col-sm-3">
+        <button type="submit" class="btn btn-primary w-100"{{if or .Live .Unavailable}} disabled aria-describedby="audit-start-why"{{end}}>{{icon "player-play"}}Start audit</button>
+      </div>
+    </form>
+    {{if .Unavailable}}<div class="form-text" id="audit-start-why">Load the aggregator pack's config first: see the fix above.</div>{{else if .Live}}<div class="form-text" id="audit-start-why">An audit is running; one at a time.</div>{{end}}
+  </div>
+</div>
+{{end}}
+
+{{if .Job}}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3" role="status" aria-live="polite">
+  {{if and .Errors (eq (print .Job.Status) "succeeded")}}<span class="badge badge-warn">incomplete</span>{{else}}<span class="badge {{runClass .Job.Status}}">{{.Job.Status}}</span>{{end}}
+  <span>Latest audit: {{.Job.Label}}, started <time datetime="{{iso .Job.Started}}">{{when .Job.Started}}</time>.{{if and .Errors (eq (print .Job.Status) "succeeded")}} <strong>{{.Errors}} set(s) could not be read</strong>, so it surveyed less than it says.{{end}}{{if .Unavailable}} <span class="text-secondary">From before this server's config; run it again once the config is loaded.</span>{{end}}</span>
+  <a href="/jobs/{{.Job.ID}}">Watch the run</a>
+  {{if .Results}}<a class="ms-auto btn btn-outline-secondary btn-sm" href="/manifest-pack/audit/{{.Job.ID}}/manifest.json">{{icon "download"}}Download as a set manifest</a>{{end}}
+</div>
+{{if .Results}}
+<div class="row row-cards mb-3">
+  {{if .Errors}}<div class="col-6 col-md-4 col-lg"><div class="card card-sm"><div class="card-body"><div class="text-secondary">could not read</div><div class="h2 mb-0">{{.Errors}}</div></div></div></div>{{end}}
+  {{range .Order}}<div class="col-6 col-md-4 col-lg"><div class="card card-sm"><div class="card-body"><div class="text-secondary">{{.}}</div><div class="h2 mb-0">{{index $.Data.Summary .}}</div></div></div></div>{{end}}
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <caption class="visually-hidden">Each set, how confidently its upstream was identified, and where</caption>
+      <thead><tr><th scope="col">Set</th><th scope="col">Icons</th><th scope="col">Confidence</th><th scope="col">Identical</th><th scope="col">Package</th><th scope="col">Path</th></tr></thead>
+      <tbody>
+        {{range .Results}}
+        <tr>
+          <th scope="row"><code>{{.Set}}</code>{{if .Note}}<div class="text-secondary small fw-normal">{{.Note}}</div>{{end}}
+            {{with index $.Data.Problems .Set}}<div class="small fw-normal mt-1" data-role="set-problem"><div><strong>Cause:</strong> <span class="text-break">{{.Cause}}</span></div><div><strong>Fix:</strong> {{.Fix}}{{range .Suggestions}} <code>{{.}}</code>{{end}}</div></div>{{end}}</th>
+          <td>{{thousands .Icons}}</td>
+          <td>{{if .Error}}<span class="badge badge-bad">could not read</span>{{else}}<span class="badge {{confClass .Confidence}}">{{.Confidence}}</span>{{end}}</td>
+          <td>{{.Identical}}/{{.Icons}}</td>
+          <td>{{if .Package}}<code>{{.Package}}{{if .Version}}@{{.Version}}{{end}}</code>{{else}}–{{end}}</td>
+          <td>{{if and .Path (ne .Path ".")}}<code>{{.Path}}</code>{{else}}–{{end}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{template "pager" .Pager}}
+</div>
+{{else if .Live}}<p class="text-secondary">Running; results appear here when it finishes.</p>{{end}}
+{{else}}
+<p class="text-secondary">No audit has run yet.</p>
+{{end}}
+{{end}}{{end}}
