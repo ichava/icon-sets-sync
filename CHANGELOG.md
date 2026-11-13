@@ -4,11 +4,6 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ## [Unreleased]
 
-### Changed
-
-- `docs/configuration.md` and the SVG package's comments name icon-browser where they named react-icon-browser, which is retired; the browser's SVG caps live in icon-browser's `resources/js` since 2026-11-12. CHANGELOG history and the guard in `syncscript_test.go` that names the retired path are unchanged.
-- `release.yml` calls simtabi/.github's shared `go-release.yml` at its `v1.0.0` release (`767e0c0`), pinned as `@<commit>  # v1.0.0` so Dependabot can advance the commit and the tag comment together. The release adds optional inputs only (`node-version` among them) and changes nothing a caller passes.
-
 ## [0.1.0] - 2026-11-13
 
 First release of `ichava/icon-sets-sync` as a single published commit. The 0.1.x tags cut between 2026-10-23 and 2026-10-26 (v0.1.0 to v0.1.2, with their `src/` module aliases) are folded into this release, and their notes are kept below under *Archived history*.
@@ -67,6 +62,9 @@ The Go module proxy and checksum database already hold `github.com/ichava/icon-s
 - **Composer package `ichava/icon-sets-sync`.** A `composer.json` and a small PHP launcher at `bin/icon-sets-sync`, so a PHP project can `composer require --dev ichava/icon-sets-sync` and run `vendor/bin/icon-sets-sync`. The first run downloads the release binary for the host OS and architecture from the GitHub release matching the installed tag (the latest release for a branch install, or `ICHAVA_ICON_SETS_SYNC_VERSION`), checks it against the release's `checksums.txt`, caches it under the package's `.cache/bin/`, and runs it with the given arguments. When `cosign` is on `PATH` the Sigstore signature over `checksums.txt` is verified too; `ICHAVA_ICON_SETS_SYNC_REQUIRE_SIGNATURE=1` makes that mandatory. The Go binary and Docker image are unchanged. Tests now include a Composer job running `composer validate --strict` and the launcher's Pest suite on PHP 8.4 and 8.5. Not on Packagist yet.
 
 ### Changed
+
+- `docs/configuration.md` and the SVG package's comments name icon-browser where they named react-icon-browser, which is retired; the browser's SVG caps live in icon-browser's `resources/js` since 2026-11-12. CHANGELOG history and the guard in `syncscript_test.go` that names the retired path are unchanged.
+- `release.yml` calls simtabi/.github's shared `go-release.yml` at its `v1.0.0` release (`767e0c0`), pinned as `@<commit>  # v1.0.0` so Dependabot can advance the commit and the tag comment together. The release adds optional inputs only (`node-version` among them) and changes nothing a caller passes.
 
 - **A release builds on a pushed version tag, or on request** (owner, 2026-11-13). `release.yml` now holds only those two triggers (`push` of `v[0-9]+.[0-9]+.[0-9]+[-*]`, and `workflow_dispatch -f tag=vX.Y.Z`, replacing the `-f confirm=release-go` gate) and calls `simtabi/.github`'s shared `go-release.yml`, which every Go project uses; the app and launcher step moves to `.scripts/release-launchers.sh`, run as its `post-release`, and now reads the tag from the shared workflow instead of `GITHUB_REF_NAME`, which is a branch on a dispatched run. `TestReleaseRunsOnAVersionTagOrOnRequest` replaces `TestReleaseRunsOnlyOnAConfirmedDispatch` and fails on any other trigger, a branch push, or a pipeline of its own (proven red all three ways).
 - **Binaries are published on the GitHub release, and nowhere else** (owner, 2026-11-13). A release, still dispatched by hand with `-f confirm=release-go` for a version the maintainers choose, now also attaches the macOS app (`icon-sets-sync_macos_universal.app.zip`) and the three Windows launchers, built from the released universal binary, with their own `checksums-launchers.txt` and build-provenance attestation. The README and `docs/installation.md` offer the download first and the source build second; there is still no `go install` path, tap, bucket or image, and `TestGoReleaserPublishesNowhereElse` fails if `src/.goreleaser.yaml` gains one (proven red with a `brews` block). The launcher step was run locally against a GoReleaser snapshot: four assets, all verified by their checksums file.
