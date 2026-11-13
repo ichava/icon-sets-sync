@@ -1,0 +1,30 @@
+{
+  "_note": "@mdi/svg's svg/ into files/. The policy only re-serialises ` />` as `/>`. The licence sink writes upstream's Pictogrammers Free License to licenses/mdi-svg/; the Apache-2.0 text it names is hand-supplied in licenses/apache-2.0/, which the sink never writes. The Pictogrammers licence has no standard text, so it is pinned by SHA-256. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 7,447 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-mdi",
+  "pack": "ichava/icon-sets-mdi",
+  "pack_root": "/work/icon-sets-mdi",
+  "current_version": "7.4.47",
+  "version_check_url": "https://registry.npmjs.org/@mdi/svg/latest",
+  "licence_sha256": "f3bc8715bad84b26396bb42d2abd11f919cf58163be158eab79ecbaabf84cdf2",
+  "source": {
+    "type": "npm",
+    "package": "@mdi/svg",
+    "source_path": "svg"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

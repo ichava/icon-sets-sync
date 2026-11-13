@@ -1,0 +1,50 @@
+{{define "content"}}{{with .Data}}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col">
+      <div class="page-pretitle"><a href="/config/{{.Doc.Name}}">{{icon "arrow-left"}} {{.Doc.Name}}</a></div>
+      <h1 class="page-title">History of <code class="ms-1">{{.Doc.Name}}</code></h1>
+      <div class="text-secondary mt-1">A copy is kept before every save, from here or from <code>config edit</code>, <code>fix</code> and <code>restore</code>. <code class="text-break">{{.Doc.Path}}</code></div>
+    </div>
+  </div>
+</div>
+
+{{if .Entry}}
+<div class="card mb-3" data-role="history-diff">
+  <div class="card-header">
+    <h2 class="card-title">{{icon "git-compare"}}The copy of <time datetime="{{iso .Entry.Time}}">{{when .Entry.Time}}</time> against the file now</h2>
+  </div>
+  {{if .Diff}}<pre class="mb-0 px-3 py-2"><code>{{.Diff}}</code></pre>{{else}}<div class="card-body text-secondary">Identical to the file now.</div>{{end}}
+  {{if and .Editable .Diff}}
+  <div class="card-footer">
+    <form method="post" action="/config/{{.Doc.Name}}/restore" data-confirm="The file is replaced with this copy. Its current text is kept in the history first, so this can be undone." data-confirm-title="Restore this copy?" data-confirm-button="Restore">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <input type="hidden" name="id" value="{{.Entry.ID}}">
+      <input type="hidden" name="base" value="{{.Base}}">
+      <button type="submit" class="btn btn-warning">{{icon "arrow-back-up"}}Restore this copy</button>
+    </form>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <caption class="visually-hidden">Saved copies, newest first</caption>
+      <thead><tr><th scope="col">Saved</th><th scope="col">Size</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+      <tbody>
+        {{range .Entries}}
+        <tr{{if and $.Data.Entry (eq .ID $.Data.Entry.ID)}} class="table-active"{{end}}>
+          <td><time datetime="{{iso .Time}}">{{when .Time}}</time></td>
+          <td>{{.Size}} bytes</td>
+          <td class="text-end"><a class="btn btn-sm" href="/config/{{$.Data.Doc.Name}}/history/{{.ID}}">{{icon "git-compare"}}Diff</a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="3" class="text-secondary">No copies yet. One is kept the first time the file is saved.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}{{end}}

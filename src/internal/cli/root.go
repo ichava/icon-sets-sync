@@ -1,0 +1,415 @@
+// Package cli is the cobra command tree. It stays thin: every command parses
+// flags and calls into internal/app and internal/core, so the TUI can call the
+// same functions and the two front-ends cannot drift into two implementations.
+package cli
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"github.com/ichava/icon-sets-sync/src/internal/app"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/httpx"
+	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
+	"github.com/ichava/icon-sets-sync/src/internal/core/sources"
+	"github.com/ichava/icon-sets-sync/src/internal/ui"
+	"github.com/ichava/icon-sets-sync/src/internal/version"
+)
+
+// Exit codes. These are a contract, not an implementation detail: `check`
+// exiting 1 on a stale pack is what makes it usable as a CI gate, and Click
+// used 2 for a usage error, which anything wrapping the earlier binary may
+// already depend on.
+//
+// ExitNeedsReview (3) is a sync a guard stopped for a person: it would rename
+// or remove shipped icons. A dry run that would hit the guard exits 3 too,
+// having listed every icon. A failure in the same run wins: 1.
+const (
+	ExitOK          = 0
+	ExitFailure     = 1
+	ExitUsage       = 2
+	ExitNeedsReview = 3
+)
+
+// ExitError carries an exit code out of a command.
+type ExitError struct {
+	Code int
+	Err  error
+}
+
+func (e *ExitError) Error() string {
+	if e.Err == nil {
+		return fmt.Sprintf("exit %d", e.Code)
+	}
+	return e.Err.Error()
+}
+func (e *ExitError) Unwrap() error { return e.Err }
+
+func usageErr(format string, a ...any) error {
+	return &ExitError{Code: ExitUsage, Err: fmt.Errorf(format, a...)}
+}
+
+func failure(err error) error { return &ExitError{Code: ExitFailure, Err: err} }
+
+// globals holds the flags every command shares.
+type globals struct {
+	configDir    string
+	privateDir   string
+	workspace    string
+	globalConfig string
+	sets         []string
+	verbose      bool
+	quiet        bool
+	noColor      bool
+	noInput      bool
+	packagesDirs []string
+	output       string
+	assumeYes    bool
+	jsonOut      bool
+
+	// Bound by the sync, sync-all and recipe commands. They are read through
+	// the settings flag layer rather than directly, so a flag outranks the
+	// environment and the config files in exactly one place.
+	dryRun      bool
+	commit      bool
+	force       bool
+	concurrency int
+}
+
+var g globals
+
+// state is what PersistentPreRunE resolved, for the commands to read.
+type runState struct {
+	stack      settings.Stack
+	run        settings.Resolved
+	globalPath string
+	global     settings.GlobalLocation
+}
+
+var state runState
+
+// Execute builds the command tree and runs it, returning the process exit code.
+func Execute() int {
+	ctx, stop := InterruptContext(context.Background())
+	defer stop()
+
+	root := NewRootCommand()
+	if err := root.ExecuteContext(ctx); err != nil {
+		var exit *ExitError
+		if ok := asExitError(err, &exit); ok {
+			if exit.Err != nil {
+				ui.Failure("%s", exit.Err)
+			}
+			return exit.Code
+		}
+		ui.Failure("%s", err)
+		return ExitFailure
+	}
+	return ExitOK
+}
+
+// InterruptContext returns a context cancelled by the first SIGINT, SIGTERM
+// or SIGHUP, so Ctrl-C stops a sync cleanly: the stage in flight sees the
+// cancel, its subprocess or download is stopped, and no later stage (the
+// commit, the push) runs. After the first signal the default handling is
+// restored, so a second Ctrl-C still kills the process outright.
+func InterruptContext(parent context.Context) (context.Context, context.CancelFunc) {
+	// SIGHUP is a closed terminal window, which is how a double-clicked
+	// server is usually stopped; it gets the same clean shutdown.
+	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
+	return ctx, stop
+}
+
+func asExitError(err error, target **ExitError) bool {
+	for err != nil {
+		if e, ok := err.(*ExitError); ok {
+			*target = e
+			return true
+		}
+		u, ok := err.(interface{ Unwrap() error })
+		if !ok {
+			return false
+		}
+		err = u.Unwrap()
+	}
+	return false
+}
+
+// NewRootCommand builds the tree.
+func NewRootCommand() *cobra.Command {
+	g = globals{}
+	state = runState{run: settings.Resolve()}
+
+	root := &cobra.Command{
+		Use:   version.Name,
+		Short: "Sync the Ichava icon packs from their upstream registries",
+		Long: `Sync the Ichava icon packs from their upstream registries.
+
+Polls each pack's upstream, refreshes the vendored SVGs into the pack repo,
+stamps the version and opens a pull request.
+
+Settings resolve in this order, highest first:
+  flags > ICHAVA_* environment > global config > pack config > defaults
+The global config is ~/.config/icon-sets-sync/config.{json,yaml} on every OS
+($XDG_CONFIG_HOME replaces ~/.config); "config migrate" moves an old one there.
+Run "config print --origins" to see where every value came from.
+
+Run with no arguments (or double-click the binary) to open the web UI in your
+browser. Pass a command to run headless, as CI and servers do; "menu" opens
+the interactive terminal menu.`,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDefault(cmd, args)
+		},
+	}
+
+	pf := root.PersistentFlags()
+	pf.StringVar(&g.configDir, "config-dir", "", "where pack configs live (setting config_dir; default: config/ beside the binary, else ./config, else the repository's own config/)")
+	pf.StringVar(&g.privateDir, "private-config-dir", "", "directory of private pack configs merged over --config-dir (setting private_config_dir; default: none)")
+	pf.StringVar(&g.workspace, "workspace", "", "directory holding the pack checkouts; replaces /work/<pack> in shipped configs (setting workspace)")
+	pf.StringArrayVar(&g.packagesDirs, "packages-dir", nil, "a directory holding ichava pack checkouts; repeat for several, searched in order (setting packages_dirs)")
+	pf.StringVar(&g.globalConfig, "global-config", "", "global config file (default: ~/.config/icon-sets-sync/config.{json,yaml} on every OS; $XDG_CONFIG_HOME replaces ~/.config)")
+	pf.StringArrayVar(&g.sets, "set", nil, "set any setting, as key=value (repeatable; see `config print`)")
+	pf.BoolVarP(&g.verbose, "verbose", "v", false, "debug logging (log_level=debug)")
+	pf.BoolVarP(&g.quiet, "quiet", "q", false, "only errors (log_level=error) and no status output")
+	pf.BoolVar(&g.noColor, "no-color", false, "disable colour (also honours NO_COLOR)")
+	pf.BoolVar(&g.noInput, "no-input", false, "never prompt; fail instead of asking")
+	pf.BoolVar(&g.noInput, "non-interactive", false, "same as --no-input, the name CI mode uses")
+	pf.BoolVar(&g.assumeYes, "yes", false, "assume yes for confirmations")
+	pf.BoolVar(&g.jsonOut, "json", false, "machine-readable output (the same as --output json)")
+	pf.StringVar(&g.output, "output", "text", "output format: text or json")
+
+	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		switch g.output {
+		case "json":
+			g.jsonOut = true
+		case "text", "":
+		default:
+			return usageErr("--output must be text or json, not %q", g.output)
+		}
+		if err := resolveState(cmd); err != nil {
+			return err
+		}
+		ui.Init(ui.Config{
+			AssumeYes: g.assumeYes,
+			NoInput:   g.noInput,
+			NoColor:   g.noColor,
+			JSON:      g.jsonOut,
+			Quiet:     g.quiet,
+			Out:       cmd.OutOrStdout(),
+			Err:       cmd.ErrOrStderr(),
+		})
+		setupLogging(state.run.String("log_level"))
+		for _, d := range app.MissingPackagesDirs(state.run.Strings("packages_dirs")) {
+			ui.Warning("packages_dirs: %s is not a directory; skipped", d)
+		}
+		if state.global.Legacy && cmd.Name() != "migrate" {
+			ui.Warning("using the global config at its old location %s; it belongs at %s. "+
+				"Run `icon-sets-sync config migrate` to copy it there (the old file is left in place)",
+				state.global.Path, state.global.Default)
+		}
+		return nil
+	}
+
+	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
+		return usageErr("%s", err)
+	})
+
+	root.AddCommand(
+		newListPacksCommand(),
+		newCheckCommand(),
+		newValidateCommand(),
+		newDoctorCommand(),
+		newSyncCommand(),
+		newSyncAllCommand(),
+		newRecipeCommand(),
+		newConfigCommand(),
+		newManifestPackCommand(),
+		newMenuCommand(),
+		newServeCommand(),
+		newAPICommand(),
+		newWebhooksCommand(),
+		newMCPCommand(),
+		newVersionCommand(),
+	)
+	return root
+}
+
+// resolveState builds the settings stack: the global config file, the
+// environment, and the flags actually given on this command line.
+//
+// Only flags the user set count. A flag's zero default is not a statement --
+// treating `--dry-run`'s false as one would override ICHAVA_DRY_RUN=1 with a
+// value nobody typed.
+func resolveState(cmd *cobra.Command) error {
+	if g.verbose && g.quiet {
+		return usageErr("-v and -q contradict each other; pass one")
+	}
+	if g.dryRun && g.commit {
+		return usageErr("--dry-run and --commit contradict each other; pass one")
+	}
+
+	changed := func(name string) bool {
+		f := cmd.Flags().Lookup(name)
+		return f != nil && f.Changed
+	}
+	overlay := func(flagValues settings.Values) error {
+		setFlag := func(name string, key string, value any) {
+			if changed(name) {
+				flagValues[key] = value
+			}
+		}
+		setFlag("config-dir", "config_dir", g.configDir)
+		setFlag("private-config-dir", "private_config_dir", g.privateDir)
+		setFlag("workspace", "workspace", g.workspace)
+		if changed("packages-dir") {
+			if err := flagValues.Set("packages_dirs", g.packagesDirs); err != nil {
+				return fmt.Errorf("--packages-dir: %s", err)
+			}
+			cwd, _ := os.Getwd()
+			settings.ResolvePaths(flagValues, cwd)
+		}
+		if g.verbose {
+			flagValues["log_level"] = "debug"
+		}
+		if g.quiet {
+			flagValues["log_level"] = "error"
+		}
+		setFlag("dry-run", "dry_run", g.dryRun)
+		if changed("commit") && g.commit {
+			flagValues["dry_run"] = false
+		}
+		setFlag("force", "force", g.force)
+		if changed("concurrency") {
+			if err := flagValues.Set("concurrency", g.concurrency); err != nil {
+				return fmt.Errorf("--concurrency: %s", err)
+			}
+		}
+		return nil
+	}
+
+	// The layering itself lives in app.BuildStack, so the web UI resolves
+	// precedence through the same code. This function keeps the CLI-only
+	// parts: the contradiction checks and the mapping onto exit codes.
+	stack, loc, err := app.BuildStackLocated(app.StackInput{
+		GlobalPath:  g.globalConfig,
+		Lookup:      os.LookupEnv,
+		Assignments: g.sets,
+		Overlay:     overlay,
+	})
+	if err != nil {
+		if app.IsUsage(err) {
+			return usageErr("%s", err)
+		}
+		return failure(err)
+	}
+
+	state.globalPath = loc.Path
+	state.global = loc
+	state.stack = stack
+	state.run = state.stack.Resolve(nil)
+	// Every config loader reads the private overlay from here, so the CLI,
+	// the TUI and the web UI all see the same packs. Set on every run, unset
+	// included, so one invocation never inherits another's.
+	config.SetPrivateConfigDir(state.run.String("private_config_dir"))
+	// The upstream allowlist is run-wide for the same reason, and is set the
+	// same way: on every run, empty included.
+	httpx.SetExtraAllowedHosts(httpx.ParseHostList(state.run.String("allowed_hosts")))
+	sources.SetNpmPath(state.run.String("npm_path"))
+	app.SetPackagesDirs(state.run.Strings("packages_dirs"))
+	if err := config.CheckPrivateConfigDir(); err != nil {
+		return usageErr("%s", err)
+	}
+	return nil
+}
+
+// addRunFlags binds the flags the refreshing commands share. --force only
+// means something where there is an upstream check to override.
+func addRunFlags(f *pflag.FlagSet, withForce bool) {
+	f.BoolVar(&g.dryRun, "dry-run", false, "fetch and report the diff, but write nothing into the pack and skip the version stamp, commit and pull request (setting dry_run)")
+	f.BoolVar(&g.commit, "commit", false, "commit even if a config or ICHAVA_DRY_RUN says dry run")
+	if withForce {
+		f.BoolVar(&g.force, "force", false, "refresh even when not stale (setting force)")
+	}
+}
+
+// setupLogging sends structured logs to stderr, so they never contaminate the
+// stdout a caller may be piping into jq.
+func setupLogging(level string) {
+	var l slog.Level
+	switch level {
+	case "debug":
+		l = slog.LevelDebug
+	case "warn":
+		l = slog.LevelWarn
+	case "error":
+		l = slog.LevelError
+	default:
+		l = slog.LevelInfo
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: l})))
+}
+
+// configDir resolves the directory to read pack configs from.
+func configDir() string {
+	// config_dir already folds the flag and ICHAVA_CONFIG_DIR; the resolver
+	// adds the working-directory and repository-layout fallbacks.
+	if dir := state.run.String("config_dir"); dir != "" {
+		return dir
+	}
+	return config.DefaultConfigDir()
+}
+
+// configSource is configDir with the layer that chose it, as the Settings
+// page and serve's startup line show it: flag, env, cwd, executable or
+// embedded (a global config's config_dir reports "global").
+func configSource() (string, string) {
+	if dir := state.run.String("config_dir"); dir != "" {
+		switch o := state.run.Origin("config_dir"); o {
+		case settings.LayerFlag:
+			return dir, config.SourceFlag
+		case settings.LayerEnv:
+			return dir, config.SourceEnv
+		default:
+			return dir, string(o)
+		}
+	}
+	return config.DefaultConfigSource()
+}
+
+func workspace() string { return state.run.String("workspace") }
+
+func newVersionCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version and exit",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Scripts and the Composer launcher read this; keep the
+			// "<name> <version>" shape on the first line.
+			out := cmd.OutOrStdout()
+			fmt.Fprintf(out, "%s %s\n", version.Name, version.Version())
+			if g.verbose {
+				if c := version.Commit(); c != "" {
+					fmt.Fprintf(out, "commit %s\n", c)
+				}
+				if d := version.Date(); d != "" {
+					fmt.Fprintf(out, "built  %s\n", d)
+				}
+			}
+			return nil
+		},
+	}
+}

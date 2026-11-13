@@ -1,0 +1,570 @@
+package web
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io/fs"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+
+	"github.com/ichava/icon-sets-sync/src/internal/app"
+	"github.com/ichava/icon-sets-sync/src/internal/core/checker"
+	"github.com/ichava/icon-sets-sync/src/internal/core/config"
+	"github.com/ichava/icon-sets-sync/src/internal/core/confighistory"
+	"github.com/ichava/icon-sets-sync/src/internal/core/docfile"
+	"github.com/ichava/icon-sets-sync/src/internal/core/gitx"
+	"github.com/ichava/icon-sets-sync/src/internal/core/manifestpack"
+	"github.com/ichava/icon-sets-sync/src/internal/core/packcheck"
+	"github.com/ichava/icon-sets-sync/src/internal/core/pipeline"
+	"github.com/ichava/icon-sets-sync/src/internal/core/recipes"
+	"github.com/ichava/icon-sets-sync/src/internal/core/settings"
+)
+
+// Engine is everything the web layer asks of the sync engine. Handlers call
+// it and nothing else, so no handler can re-implement a command.
+//
+// It is the test seam -- the same idea as the CLI's syncChecker/syncRun --
+// and has one production implementation, AppEngine, a thin adapter over
+// internal/app.
+type Engine interface {
+	// Packs loads every registered pack, in registry order.
+	Packs() ([]*config.PackConfig, error)
+
+	// Check resolves each pack's upstream status. It polls the registries.
+	Check(ctx context.Context, packs []*config.PackConfig) []checker.Result
+
+	// PackStats reads a pack repo's local state: SVG count, branch, dirty.
+	PackStats(ctx context.Context, pack *config.PackConfig) PackStats
+
+	// Settings is the effective run-wide settings, with where each came from.
+	Settings() SettingsView
+
+	// Pack loads one registered pack.
+	Pack(slug string) (*config.PackConfig, error)
+
+	// PackSettings is one pack's effective settings, its own layer merged in.
+	PackSettings(pack *config.PackConfig) (SettingsView, error)
+
+	// PackNotes returns the authoring annotations (`_note` and the like) of a
+	// pack's config file, which loading strips.
+	PackNotes(pack *config.PackConfig) map[string]string
+
+	// Sync refreshes packs that are behind upstream (or all, with Force),
+	// exactly as `sync` does, with req applied as the flag layer.
+	Sync(ctx context.Context, packs []*config.PackConfig, req RunRequest, hooks RunHooks) []app.Outcome
+
+	// Recipe runs one pack's recipe at a version, as `recipe` does.
+	Recipe(ctx context.Context, pack *config.PackConfig, version string, req RunRequest, hooks RunHooks) (pipeline.Result, error)
+
+	// ConfigFiles lists the documents the editor offers.
+	ConfigFiles() ([]ConfigFile, error)
+	// ReadConfig returns one document's bytes and revision.
+	ReadConfig(name string) (ConfigDoc, error)
+	// ValidateConfig checks bytes as the loader would, without writing.
+	ValidateConfig(name string, data []byte) []app.Finding
+	// WriteConfig validates and saves, refusing a stale base revision. The
+	// file's previous contents go to the history first.
+	WriteConfig(name string, data []byte, base string) error
+	// ValidatePacks checks the structure of every pack checkout, as the
+	// validate command does; parse also parses every SVG.
+	ValidatePacks(parse bool) ([]packcheck.Report, error)
+	// FixConfig proposes the safe repairs to a document; it writes nothing.
+	FixConfig(name string, data []byte) (app.Fixed, error)
+	// ConfigHistory lists a document's saved copies, newest first, and
+	// ConfigHistoryRead returns one.
+	ConfigHistory(name string) ([]confighistory.Entry, error)
+	ConfigHistoryRead(name, id string) ([]byte, error)
+
+	// AuditSets lists the manifest pack's sets, for the audit form.
+	AuditSets() ([]string, error)
+	// PrivateConfigCandidates finds pack checkouts' private config
+	// directories, offered when the manifest pack's config is not loaded.
+	PrivateConfigCandidates() []string
+
+	// AuditManifestPack surveys where each of the manifest pack's sets came
+	// from, as `manifest-pack audit` does.
+	AuditManifestPack(ctx context.Context, req AuditRequest, hooks AuditHooks) ([]manifestpack.Resolution, error)
+}
+
+// ProgressChecker is an Engine that reports a check's progress: done is
+// called with the number of packs finished after each one. The dashboard
+// uses it for "n of N"; an engine without it is checked in one call.
+type ProgressChecker interface {
+	CheckProgress(ctx context.Context, packs []*config.PackConfig, done func(int)) []checker.Result
+}
+
+// AuditRequest is the audit form: one set, optionally verified against one
+// named package; empty means every set.
+type AuditRequest struct{ Set, Package string }
+
+// AuditHooks route an audit's progress into a job.
+type AuditHooks struct {
+	Logger   *slog.Logger
+	Starting func(sets int, filesRoot string)
+	SetDone  func(manifestpack.Resolution)
+}
+
+// RunRequest is what a run form may set. It enters the settings as the flag
+// layer -- the same way the TUI's dry-run choice does -- so nothing below it,
+// not a pack config and not the environment, can turn a dry run into a
+// real commit.
+type RunRequest struct {
+	DryRun      bool
+	Force       bool
+	Concurrency int // 0 leaves the setting alone
+}
+
+// RunHooks route a run's output into a job.
+type RunHooks struct {
+	Logger   *slog.Logger
+	Observer pipeline.Observer
+	Starting func(pack *config.PackConfig, result checker.Result, dryRun bool)
+	Done     func(app.Outcome)
+}
+
+// PackStats is the local state of one pack repository.
+type PackStats struct {
+	SVGs   int
+	Branch string
+	Dirty  bool
+	// Err explains why the repo could not be read; the other fields are then
+	// zero.
+	Err string
+}
+
+// SettingRow is one line of the settings table, with what the page needs
+// to offer an input for it.
+type SettingRow struct {
+	Name, Value, Origin, Help string
+	PackScoped                bool
+	// Env is the environment variable that sets it, which wins over the
+	// global config the page writes.
+	Env string
+	// Input is the control the page offers: enum, bool, int, list, dir,
+	// file, textarea or text (see settingInput).
+	Input string
+	Enum  []string
+	// Min and Max bound an int (Max 0 is unbounded).
+	Min, Max int
+	// Default is the registry default, as text.
+	Default string
+	// Items is a list setting's entries; On is a boolean's value.
+	Items []string
+	On    bool
+	// Group is the page section: "" or settings.GroupIntegrations.
+	Group string
+	// Typed is the value as its own type, for the API.
+	Typed any
+}
+
+// Anchor is the row's id on the settings page.
+func (r SettingRow) Anchor() string {
+	return "setting-" + strings.ReplaceAll(r.Name, ".", "-")
+}
+
+// Overridden reports whether a layer above the global config sets it, so a
+// value saved from the page would not take effect while that layer does.
+func (r SettingRow) Overridden() bool {
+	return r.Origin == string(settings.LayerEnv) || r.Origin == string(settings.LayerFlag)
+}
+
+// SettingsView is the effective settings and the paths they came from.
+type SettingsView struct {
+	Rows       []SettingRow
+	ConfigDir  string
+	GlobalPath string
+	// ConfigSource names the layer that chose ConfigDir: flag, env, cwd,
+	// executable or embedded (config.Source*).
+	ConfigSource string
+	// Global is where the global config was found and where it belongs.
+	Global settings.GlobalLocation
+	// PackagesDirs is the packages_dirs setting, each entry with whether it
+	// exists, and the layer that set it.
+	PackagesDirs       []DirStatus
+	PackagesDirsOrigin string
+	// PageSize is the page_size setting: rows per page in the UI's lists.
+	PageSize int
+}
+
+// DirStatus is one directory setting entry and whether it is there.
+type DirStatus struct {
+	Path   string
+	Exists bool
+}
+
+// AppEngine is the production Engine over internal/app.
+type AppEngine struct {
+	ConfigDir string
+	// ConfigSource is the layer that chose ConfigDir (config.Source*). The
+	// embedded configs are read-only.
+	ConfigSource string
+	Workspace    string
+	GlobalPath   string
+	// GlobalHome is $XDG_CONFIG_HOME (or ~/.config): where the editor creates
+	// a global config when none exists yet.
+	GlobalHome string
+	// GlobalLocation explains GlobalPath on the Settings page: the layer that
+	// chose it, the default, and whether it sits at a legacy location.
+	GlobalLocation settings.GlobalLocation
+	Stack          settings.Stack
+	// History keeps a copy of a config file before every save.
+	History confighistory.Store
+	// InitRecord is where the global config generator records what it last
+	// wrote; empty is beside the history (app.InitRecordPath).
+	InitRecord string
+	// InitGlobalFrom generates the global config; nil is app.InitialGlobal.
+	// A seam for tests.
+	InitGlobalFrom func() app.GlobalInit
+	Git            *gitx.Git
+
+	// mu guards Stack and GlobalPath, which a global-config save replaces;
+	// writeMu serialises saves.
+	mu      sync.Mutex
+	writeMu sync.Mutex
+}
+
+func (e *AppEngine) stack() settings.Stack {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.Stack
+}
+
+// Packs implements Engine.
+func (e *AppEngine) Packs() ([]*config.PackConfig, error) {
+	return app.LoadPacksIn(e.ConfigDir, "", e.Workspace)
+}
+
+// Check implements Engine.
+func (e *AppEngine) Check(ctx context.Context, packs []*config.PackConfig) []checker.Result {
+	return app.CheckAll(ctx, packs)
+}
+
+// CheckProgress implements ProgressChecker: one pack at a time.
+func (e *AppEngine) CheckProgress(ctx context.Context, packs []*config.PackConfig, done func(int)) []checker.Result {
+	out := make([]checker.Result, 0, len(packs))
+	for i, p := range packs {
+		out = append(out, app.CheckAll(ctx, []*config.PackConfig{p})...)
+		done(i + 1)
+	}
+	return out
+}
+
+// PackStats implements Engine.
+func (e *AppEngine) PackStats(ctx context.Context, pack *config.PackConfig) PackStats {
+	return ReadPackStats(ctx, e.Git, pack)
+}
+
+// ValidatePacks implements Engine: every pack under packages_dirs, else every
+// registered pack's checkout.
+func (e *AppEngine) ValidatePacks(parse bool) ([]packcheck.Report, error) {
+	packs, err := app.LoadPacksIn(e.configDir(), "", e.Workspace)
+	if err != nil {
+		return nil, err
+	}
+	configs := map[string]string{}
+	var roots []string
+	seen := map[string]bool{}
+	for _, p := range packs {
+		configs[p.Pack] = p.Name + ".json"
+		if info, err := os.Stat(p.PackRoot); err == nil && info.IsDir() && !seen[p.PackRoot] {
+			seen[p.PackRoot] = true
+			roots = append(roots, p.PackRoot)
+		}
+	}
+	if dirs := app.PackagesDirs(); len(dirs) > 0 {
+		roots, _ = packcheck.Discover(dirs)
+	}
+	out := make([]packcheck.Report, 0, len(roots))
+	for _, r := range roots {
+		out = append(out, packcheck.Check(r, packcheck.Options{PackConfigs: configs, ParseSVGs: parse}))
+	}
+	return out, nil
+}
+
+// Settings implements Engine.
+func (e *AppEngine) Settings() SettingsView {
+	e.mu.Lock()
+	stack, global := e.Stack, e.GlobalPath
+	e.mu.Unlock()
+	v := BuildSettingsView(stack.Resolve(nil), e.ConfigDir, global)
+	v.ConfigSource = e.ConfigSource
+	v.Global = e.GlobalLocation
+	if v.Global.Default == "" {
+		v.Global.Default = e.globalPath()
+	}
+	if global != "" && global != e.GlobalLocation.Path {
+		// Saved from the editor since start-up: it is at the default now.
+		v.Global.Path, v.Global.Layer, v.Global.Legacy = global, "saved from this UI", false
+	}
+	return v
+}
+
+// AuditSets implements Engine.
+func (e *AppEngine) AuditSets() ([]string, error) { return app.AuditSets(e.configDir(), e.Workspace) }
+
+// PrivateConfigCandidates implements Engine.
+func (e *AppEngine) PrivateConfigCandidates() []string {
+	return app.PrivateConfigCandidates(e.Workspace)
+}
+
+// AuditManifestPack implements Engine.
+func (e *AppEngine) AuditManifestPack(ctx context.Context, req AuditRequest, h AuditHooks) ([]manifestpack.Resolution, error) {
+	return app.AuditManifestPack(ctx, app.AuditOptions{
+		ConfigDir: e.configDir(), Workspace: e.Workspace, Set: req.Set, Package: req.Package,
+		Starting: h.Starting, SetDone: h.SetDone, Logger: h.Logger,
+	})
+}
+
+// Pack implements Engine.
+func (e *AppEngine) Pack(slug string) (*config.PackConfig, error) {
+	packs, err := app.LoadPacksIn(e.ConfigDir, slug, e.Workspace)
+	if err != nil {
+		return nil, err
+	}
+	return packs[0], nil
+}
+
+// PackSettings implements Engine.
+func (e *AppEngine) PackSettings(pack *config.PackConfig) (SettingsView, error) {
+	r, err := app.PackSettings(e.stack(), pack)
+	if err != nil {
+		return SettingsView{}, err
+	}
+	return BuildSettingsView(r, e.ConfigDir, e.GlobalPath), nil
+}
+
+// PackNotes implements Engine.
+func (e *AppEngine) PackNotes(pack *config.PackConfig) map[string]string {
+	return ReadNotes(pack.File)
+}
+
+// Sync implements Engine.
+func (e *AppEngine) Sync(ctx context.Context, packs []*config.PackConfig, req RunRequest, hooks RunHooks) []app.Outcome {
+	stack, err := e.withFlags(req)
+	if err != nil {
+		out := make([]app.Outcome, len(packs))
+		for i, p := range packs {
+			out[i] = app.Outcome{Pack: p.Pack, Status: app.StatusFailed, Err: err}
+		}
+		return out
+	}
+	r := stack.Resolve(nil)
+	return app.Sync(ctx, packs, app.SyncOptions{
+		Stack: stack, ConfigDir: e.configDir(), Concurrency: r.Int("concurrency"),
+		Logger: hooks.Logger, Observer: hooks.Observer, Starting: hooks.Starting, Done: hooks.Done,
+	})
+}
+
+// Recipe implements Engine.
+func (e *AppEngine) Recipe(ctx context.Context, pack *config.PackConfig, version string, req RunRequest, hooks RunHooks) (pipeline.Result, error) {
+	stack, err := e.withFlags(req)
+	if err != nil {
+		return pipeline.Result{}, err
+	}
+	return app.Recipe(ctx, app.RecipeRequest{
+		Stack: stack, Pack: pack, ConfigDir: e.configDir(), Version: version,
+		Logger: hooks.Logger, Observer: hooks.Observer,
+	})
+}
+
+func (e *AppEngine) configDir() string {
+	if e.ConfigDir == "" {
+		return config.DefaultConfigDir()
+	}
+	return e.ConfigDir
+}
+
+// withFlags returns the stack with a run form's choices as flag-layer values,
+// over whatever the command line already put there.
+func (e *AppEngine) withFlags(req RunRequest) (settings.Stack, error) {
+	return WithRunFlags(e.stack(), req)
+}
+
+// WithRunFlags copies stack's flag layer and sets dry_run and force on it --
+// always, so the form's choice is the effective one -- and concurrency when
+// given.
+func WithRunFlags(stack settings.Stack, req RunRequest) (settings.Stack, error) {
+	flags := settings.Values{}
+	for k, v := range stack.Flags {
+		flags[k] = v
+	}
+	if err := flags.Set("dry_run", req.DryRun); err != nil {
+		return stack, err
+	}
+	if err := flags.Set("force", req.Force); err != nil {
+		return stack, err
+	}
+	if req.Concurrency != 0 {
+		if err := flags.Set("concurrency", req.Concurrency); err != nil {
+			return stack, err
+		}
+	}
+	stack.Flags = flags
+	return stack, nil
+}
+
+// ReadNotes returns a config file's top-level annotation keys: those starting
+// with "_". Unreadable or non-JSON files yield none.
+func ReadNotes(path string) map[string]string {
+	if path == "" {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	canonical, err := docfile.ToJSON(path, data)
+	if err != nil {
+		return nil
+	}
+	var raw map[string]json.RawMessage
+	if json.Unmarshal(canonical, &raw) != nil {
+		return nil
+	}
+	out := map[string]string{}
+	for k, v := range raw {
+		if !strings.HasPrefix(k, "_") {
+			continue
+		}
+		var s string
+		if json.Unmarshal(v, &s) == nil {
+			out[k] = s
+		} else {
+			out[k] = string(v)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// ReadPackStats counts a pack's vendored SVGs and reads its git state. A
+// missing checkout is reported, not fatal: the dashboard still renders.
+func ReadPackStats(ctx context.Context, git *gitx.Git, pack *config.PackConfig) PackStats {
+	var st PackStats
+	if _, err := os.Stat(pack.PackRoot); errors.Is(err, os.ErrNotExist) {
+		return PackStats{Err: "no checkout of " + pack.Name + " at " + pack.PackRoot +
+			"; sync needs a workspace: set ICHAVA_WORKSPACE (or --set workspace=) to the directory holding it"}
+	}
+	root := filepath.Join(pack.PackRoot, "resources", "assets")
+	err := filepath.WalkDir(root, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.EqualFold(filepath.Ext(d.Name()), ".svg") {
+			st.SVGs++
+		}
+		return ctx.Err()
+	})
+	if err != nil {
+		return PackStats{Err: err.Error()}
+	}
+	if git == nil {
+		git = gitx.New()
+	}
+	if st.Branch, err = git.CurrentBranch(ctx, pack.PackRoot); err != nil {
+		st.Err = err.Error()
+		return st
+	}
+	if st.Dirty, err = git.HasUncommittedChanges(ctx, pack.PackRoot); err != nil {
+		st.Err = err.Error()
+	}
+	return st
+}
+
+// BuildSettingsView flattens resolved settings into display rows, in the
+// registry's order, with each key's origin and help.
+func BuildSettingsView(r settings.Resolved, configDir, globalPath string) SettingsView {
+	v := SettingsView{ConfigDir: configDir, GlobalPath: globalPath}
+	for _, d := range r.Strings("packages_dirs") {
+		info, err := os.Stat(d)
+		v.PackagesDirs = append(v.PackagesDirs, DirStatus{Path: d, Exists: err == nil && info.IsDir()})
+	}
+	v.PackagesDirsOrigin = string(r.Origin("packages_dirs"))
+	v.PageSize = r.Int("page_size")
+	if v.ConfigDir == "" {
+		v.ConfigDir = config.DefaultConfigDir()
+	}
+	for _, k := range settings.Keys {
+		var value string
+		switch k.Kind {
+		case settings.Bool:
+			value = boolString(r.Bool(k.Name))
+		case settings.Int:
+			value = strconv.Itoa(r.Int(k.Name))
+		case settings.List, settings.Webhooks:
+			value = settings.FormatValue(r, k.Name)
+		default:
+			value = r.String(k.Name)
+		}
+		row := SettingRow{
+			Name: k.Name, Value: value, Origin: string(r.Origin(k.Name)), Help: k.Help, PackScoped: k.PackScoped,
+			Env: k.Env, Input: settingInput(k), Enum: k.Enum, Min: k.Min, Max: k.Max, Default: defaultText(k),
+			Group: k.Group, Typed: typedValue(r, k),
+		}
+		switch k.Kind {
+		case settings.List:
+			row.Items = r.Strings(k.Name)
+		case settings.Bool:
+			row.On = r.Bool(k.Name)
+		}
+		v.Rows = append(v.Rows, row)
+	}
+	return v
+}
+
+// typedValue is a setting's value as its own type.
+func typedValue(r settings.Resolved, k settings.Key) any {
+	switch k.Kind {
+	case settings.Bool:
+		return r.Bool(k.Name)
+	case settings.Int:
+		return r.Int(k.Name)
+	case settings.List:
+		return r.Strings(k.Name)
+	case settings.Webhooks:
+		return r.Webhooks(k.Name)
+	}
+	return r.String(k.Name)
+}
+
+// SettingsSection is one card of settings on the Settings page.
+type SettingsSection struct {
+	ID, Title string
+	Rows      []SettingRow
+}
+
+// Sections splits the settings between the page's cards: the run settings,
+// then the integrations (API, events, webhooks, MCP).
+func (v SettingsView) Sections() []SettingsSection {
+	return []SettingsSection{
+		{ID: "effective-settings", Title: "Effective settings", Rows: v.rowsIn("")},
+		{ID: "integrations", Title: "Integrations", Rows: v.rowsIn(settings.GroupIntegrations)},
+	}
+}
+
+func (v SettingsView) rowsIn(group string) []SettingRow {
+	var out []SettingRow
+	for _, r := range v.Rows {
+		if r.Group == group {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// RecipeName names the recipe a pack runs, for display.
+func RecipeName(p *config.PackConfig) string { return recipes.Select(p) }
+
+func boolString(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}

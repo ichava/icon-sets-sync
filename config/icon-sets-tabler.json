@@ -1,0 +1,23 @@
+{
+  "name": "icon-sets-tabler",
+  "pack": "ichava/icon-sets-tabler",
+  "pack_root": "/work/icon-sets-tabler",
+  "current_version": "3.46.0",
+  "version_check_url": "https://registry.npmjs.org/@tabler/icons/latest",
+  "source": {
+    "type": "npm",
+    "package": "@tabler/icons",
+    "source_path": "icons"
+  },
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

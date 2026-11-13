@@ -1,0 +1,31 @@
+{
+  "_note": "iconoir's icons/ keeps its regular/ and solid/ folders as they are. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 1,671 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-iconoir",
+  "pack": "ichava/icon-sets-iconoir",
+  "pack_root": "/work/icon-sets-iconoir",
+  "current_version": "7.12.2",
+  "version_check_url": "https://registry.npmjs.org/iconoir/latest",
+  "licence": "MIT",
+  "licence_sha256": "869b60da1ada5b896d1f285c3c24ca193d612e308d1710a77a58f2f572eb4fa2",
+  "source": {
+    "type": "npm",
+    "package": "iconoir",
+    "source_path": "icons"
+  },
+  "transforms": [
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-{version}"
+    }
+  ]
+}

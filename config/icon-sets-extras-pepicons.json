@@ -1,0 +1,51 @@
+{
+  "_note": "One of the 20 sets of ichava/icon-sets-extras, each refreshed by its own config into files/<set>/ and licenses/<set>/, with its version recorded at upstream.sets.<set>.current_version in the pack's config.json. svg/{pop,print,pencil} flattened to <name>-pop/-print/-pencil. CC-BY-4.0: attribution is required and is carried in ATTRIBUTION.md. The npm package ships no licence file (licence_missing): licenses/pepicons/ needs a source.md before the first real sync. Reproduces the committed pack byte for byte: a dry run at the pinned version against the local checkout on 2026-11-04 wrote 3,825 SVGs with 0 added, removed or changed.",
+  "name": "icon-sets-extras-pepicons",
+  "pack": "ichava/icon-sets-extras",
+  "pack_root": "/work/icon-sets-extras",
+  "current_version": "3.1.6",
+  "version_keys": [
+    "upstream.sets.pepicons.current_version"
+  ],
+  "version_check_url": "https://registry.npmjs.org/pepicons/latest",
+  "licence_set": "pepicons",
+  "licence_missing": "pepicons 3.1.6 on npm ships no licence file; the pack carries LICENSE from CyCraft/pepicons at tag v3.1.6 (CC-BY-4.0), SHA-256 dbb19cb7bda19afef40f19094a668dfe61375cfd57c49d33c660bdb76676b5c5.",
+  "source": {
+    "type": "npm",
+    "package": "pepicons",
+    "source_path": "svg"
+  },
+  "transforms": [
+    {
+      "type": "flatten-variants",
+      "variants": [
+        {
+          "path": "pop",
+          "suffix": "-pop"
+        },
+        {
+          "path": "print",
+          "suffix": "-print"
+        },
+        {
+          "path": "pencil",
+          "suffix": "-pencil"
+        }
+      ]
+    },
+    {
+      "type": "sanitise"
+    }
+  ],
+  "sinks": [
+    {
+      "type": "filesystem",
+      "root": "{pack_root}/resources/assets/svg/files/pepicons"
+    },
+    {
+      "type": "git-branch",
+      "repo_root": "{pack_root}",
+      "branch": "chore/sync-upstream-pepicons-{version}"
+    }
+  ]
+}

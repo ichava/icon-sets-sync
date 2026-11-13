@@ -1,0 +1,34 @@
+# Build output: make build-local / cross / dist write build/{os}/, build/checksums.txt
+# and build/archives/. Everything under build/ is ignored except the tracked Composer
+# launcher, build/icon-sets-sync (a PHP script, not a build output), and tracked
+# inputs (none today; targets.txt and nfpm.yaml are the estate's names for them).
+# GoReleaser's scratch dist is .cache/goreleaser/, covered below.
+/build/*
+!/build/targets.txt
+!/build/nfpm.yaml
+!/build/icon-sets-sync
+dist/
+
+# Tool caches (script-local downloads)
+.cache/
+.downloads/
+
+# Go test coverage
+coverage.out
+
+# Editor / OS
+.playwright-mcp/
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Composer (the PHP launcher). A library: the lock is never committed.
+/vendor/
+composer.lock
+
+# Bytecode left on disk by the implementation removed before 0.1.0. Nothing
+# here is Python any more; this keeps an old checkout's stale caches out of a
+# commit. TestNoDockerOrPythonSurface fails if a .py file is tracked.
+__pycache__/
+*.py[cod]

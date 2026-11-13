@@ -1,0 +1,304 @@
+{
+  "$id": "https://raw.githubusercontent.com/ichava/icon-sets-sync/main/config/schema/global.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "~/.config/icon-sets-sync/config.json: settings for every run on this machine. Generated from the settings registry; do not edit.",
+  "patternProperties": {
+    "^_": {}
+  },
+  "properties": {
+    "$schema": {
+      "description": "Editor hint. Ignored by the loader.",
+      "type": "string"
+    },
+    "allowed_hosts": {
+      "default": "",
+      "description": "extra upstream hosts, comma separated, on top of the built-in github.com, api.github.com, codeload.github.com, registry.npmjs.org and unicode.org (https only) (environment: ICHAVA_ALLOWED_HOSTS)",
+      "pattern": "^[A-Za-z0-9.,\\s-]*$",
+      "type": "string"
+    },
+    "api": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_remote": {
+          "default": false,
+          "description": "also serve the API when serve binds beyond loopback (--allow-remote); without it a remote server has no API (environment: ICHAVA_API_ALLOW_REMOTE)",
+          "type": "boolean"
+        },
+        "enabled": {
+          "default": false,
+          "description": "serve the REST API under /api/v1 on the serve listener, for bearer tokens made with `api token create` (environment: ICHAVA_API_ENABLED)",
+          "type": "boolean"
+        },
+        "rate_limit": {
+          "default": 60,
+          "description": "requests per minute each API token may make; more are answered 429 (environment: ICHAVA_API_RATE_LIMIT)",
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "tls": {
+          "default": "auto",
+          "description": "auto terminates TLS whenever serve binds beyond loopback (with api.tls_cert and api.tls_key, else a generated self-signed certificate); off-behind-proxy serves plain HTTP there, for a TLS proxy in front (environment: ICHAVA_API_TLS)",
+          "enum": [
+            "auto",
+            "off-behind-proxy"
+          ],
+          "type": "string"
+        },
+        "tls_cert": {
+          "default": "",
+          "description": "PEM certificate (chain) serve presents beyond loopback; set with api.tls_key (environment: ICHAVA_API_TLS_CERT)",
+          "type": "string"
+        },
+        "tls_key": {
+          "default": "",
+          "description": "PEM private key for api.tls_cert (environment: ICHAVA_API_TLS_KEY)",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "concurrency": {
+      "default": 1,
+      "description": "packs synced at once by sync --all / sync-all (environment: ICHAVA_CONCURRENCY)",
+      "minimum": 1,
+      "type": "integer"
+    },
+    "config_dir": {
+      "default": "",
+      "description": "directory holding packs.json and the pack configs (default: config/ beside the binary, else ./config when it holds packs.json, else the config/ of the repository around the working directory, up to 5 levels) (environment: ICHAVA_CONFIG_DIR)",
+      "type": "string"
+    },
+    "dry_run": {
+      "default": false,
+      "description": "fetch and diff, but write nothing into the pack and skip the version stamp, commit, push and pull request (environment: ICHAVA_DRY_RUN)",
+      "type": "boolean"
+    },
+    "emoji": {
+      "additionalProperties": false,
+      "properties": {
+        "unicode_version": {
+          "default": "16.0",
+          "description": "Unicode emoji release whose emoji-test.txt drives categorisation; must exist at unicode.org/Public/emoji/ (environment: ICHAVA_EMOJI_UNICODE_VERSION)",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "events": {
+      "additionalProperties": false,
+      "properties": {
+        "stream": {
+          "default": false,
+          "description": "serve GET /api/v1/events, a Server-Sent Events stream of every event (needs api.enabled) (environment: ICHAVA_EVENTS_STREAM)",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "force": {
+      "default": false,
+      "description": "refresh even when the pack is not behind upstream (environment: ICHAVA_FORCE)",
+      "type": "boolean"
+    },
+    "git": {
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "default": "ichava-sync-bot \u003c41898282+github-actions[bot]@users.noreply.github.com\u003e",
+          "description": "author and committer of sync commits, as `Name \u003cemail\u003e` (environment: ICHAVA_GIT_AUTHOR)",
+          "pattern": "^[^\u003c\u003e]+ \u003c[^\u003c\u003e@]+@[^\u003c\u003e]+\u003e$",
+          "type": "string"
+        },
+        "base": {
+          "default": "main",
+          "description": "base branch the pull request targets (environment: ICHAVA_GIT_BASE)",
+          "type": "string"
+        },
+        "branch": {
+          "default": "chore/sync-upstream-{version}",
+          "description": "sync branch; {version} is the upstream version (environment: ICHAVA_GIT_BRANCH)",
+          "type": "string"
+        },
+        "commit_body": {
+          "default": "Automated sync from upstream {pack} {old} -\u003e {new}.\n\nGenerated by ichava/icon-sets-sync. See docs/maintainer-sync.md in that repository.",
+          "description": "commit and PR body; same tokens as the subject (environment: ICHAVA_GIT_COMMIT_BODY)",
+          "type": "string"
+        },
+        "commit_subject": {
+          "default": "chore(upstream): bump {pack} to v{new}",
+          "description": "commit and PR title; {pack}, {old}, {new} are interpolated (environment: ICHAVA_GIT_COMMIT_SUBJECT)",
+          "type": "string"
+        },
+        "open_pr": {
+          "default": true,
+          "description": "open a pull request after pushing (environment: ICHAVA_GIT_OPEN_PR)",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "history_keep": {
+      "default": 50,
+      "description": "copies of each config file kept in ~/.local/state/icon-sets-sync/history/ before a save from the web UI or config edit, fix or restore; 0 keeps none (environment: ICHAVA_HISTORY_KEEP)",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "log_level": {
+      "default": "info",
+      "description": "log verbosity; -v is debug, -q is error (environment: ICHAVA_LOG_LEVEL)",
+      "enum": [
+        "debug",
+        "info",
+        "warn",
+        "error"
+      ],
+      "type": "string"
+    },
+    "mcp": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_writes": {
+          "default": false,
+          "description": "offer the MCP write tools (sync_pack, cancel_job, set_setting); never with --read-only, and a real sync still needs confirm set to the pack's slug (environment: ICHAVA_MCP_ALLOW_WRITES)",
+          "type": "boolean"
+        },
+        "enabled": {
+          "default": false,
+          "description": "let `icon-sets-sync mcp` serve the Model Context Protocol on stdio (its --enable does the same for one run) (environment: ICHAVA_MCP_ENABLED)",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "npm_path": {
+      "default": "",
+      "description": "the npm executable, for the npm pack fallback when the registry fetch fails (default: PATH, then Homebrew, Volta, fnm, asdf and nvm's directories; npm's own on Windows) (environment: ICHAVA_NPM_PATH)",
+      "type": "string"
+    },
+    "packages_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "default": [],
+      "deprecated": true,
+      "description": "Alias of packages_dirs; `config fix` renames it."
+    },
+    "packages_dirs": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "default": [],
+      "description": "directories holding the ichava pack checkouts, searched in order for \u003cpack\u003e/ (a string or a list; ~ and paths relative to the config file are resolved; ICHAVA_PACKAGES_DIRS uses the OS list separator; --packages-dir repeats). Searched before workspace (environment: ICHAVA_PACKAGES_DIRS)"
+    },
+    "page_size": {
+      "default": 25,
+      "description": "rows per page in the web UI's lists (packs, runs, audit results, a run's log); 5 to 500, and a list's own page-size menu overrides it for that view (environment: ICHAVA_PAGE_SIZE)",
+      "maximum": 500,
+      "minimum": 5,
+      "type": "integer"
+    },
+    "private_config_dir": {
+      "default": "",
+      "description": "directory of private pack configs merged over config_dir at run time (packs.json optional; none by default) (environment: ICHAVA_PRIVATE_CONFIG_DIR)",
+      "type": "string"
+    },
+    "webhooks": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_insecure_localhost": {
+          "default": false,
+          "description": "allow a plain-http webhook URL whose host is localhost, 127.0.0.1 or ::1; every other URL must be https (environment: ICHAVA_WEBHOOKS_ALLOW_INSECURE_LOCALHOST)",
+          "type": "boolean"
+        },
+        "allow_private": {
+          "default": false,
+          "description": "let webhooks reach private, loopback, link-local and other internal addresses (a receiver on the LAN); off refuses them at connect time (environment: ICHAVA_WEBHOOKS_ALLOW_PRIVATE)",
+          "type": "boolean"
+        },
+        "enabled": {
+          "default": false,
+          "description": "deliver events to webhooks.endpoints while serve runs, signed with each endpoint's secret (environment: ICHAVA_WEBHOOKS_ENABLED)",
+          "type": "boolean"
+        },
+        "endpoints": {
+          "default": [],
+          "description": "webhook receivers: a JSON array of {name, url, events, secret_env}; events is required and lists the event types sent. `webhooks add` writes it and makes the secret (environment: ICHAVA_WEBHOOKS_ENDPOINTS)",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "events": {
+                "description": "the event types sent to it",
+                "items": {
+                  "enum": [
+                    "job.started",
+                    "job.progress",
+                    "job.finished",
+                    "pack.synced",
+                    "pack.behind_upstream",
+                    "upstream.checked",
+                    "config.changed",
+                    "server.started",
+                    "server.stopping",
+                    "webhook.disabled",
+                    "webhook.test"
+                  ],
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "name": {
+                "description": "a slug naming the endpoint",
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                "type": "string"
+              },
+              "secret_env": {
+                "description": "an environment variable holding the secret, over the one the tool generated",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                "type": "string"
+              },
+              "url": {
+                "description": "the receiver; https, or http to localhost with webhooks.allow_insecure_localhost",
+                "pattern": "^https?://",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "url",
+              "events"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "workspace": {
+      "default": "",
+      "description": "directory holding the pack checkouts: a relative pack_root is resolved against it, and it replaces the /work/\u003cpack\u003e a shipped config names (default: /work if present, else the checkouts beside this repository) (environment: ICHAVA_WORKSPACE)",
+      "type": "string"
+    }
+  },
+  "title": "icon-sets-sync global config",
+  "type": "object"
+}

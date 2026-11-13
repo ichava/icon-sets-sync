@@ -1,0 +1,20 @@
+{{define "shortcuts_modal"}}<div class="modal modal-blur fade" id="shortcuts-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="shortcuts-modal-title">Keyboard shortcuts</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <table class="table table-vcenter card-table mb-0">
+          <caption class="visually-hidden">Keys and what they do</caption>
+          <thead><tr><th scope="col">Keys</th><th scope="col">Does</th></tr></thead>
+          <tbody>
+            {{range shortcuts}}<tr><td class="text-nowrap">{{range $i, $k := .Keys}}{{if $i}} then {{end}}<kbd>{{$k}}</kbd>{{end}}</td><td>{{.Description}}</td></tr>{{end}}
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer"><span class="text-secondary small me-auto">Shortcuts are off while you type in a field.</span><button type="button" class="btn" data-bs-dismiss="modal">Close</button></div>
+    </div>
+  </div>
+</div>{{end}}

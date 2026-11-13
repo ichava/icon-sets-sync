@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pack.synced",
+  "description": "One pack of a run refreshed from upstream. A dry run sends it too, with dry_run true.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "pack",
+    "dry_run"
+  ],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$",
+      "description": "the run's id, as /jobs/{id} and /api/v1/jobs/{id} take it"
+    },
+    "pack": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dry_run": {
+      "type": "boolean"
+    },
+    "detail": {
+      "type": "string"
+    }
+  }
+}

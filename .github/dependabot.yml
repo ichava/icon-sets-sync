@@ -1,0 +1,31 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/New_York
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/New_York
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: gomod
+    directory: /src
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/New_York
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
