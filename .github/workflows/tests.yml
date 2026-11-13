@@ -191,7 +191,7 @@ jobs:
   release-config:
     name: Release build (snapshot)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     # Our own modules come from git, never through the public proxy, so a CI
     # build never feeds proxy.golang.org or sum.golang.org a tag.
     env:
@@ -271,6 +271,35 @@ jobs:
           tar tzf icon-sets-sync_linux_amd64.tar.gz | sort | tr '\n' ' ' \
             | grep -qx 'CHANGELOG.md LICENSE README.md THIRD_PARTY_NOTICES.md icon-sets-sync ' \
             || { echo "::error::linux_amd64 archive contents changed"; tar tzf icon-sets-sync_linux_amd64.tar.gz; exit 1; }
+
+      # The layout `make cross` and `make app` leave on a laptop, built here from
+      # the same snapshot: build/{os}/ with the bare binaries, the Linux .desktop
+      # entry, the Windows launchers and the macOS app bundle, and nothing else
+      # (check-build fails on anything else). flatdist removes GoReleaser's
+      # scratch .cache/goreleaser, so build/ is the only output left. Nothing is
+      # published; build/ is this run's artifact, for trying a pull request's
+      # binaries or the app before it merges.
+      - name: Lay out build/
+        run: |
+          set -euo pipefail
+          go -C src run ./internal/tools/flatdist -root ..
+          go -C src run ./internal/tools/launchers -desktop ../build/linux -windows ../build/windows
+          go -C src run ./internal/tools/launchers -app ../build/macos/icon-sets-sync.app \
+            -universal ../build/macos/icon-sets-sync_macos_universal \
+            -version "$(git describe --tags --always)"
+          go -C src run ./internal/tools/checkbuild -dir ../build -min 30
+          [ ! -e .cache/goreleaser ] || { echo "::error::GoReleaser's scratch dist was left behind"; exit 1; }
+
+      - name: Upload build/
+        uses: actions/upload-artifact@v7
+        with:
+          name: icon-sets-sync-build
+          # The tracked Composer launcher is source, not output.
+          path: |
+            build/
+            !build/icon-sets-sync
+          if-no-files-found: error
+          retention-days: 14
 
   changelog:
     runs-on: ubuntu-latest

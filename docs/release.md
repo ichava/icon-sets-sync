@@ -90,7 +90,12 @@ them with `make tabler-update` before a release, never by hand.
 
 The release config is `src/.goreleaser.yaml`, run from the repository root. The Tests workflow
 builds the whole release set on every pull request (`goreleaser release --snapshot`, no publish, no
-signature) and asserts what came out. Locally:
+signature) and asserts what came out. It then lays the result out as `build/`, the same layout
+`make cross` and `make app` leave locally: `build/{os}/` with the bare binaries, the Linux `.desktop`
+entry, the Windows launchers and the macOS `icon-sets-sync.app`. `check-build` checks it, and it is
+uploaded as the run's `icon-sets-sync-build` artifact (kept 14 days). To try a pull request's binaries
+or the app, download that artifact from the run; dispatching the Tests workflow on a branch builds one
+too. Nothing is published. Locally:
 
 ```bash
 goreleaser check --config src/.goreleaser.yaml
