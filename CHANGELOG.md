@@ -6,7 +6,7 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ### Changed
 
-- `release.yml` calls simtabi/.github's shared `go-release.yml` at `d648d89` (simtabi/.github#30), its latest commit, which adds an optional `node-version` input and changes nothing a caller passes.
+- `release.yml` calls simtabi/.github's shared `go-release.yml` at its `v1.0.0` release (`767e0c0`), pinned as `@<commit>  # v1.0.0` so Dependabot can advance the commit and the tag comment together. The release adds optional inputs only (`node-version` among them) and changes nothing a caller passes.
 
 ## [0.1.0] - 2026-11-13
 
