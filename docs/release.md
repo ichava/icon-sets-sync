@@ -21,19 +21,21 @@ source at a pinned tag or commit; see [Maintainer sync](maintainer-sync.md#3-wor
 
 **The GitHub release is the only channel for binaries** (owner, 2026-11-13): no `go install` path,
 Homebrew tap, Scoop bucket, Winget manifest or image, and `TestGoReleaserPublishesNowhereElse` fails if
-`src/.goreleaser.yaml` gains one. A `vX.Y.Z` tag on its own records the version and starts nothing;
-the release is cut when the maintainers dispatch it for that version. `release.yml` is manual: its only trigger is `workflow_dispatch`, and its first step
-refuses to run unless `confirm` is `release-go` and the run was dispatched against a tag.
-`TestReleaseRunsOnlyOnAConfirmedDispatch` fails if it gains another trigger or loses the
-confirmation. When a binary release is decided on, dispatch it against a tag that already exists on
-GitHub, from any directory:
+`src/.goreleaser.yaml` gains one. **A release builds on a pushed `vX.Y.Z` tag, or on request** for a tag
+already on GitHub, from any directory:
 
 ```bash
-gh workflow run release.yml --repo ichava/icon-sets-sync --ref vX.Y.Z -f confirm=release-go
+git -C ~/Artisan/projects/opensource/ichava/packages/icon-sets-sync push origin vX.Y.Z   # builds and publishes
+gh workflow run release.yml --repo ichava/icon-sets-sync -f tag=vX.Y.Z                    # the same, on request
 ```
 
-That command publishes for real, so run it only for a version the maintainers approved. Pushing the
-tag alone publishes nothing.
+Both publish for real, so push a version tag only for final code: tags are final. `release.yml`
+holds only those two triggers and calls `simtabi/.github`'s shared `go-release.yml`, which does the
+work for every Go project (the tag check, the channel refusal, the CHANGELOG notes, the `src/vX.Y.Z`
+alias, GoReleaser and provenance); `.scripts/release-launchers.sh` then adds the app and the Windows
+launchers. `TestReleaseRunsOnAVersionTagOrOnRequest` fails on any other trigger, a branch push or a
+pipeline of its own. release-please's tag counts as a pushed tag: it is made with the Refresh Bot
+token, so it starts the release.
 
 To build the whole matrix on your own machine without publishing anything, run `make cross`
 (GoReleaser v2 on `PATH`). It reads the same `src/.goreleaser.yaml`, builds into the scratch directory
@@ -70,8 +72,7 @@ else bumps the patch. icon-sets-sync is versioned independently of the coupled i
 Never edit the release pull request by hand: release-please rebuilds its branch and drops anything
 it did not write. Change the notes on `main` instead.
 
-When a binary release is decided on, `release.yml` is dispatched by hand against the tag (above).
-It publishes binaries only, no container image:
+A release (on the tag, or on request; above) publishes binaries only, no container image:
 
 | Workflow | Publishes |
 |---|---|

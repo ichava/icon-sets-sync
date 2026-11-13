@@ -179,7 +179,7 @@ the repository root finds no packages.
 taken from commits before the single-commit publication, so it would serve older code. See
 [Release](release.md#where-this-package-is).
 
-Release binaries come from `release.yml`, dispatched by hand for each version; see
+Release binaries come from `release.yml`, which runs on a pushed version tag or on request; see
 [Release](release.md#binaries-are-published-on-the-github-release).
 
 ## What a sync needs

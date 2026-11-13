@@ -1,15 +1,14 @@
 # Release automation. release-please reads the Conventional Commit log since the last tag, works out
 # the next version, and keeps one release pull request open that bumps it. Merging that pull request
-# tags the release. The tag is git only: it starts no binary release (release.yml is manual,
-# behind an explicit confirmation, until a binary release is decided on).
+# tags the release, and that tag starts release.yml, which publishes the binaries on the GitHub
+# release (owner, 2026-11-13: GitHub release only, built on a tag or on request).
 #
 # Versioning on 0.x: a breaking change (`feat!:`, `BREAKING CHANGE:`) bumps the minor, everything
 # else bumps the patch. icon-sets-sync is versioned independently of the coupled ichava packages.
 #
 # Release notes stay hand-written. release-please is configured with `skip-changelog`, so it never
 # writes CHANGELOG.md; the step below closes the hand-written `## [Unreleased]` section under the new
-# version on the release branch; release.yml would publish that section as the release body if it is
-# ever dispatched.
+# version on the release branch; release.yml publishes that section as the release body.
 #
 # Triggers. This repository's rule is that the only `push` trigger is a tag, and release-please does
 # not need one:

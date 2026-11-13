@@ -173,9 +173,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
-    # Nothing else reads these files until they run. `release.yml` runs only when
-    # dispatched against a tag, so without this a broken workflow is first observed
-    # as a release that refused to start -- after the decision to release was made.
+    # Nothing else reads these files until they run. `release.yml` runs only on a
+    # version tag or a dispatch naming one, so without this a broken workflow is first
+    # observed as a release that refused to start -- after the decision to release was made.
     #
     # A YAML parse is not a substitute. `yaml.safe_load` accepts a duplicate key
     # and silently keeps the last one, which is how a double-applied patch shipped
@@ -198,7 +198,7 @@ jobs:
       GOPRIVATE: github.com/ichava/*
       GONOSUMDB: github.com/ichava/*
 
-    # release.yml only runs when dispatched against a tag, so without this the
+    # release.yml only runs on a version tag (or a dispatch naming one), so without this the
     # first sight of a broken GoReleaser config, a target that stopped compiling or an archive
     # that lost a file is a tag that published nothing. This builds the whole
     # release matrix the way release.yml does, minus the publish and the

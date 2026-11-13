@@ -53,10 +53,10 @@ there is how this tool spent weeks re-opening a pull request it had already open
 
 ## Releases and versioning
 
-- **Binaries are published on the GitHub release only, and only when the maintainers say so.** A
-  `vX.Y.Z` tag starts no workflow. `release.yml` is manual and refuses to run without
-  `-f confirm=release-go`; do not dispatch it, or restore a `push: tags` trigger, without an explicit
-  maintainer decision for that version. Never add a `go install` path, tap, bucket or image. See
+- **Binaries are published on the GitHub release only.** A pushed `vX.Y.Z` tag builds and publishes
+  the release, and so does `gh workflow run release.yml -f tag=vX.Y.Z`; push a version tag only for
+  final code. `release.yml` calls `simtabi/.github`'s shared `go-release.yml`: change the pipeline
+  there, never here. Never add a `go install` path, tap, bucket, image or any other channel. See
   [Release](docs/release.md#binaries-are-published-on-the-github-release).
 - **A version tag is pushed only for final code.** `vX.Y.Z` marks a release, nothing else. Test a
   change on a branch; a pre-release tag (`vX.Y.Z-rc.N`) is for the day binary releases are on.

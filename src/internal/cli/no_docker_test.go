@@ -117,43 +117,69 @@ func TestNoWorkflowBuildsOrPublishesAnImage(t *testing.T) {
 	}
 }
 
-// release.yml publishes binaries only when a person dispatches it against a
-// tag with confirm=release-go. A tag, a schedule, a pull request or a release
-// event must never start it.
-func TestReleaseRunsOnlyOnAConfirmedDispatch(t *testing.T) {
+// release.yml publishes a release on a pushed version tag, or on request for a tag already
+// pushed, and does nothing else: its triggers are exactly those two, and its one job calls the
+// shared simtabi/.github go-release.yml (owner, 2026-11-13). A branch push, a schedule, a pull
+// request or a release event must never start it.
+func TestReleaseRunsOnAVersionTagOrOnRequest(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join(filepath.FromSlash(repoRoot), ".github", "workflows", "release.yml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var wf struct {
-		On map[string]struct {
-			Inputs map[string]struct {
-				Required bool `yaml:"required"`
-			} `yaml:"inputs"`
+		On struct {
+			Push *struct {
+				Tags     []string `yaml:"tags"`
+				Branches []string `yaml:"branches"`
+			} `yaml:"push"`
+			Dispatch *struct {
+				Inputs map[string]struct {
+					Required bool `yaml:"required"`
+				} `yaml:"inputs"`
+			} `yaml:"workflow_dispatch"`
 		} `yaml:"on"`
-		Jobs map[string]workflowJob `yaml:"jobs"`
+		Jobs map[string]struct {
+			Uses string            `yaml:"uses"`
+			With map[string]string `yaml:"with"`
+		} `yaml:"jobs"`
 	}
 	if err := yaml.Unmarshal(raw, &wf); err != nil {
 		t.Fatal(err)
 	}
+	var all struct {
+		On map[string]any `yaml:"on"`
+	}
+	if err := yaml.Unmarshal(raw, &all); err != nil {
+		t.Fatal(err)
+	}
 	var triggers []string
-	for k := range wf.On {
+	for k := range all.On {
 		triggers = append(triggers, k)
 	}
 	sort.Strings(triggers)
-	if strings.Join(triggers, ",") != "workflow_dispatch" {
-		t.Fatalf("release.yml triggers %v, want only workflow_dispatch", triggers)
+	if strings.Join(triggers, ",") != "push,workflow_dispatch" {
+		t.Fatalf("release.yml triggers %v, want exactly push (version tags) and workflow_dispatch", triggers)
 	}
-	if in, ok := wf.On["workflow_dispatch"].Inputs["confirm"]; !ok || !in.Required {
-		t.Fatal("release.yml has no required confirm input")
+	if wf.On.Push == nil || len(wf.On.Push.Branches) > 0 || len(wf.On.Push.Tags) == 0 {
+		t.Fatal("release.yml must push-trigger on version tags only, never on a branch")
+	}
+	for _, tag := range wf.On.Push.Tags {
+		if !strings.HasPrefix(tag, "v[0-9]+.") {
+			t.Errorf("tag filter %q is not a version tag", tag)
+		}
+	}
+	if wf.On.Dispatch == nil {
+		t.Fatal("release.yml has no workflow_dispatch")
+	}
+	if in, ok := wf.On.Dispatch.Inputs["tag"]; !ok || !in.Required {
+		t.Fatal("release.yml has no required tag input on workflow_dispatch")
 	}
 	job, ok := wf.Jobs["release"]
-	if !ok || len(job.Steps) == 0 {
-		t.Fatal("release.yml has no release job")
+	if !ok || !strings.HasPrefix(job.Uses, "simtabi/.github/.github/workflows/go-release.yml@") {
+		t.Fatalf("the release job must call the shared go-release.yml; it uses %q", job.Uses)
 	}
-	first := job.Steps[0].Run
-	if !strings.Contains(first, `"release-go"`) || !strings.Contains(first, `"tag"`) {
-		t.Errorf("the first release step must refuse without confirm=release-go on a tag; it runs:\n%s", first)
+	if job.With["tag"] != "${{ inputs.tag || github.ref_name }}" {
+		t.Errorf("the release job passes tag %q", job.With["tag"])
 	}
 }
 
