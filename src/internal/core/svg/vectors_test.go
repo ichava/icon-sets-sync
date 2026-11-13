@@ -8,7 +8,7 @@ import (
 )
 
 // testdata/presentation-vectors.json is the vector table every sanitiser in
-// the ecosystem runs: byte-identical here and in core, react-icon-browser and
+// the ecosystem runs: byte-identical here and in core, icon-browser and
 // js-icon-components. It is the only copy of these rows here: its first 27
 // were an inline Go table, removed once every one of them was confirmed in
 // this file. This test runs the whole shared file, including the marker rows
