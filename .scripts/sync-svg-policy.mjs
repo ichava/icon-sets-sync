@@ -3,18 +3,15 @@
  * Sync the canonical SVG policy into every runtime that has to enforce it.
  *
  * Several runtimes sanitise SVG in this ecosystem and none of them can reach
- * the others at build time: `react-icon-browser` and `icon-sets-sync` have no
- * Composer dependency on core at all. So each vendors a byte-identical copy,
- * and this script is what makes those copies trustworthy rather than merely
- * present.
+ * the others at build time: `icon-browser`'s browser UI and `icon-sets-sync`
+ * read the policy as a file of their own. So each vendors a byte-identical
+ * copy, and this script is what makes those copies trustworthy rather than
+ * merely present.
  *
- * `icon-browser` is not listed. Its own `resources/js/core/svg-policy.json`
- * went when it took the react-icon-browser UI, and its copy of the policy is
- * now compiled into the vendored react-icon-browser build
- * (`resources/vendor/react-icon-browser`, pinned by vendored.json). It follows
- * core through react-icon-browser: sync that copy here, then re-vendor the
- * build into icon-browser. Listing the old path made the check report it
- * MISSING on every run, and made --write recreate a file nothing reads.
+ * icon-browser's copy is `resources/js/core/svg-policy.json`, the browser UI's
+ * source since react consolidation 3d (2026-11-12). It was
+ * `react-icon-browser/src/core/svg-policy.json` until then; that repository is
+ * retired and this no longer reads it (3f, 2026-11-13).
  *
  *   node .scripts/sync-svg-policy.mjs           # check, exit 1 on drift
  *   node .scripts/sync-svg-policy.mjs --write   # copy canonical over the rest
@@ -39,7 +36,8 @@ const CANONICAL = join(ROOT, 'core/resources/security/svg-policy.json');
 const TOOLKIT = existsSync(join(ROOT, 'icon-sets-sync')) ? 'icon-sets-sync' : 'maintainer-toolkit';
 
 const CONSUMERS = [
-  'react-icon-browser/src/core/svg-policy.json',
+  // The browser UI's copy, in icon-browser since react consolidation 3d.
+  'icon-browser/resources/js/core/svg-policy.json',
   // //go:embed cannot reach outside the package directory, so the Go module
   // carries its own copy.
   `${TOOLKIT}/src/internal/core/svg/svg-policy.json`,

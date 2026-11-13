@@ -17,8 +17,8 @@ import (
 func TestVendoredPolicyHasNotDrifted(t *testing.T) {
 	// 49ee43ce allows the <marker> element and its refX, refY, markerWidth,
 	// markerHeight, orient and markerUnits (2026-11-04), so the US and UM flags
-	// keep their stars. It is ahead of core until core takes the same bytes;
-	// .scripts/sync-svg-policy.mjs reports the drift until then.
+	// keep their stars. Core holds the same bytes (checked 2026-11-13 with
+	// .scripts/sync-svg-policy.mjs, which reports any copy that drifts).
 	const want = "49ee43cea254be2c1fcec2a1fdd37a097889df78466ffe6e9c2e653f65f8fd06"
 
 	sum := sha256.Sum256(policyJSON)
