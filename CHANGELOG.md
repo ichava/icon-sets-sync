@@ -6,6 +6,7 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ### Changed
 
+- `docs/configuration.md` and the SVG package's comments name icon-browser where they named react-icon-browser, which is retired; the browser's SVG caps live in icon-browser's `resources/js` since 2026-11-12. CHANGELOG history and the guard in `syncscript_test.go` that names the retired path are unchanged.
 - `release.yml` calls simtabi/.github's shared `go-release.yml` at its `v1.0.0` release (`767e0c0`), pinned as `@<commit>  # v1.0.0` so Dependabot can advance the commit and the tag comment together. The release adds optional inputs only (`node-version` among them) and changes nothing a caller passes.
 
 ## [0.1.0] - 2026-11-13

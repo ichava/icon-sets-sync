@@ -235,7 +235,7 @@ through with a warning. `report_only` writes nothing and is never refused.
 
 A document over 4,500,000 bytes or 30,000 elements is refused before it builds a tree. It is treated like an
 unparseable file: counted and left as it was. The caps are the `MaxBytes` and `MaxNodes` fields on the
-policy, and match react-icon-browser's and core's; the pack SVGs measure at most 1.0 MB and 6,741 elements.
+policy, and match icon-browser's browser (formerly react-icon-browser) and core's; the pack SVGs measure at most 1.0 MB and 6,741 elements.
 
 ## Download and extraction limits
 
