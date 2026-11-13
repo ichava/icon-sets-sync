@@ -73,7 +73,7 @@ jobs:
     timeout-minutes: 10
 
     # composer.json makes this repository installable as ichava/icon-sets-sync:
-    # a PHP launcher in bin/ that downloads the release binary for the host and
+    # a PHP launcher, build/icon-sets-sync, that downloads the release binary for the host and
     # checks it against the signed checksums.txt. Strict validation is what
     # Packagist will apply, so a manifest Packagist would reject fails here first.
     strategy:

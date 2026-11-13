@@ -1,7 +1,8 @@
 #!/usr/bin/env php
 <?php
 
-// The tracked Composer launcher (PHP), not a build output: binaries go to build/.
+// The tracked Composer launcher (PHP), not a build output: binaries go to build/{os}/.
+// composer.json registers it, so Composer installs it as vendor/bin/icon-sets-sync.
 
 declare(strict_types=1);
 

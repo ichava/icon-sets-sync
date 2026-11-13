@@ -231,8 +231,10 @@ tabler-vendor:  ## Re-vendor exactly what src/internal/web/assets/vendor/TABLER_
 # ---------------------------------------------------------------------------
 
 .PHONY: clean
-clean:  ## Remove generated caches, temp dirs (GoReleaser's .cache/goreleaser too) and build/
-	rm -rf .cache .downloads build
+clean:  ## Remove generated caches, temp dirs (GoReleaser's .cache/goreleaser too) and build/'s output
+	rm -rf .cache .downloads
+	@# build/ keeps its tracked files: the Composer launcher and any build inputs.
+	[ ! -d build ] || find build -mindepth 1 -maxdepth 1 ! -name icon-sets-sync ! -name targets.txt ! -name nfpm.yaml -exec rm -rf {} +
 
 .PHONY: nuke
 nuke: clean  ## clean, plus Go's cached test results. Forces a cold test run.

@@ -1,10 +1,12 @@
 # Build output: make build-local / cross / dist write build/{os}/, build/checksums.txt
-# and build/archives/. Everything under build/ is ignored except tracked inputs
-# (none today; targets.txt and nfpm.yaml are the estate's names for them).
+# and build/archives/. Everything under build/ is ignored except the tracked Composer
+# launcher, build/icon-sets-sync (a PHP script, not a build output), and tracked
+# inputs (none today; targets.txt and nfpm.yaml are the estate's names for them).
 # GoReleaser's scratch dist is .cache/goreleaser/, covered below.
 /build/*
 !/build/targets.txt
 !/build/nfpm.yaml
+!/build/icon-sets-sync
 dist/
 
 # Tool caches (script-local downloads)
