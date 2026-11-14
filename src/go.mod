@@ -12,6 +12,11 @@ module github.com/ichava/icon-sets-sync/src
 
 go 1.26.0
 
+// v0.1.0 to v0.1.2 were published from history rewritten on 2026-11-13, so the
+// Go proxy and sum.golang.org serve code that git no longer holds. The next
+// release is v0.1.3 (release-as in release-please-config.json).
+retract [v0.1.0, v0.1.2] // published from history rewritten on 2026-11-13
+
 require (
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
