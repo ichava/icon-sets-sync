@@ -4,6 +4,10 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ## [Unreleased]
 
+### Changed
+
+- **The next release is v0.1.3, and v0.1.0 to v0.1.2 are retracted.** Those three versions were published from history rewritten on 2026-11-13, so the Go proxy and `sum.golang.org` still serve code that git no longer holds, and a tag is never reused. `release-please-config.json` sets `release-as` to 0.1.3, `src/go.mod` retracts `[v0.1.0, v0.1.2]`, and `TestNextReleaseSkipsTheBurnedVersions` keeps both in place.
+
 ## [0.1.0] - 2026-11-13
 
 First release of `ichava/icon-sets-sync` as a single published commit. The 0.1.x tags cut between 2026-10-23 and 2026-10-26 (v0.1.0 to v0.1.2, with their `src/` module aliases) are folded into this release, and their notes are kept below under *Archived history*.
