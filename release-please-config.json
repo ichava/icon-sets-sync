@@ -8,8 +8,7 @@
   "skip-changelog": true,
   "packages": {
     ".": {
-      "package-name": "ichava/icon-sets-sync",
-      "release-as": "0.1.3"
+      "package-name": "ichava/icon-sets-sync"
     }
   }
 }
