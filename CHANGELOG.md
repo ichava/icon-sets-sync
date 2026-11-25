@@ -4,10 +4,13 @@ All notable changes to `ichava/icon-sets-sync` (formerly `ichava/maintainer-tool
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-24
+
 ### Changed
 
-- `release.yml` calls simtabi/.github's shared `go-release.yml` at its `v0.1.0` release (`b3388da`), pinned as `@<commit>  # v0.1.0`. It replaces the withdrawn `v1.0.0` pin, and the release now fetches every owned org's Go modules from git rather than proxy.golang.org.
-- **The next release is v0.1.3, and v0.1.0 to v0.1.2 are retracted.** Those three versions were published from history rewritten on 2026-11-13, so the Go proxy and `sum.golang.org` still serve code that git no longer holds, and a tag is never reused. `release-please-config.json` sets `release-as` to 0.1.3, `src/go.mod` retracts `[v0.1.0, v0.1.2]`, and `TestNextReleaseSkipsTheBurnedVersions` keeps both in place.
+- `release.yml` calls simtabi/.github's shared `go-release.yml` at its `v0.1.3` release (`f654932`), pinned as `@<commit>  # v0.1.3`. It replaces the withdrawn `v1.0.0` pin, and the release fetches every owned org's Go modules from git rather than proxy.golang.org. Folds Dependabot's #126.
+- `golang.org/x/text` 0.43.0 → 0.44.0 and `golang.org/x/sync` 0.24.0 → 0.25.0 (Dependabot's #125).
+- **The next release is v0.1.3, and v0.1.0 to v0.1.2 are retracted.** Those three versions were published from history rewritten on 2026-11-13, so the Go proxy and `sum.golang.org` still serve code that git no longer holds, and a tag is never reused. `.release-please-manifest.json` records 0.1.3, `src/go.mod` retracts `[v0.1.0, v0.1.2]`, and `TestNextReleaseSkipsTheBurnedVersions` fails if either the next version falls back to the burned range or the retraction goes.
 
 ## [0.1.0] - 2026-11-13
 
